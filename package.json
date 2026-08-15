@@ -1,0 +1,20 @@
+{
+  "name": "openchat",
+  "version": "1.0.0",
+  "description": "OpenChat is a real-time open-world communication platform where registered users can directly communicate with each other without a traditional friend request system.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Prashant Kumar",
+  "license": "ISC",
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server"
+  ]
+}
