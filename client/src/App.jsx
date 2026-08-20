@@ -4,7 +4,7 @@ const App = () => {
 
 const fetchData = async () => {
   try {
-    const response = await fetch('http://localhost:5000/health');
+    const response = await fetch('http://localhost:5000/api/health');
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }

@@ -2,6 +2,13 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+
+
+const CLIENT_URL = process.env.CLIENT_URL;
+if(!CLIENT_URL) {
+    throw new Error("CLIENT_URL is not defined in the environment variables");
+}
+
 const rawPort = process.env.PORT;
 const PORT = Number(rawPort);
     if(!rawPort) {
@@ -14,6 +21,19 @@ const PORT = Number(rawPort);
                 throw new Error("PORT must be a valid port number (1-65535)");
             }
 
+const MONGO_URI = process.env.MONGO_URI;
+            if(!MONGO_URI) {
+                throw new Error("MONGO_URI is not defined in the environment variables");
+            }
+
+const JWT_SECRET = process.env.JWT_SECRET;
+            if(!JWT_SECRET) {
+                throw new Error("JWT_SECRET is not defined in the environment variables");
+            }
+
 export {
-    PORT
+    PORT,
+    MONGO_URI,
+    JWT_SECRET,
+    CLIENT_URL
 };

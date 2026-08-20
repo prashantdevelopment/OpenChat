@@ -1,16 +1,24 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+import { CLIENT_URL } from "./config/env.js";
 import errorMiddleware from "./middleware/error.middleware.js";
+import healthRoutes from "./routes/health.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import authRoutes from "./routes/auth.routes.js";
 
 
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: CLIENT_URL,
+    credentials: true
+}));
 app.use(express.json());
-
-app.get("/health", (req, res) => {
-    res.status(200).json({ status: "ok"})
-})
+app.use(cookieParser());
+app.use("/api", healthRoutes);
+app.use("/api", userRoutes);
+app.use("/api/auth", authRoutes);
 
 
 app.use(errorMiddleware);
