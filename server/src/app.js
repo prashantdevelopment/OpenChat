@@ -6,6 +6,7 @@ import errorMiddleware from "./middleware/error.middleware.js";
 import healthRoutes from "./routes/health.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import conversationRoutes from "./routes/conversation.routes.js";
 
 
 
@@ -19,7 +20,7 @@ app.use(cookieParser());
 app.use("/api", healthRoutes);
 app.use("/api", userRoutes);
 app.use("/api/auth", authRoutes);
-
+app.use("/api", conversationRoutes);
 
 app.use(errorMiddleware);
 
