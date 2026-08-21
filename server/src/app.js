@@ -7,6 +7,7 @@ import healthRoutes from "./routes/health.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import conversationRoutes from "./routes/conversation.routes.js";
+import messageRoutes from "./routes/message.routes.js";
 
 
 
@@ -21,6 +22,7 @@ app.use("/api", healthRoutes);
 app.use("/api", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api", conversationRoutes);
+app.use("/api", messageRoutes);
 
 app.use(errorMiddleware);
 
