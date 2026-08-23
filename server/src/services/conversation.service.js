@@ -36,4 +36,14 @@ const createOrGetConversation = async (currentUserId, otherUserId) => {
 }
 
 
-export { createOrGetConversation };
+const getUserConversations = async (userId) => {
+    const conversations = await Conversation.find({
+        participants: userId
+    })
+    .populate("participants", "username email")
+    .sort({ lastMessageAt: -1 });
+
+    return conversations;
+};
+
+export { createOrGetConversation, getUserConversations };

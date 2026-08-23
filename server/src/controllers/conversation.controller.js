@@ -1,4 +1,4 @@
-import { createOrGetConversation } from "../services/conversation.service.js";
+import { createOrGetConversation, getUserConversations } from "../services/conversation.service.js";
 
 
 const createOrGetConversationController = async (req, res) => {
@@ -20,6 +20,18 @@ const createOrGetConversationController = async (req, res) => {
     });
 }
 
+const getUserConversationsController = async (req, res) => {
+    const currentUserId = req.user.userId;
+
+    const conversations = await getUserConversations(currentUserId);
+
+    res.status(200).json({
+        success: true,
+        conversations
+    });
+}
+
 export {
-    createOrGetConversationController
+    createOrGetConversationController,
+    getUserConversationsController
 }

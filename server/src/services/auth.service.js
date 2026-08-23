@@ -9,7 +9,7 @@ const loginUser = async (identifier, password) => {
     const normalizedIdentifier = identifier.toLowerCase();
 
     const findUser = await User.findOne({
-        $or: [
+        $or: [    
             { username: normalizedIdentifier }, 
             { email: normalizedIdentifier }
         ]

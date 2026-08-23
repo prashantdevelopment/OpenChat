@@ -1,26 +1,24 @@
-
+import Login from "./pages/Login.jsx";
+import { useEffect , useState } from "react";
+import socket from "./socket/socket.js";
+import Chat from "./pages/Chat.jsx";
 
 const App = () => {
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
 
-const fetchData = async () => {
-  try {
-    const response = await fetch('http://localhost:5000/api/health');
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    console.log(data);
-  } catch (error) {
-    console.error('Error fetching data:', error);
-  }
-};
+    useEffect(() => {
+        if (isLoggedIn) {
+            socket.connect();
+        }
+        return () => {
+            socket.disconnect();
+        }
+    }, [isLoggedIn]);
 
   return (
-
-
     <div>
-      <h1></h1>
-      <button onClick={fetchData} >Click me</button>
+      {isLoggedIn ? <Chat currentUser={currentUser} /> : <Login setIsLoggedIn={setIsLoggedIn} setCurrentUser={setCurrentUser} />}
     </div>
   )
 }
