@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import  Conversation  from '../models/conversation.model.js';
 import AppError from '../utils/AppError.js';
-import User from '../models/user.model.js';
+import User, { PUBLIC_USER_FIELDS } from '../models/user.model.js';
 import Message from '../models/message.model.js';
 
 
@@ -90,7 +90,7 @@ const getUserConversations = async (userId) => {
     const conversations = await Conversation.find({
         participants: userId
     })
-    .populate("participants", "username email")
+    .populate("participants", PUBLIC_USER_FIELDS)
     .sort({ lastMessageAt: -1 });
 
     if (conversations.length === 0) {
@@ -105,12 +105,11 @@ const getUserConversations = async (userId) => {
     ]);
     const unreadById = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
-    return conversations.map((conversation) => {
-        // lastReadAt also holds the other user's read time: keep it private
-        // (read receipts get their own privacy setting later).
-        const { lastReadAt: _lastReadAt, ...rest } = conversation.toObject();
-        return { ...rest, unreadCount: unreadById.get(conversation._id.toString()) ?? 0 };
-    });
+    // toJSON() applies the model's privacy rules (no lastReadAt).
+    return conversations.map((conversation) => ({
+        ...conversation.toJSON(),
+        unreadCount: unreadById.get(conversation._id.toString()) ?? 0
+    }));
 };
 
 const markConversationRead = async (conversationId, userId) => {

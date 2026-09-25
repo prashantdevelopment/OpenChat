@@ -39,7 +39,16 @@ const conversationSchema = new mongoose.Schema({
 
 },
     {
-        timestamps: true
+        timestamps: true,
+        // lastReadAt includes when the OTHER participant read the chat. That
+        // is read-receipt data with its own privacy setting later, so it never
+        // leaves the server. The server itself still reads the field normally.
+        toJSON: {
+            transform: (_doc, ret) => {
+                delete ret.lastReadAt;
+                return ret;
+            }
+        }
     }
 )
 

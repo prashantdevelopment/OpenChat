@@ -1,4 +1,4 @@
-import User from "../models/user.model.js"
+import User, { PUBLIC_USER_FIELDS } from "../models/user.model.js"
 import bcrypt from "bcrypt";
 import AppError from "../utils/AppError.js";
 
@@ -57,7 +57,7 @@ const searchUsers = async (query, currentUserId) => {
         username: { $regex: `^${escapedQuery}` },
         _id: { $ne: currentUserId },
     })
-        .select("username avatar state")
+        .select(PUBLIC_USER_FIELDS)
         .sort({ username: 1 })
         .limit(MAX_SEARCH_RESULTS)
         .lean();

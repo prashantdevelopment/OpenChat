@@ -69,9 +69,21 @@ const userSchema =  new mongoose.Schema({
 
 },
     {
-        timestamps: true
+        timestamps: true,
+        // Safety net for every response: even if a query loads the password
+        // hash (select("+password")), it is never serialized to JSON.
+        toJSON: {
+            transform: (_doc, ret) => {
+                delete ret.password;
+                return ret;
+            }
+        }
     }
 );
+
+// What other users may see about someone (search results, conversation
+// participants). Never email, password or anything else private.
+export const PUBLIC_USER_FIELDS = "username avatar state";
 
 const User = mongoose.model("User", userSchema);
 
