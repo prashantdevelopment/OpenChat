@@ -44,6 +44,10 @@ const conversationSchema = new mongoose.Schema({
 )
 
 
+// A user's conversation list: participants (equality, multikey because it is
+// an array) → lastMessageAt (sort, newest first).
+conversationSchema.index({ participants: 1, lastMessageAt: -1 });
+
 const Conversation = mongoose.model("Conversation", conversationSchema);
 
 export default Conversation;

@@ -32,6 +32,11 @@ const messageSchema = new mongoose.Schema({
 
 )
 
+// Equality (conversationId) → Sort (createdAt, _id). Serves the paginated
+// history (newest first, cursor on createdAt/_id) and the unread count
+// (conversationId + createdAt range) without scanning other conversations.
+messageSchema.index({ conversationId: 1, createdAt: -1, _id: -1 });
+
 const Message = mongoose.model("Message", messageSchema);
 
 export default Message;

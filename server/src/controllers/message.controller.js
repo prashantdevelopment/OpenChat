@@ -5,11 +5,14 @@ const getMessagesByConversationIdController = async (req, res) => {
     const { conversationId } = req.params;
     const currentUserId = req.user.userId;
 
-    const messages = await getMessagesByConversationId(conversationId, currentUserId);
+    const { before, limit } = req.query;
+
+    const { messages, hasMore } = await getMessagesByConversationId(conversationId, currentUserId, { before, limit });
 
     res.status(200).json({
         success: true,
-        messages
+        messages,
+        hasMore
     });
 
 

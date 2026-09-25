@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 13 – Message pagination + indexes
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 14 – Response shaping (no emails in conversation list)
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -259,7 +259,7 @@ erDiagram
 | `/api/users/:username` | GET | cookie | planned (includes publicKey) | Profile |
 | `/api/conversations` | GET | cookie | exists (stop leaking email; include participants' publicKey) | Sidebar |
 | `/api/conversations` | POST | cookie | exists | "Message" button |
-| `/api/conversations/:id/messages?before=` | GET | cookie | exists (add pagination) | Message thread |
+| `/api/conversations/:id/messages?before=&limit=` | GET | cookie | exists (paginated, step 13) | Message thread |
 | `/api/uploads/signature` | POST | cookie | planned | Media upload |
 | `/api/presence/states` | GET | cookie | planned | India map |
 | `/api/blocks` | POST/DELETE/GET | cookie | planned | Settings, profile |
@@ -325,7 +325,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 10 | User search API + "start conversation" | done | 2026-09-25 | `GET /api/users/search` (prefix, regex-escaped, public fields, max 20); debounced `UserSearch` in the sidebar; simultaneous conversation creates no longer 409. 101 server tests, 19/19 search E2E |
 | 11 | Per-user rooms + live sidebar (`conversationUpdated`: last message, reorder) | done | 2026-09-25 | Personal room `user:<id>` on connect; summary `{_id, lastMessage, lastMessageAt}` to both participants; client merges via `useEffectEvent`, reloads for unknown conversations and after reconnect. Message list is `role="log"`. 104 server tests, 14/14 sidebar E2E (old client fails 8) |
 | 12 | Unread counts (`lastReadAt` per participant) | done | 2026-09-25 | `Conversation.lastReadAt` Map; list counts in one aggregation; per-participant `unreadCount` in `conversationUpdated` (sent before `newMessage`); `markRead` → `conversationRead` to own tabs; only while the tab is visible. `Message.isRead` removed. 113 server tests, 15/15 unread E2E |
-| 13 | Message pagination (load older on scroll up) + indexes | todo | | |
+| 13 | Message pagination (load older on scroll up) + indexes | done | 2026-09-25 | Cursor pagination `?before=<messageId>&limit=` (default 50, max 100), `(createdAt, _id)` tie-break, `hasMore`; indexes `Message {conversationId, createdAt, _id}` and `Conversation {participants, lastMessageAt}` verified with explain(); client merges pages and resets on a reconnect gap. "Load older" is a button for now (auto on scroll in step 25). 128 server tests, 20/20 pagination E2E |
 | 14 | Response shaping: no emails in conversation list, no internal fields | todo | | |
 
 ### Phase C — End-to-end encryption for text (before UI, so everything later is built on encrypted messages)
@@ -397,7 +397,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 50 | helmet, rate limits (auth + socket events), socket session expiry | todo | | |
 | 51 | Security review incl. crypto (`owasp-security`); forward-secrecy study | todo | | |
 | 52 | SEO basics: titles, favicon, meta, 404 | todo | | |
-| 53 | Deploy: MongoDB Atlas, backend on a WebSocket-capable host, frontend host, same-site cookies, HTTPS | todo | | SPA fallback: host must serve `index.html` for all app paths (e.g. `/chat/:id`) |
+| 53 | Deploy: MongoDB Atlas, backend on a WebSocket-capable host, frontend host, same-site cookies, HTTPS | todo | | SPA fallback: host must serve `index.html` for all app paths (e.g. `/chat/:id`). Indexes: Mongoose builds them on start (autoIndex); in production create them once at deploy and turn autoIndex off |
 | 54 | `launch-readiness-audit` | todo | | |
 
 Status values: `todo` · `in progress` · `done` · `blocked (<reason>)`

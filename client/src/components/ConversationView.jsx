@@ -11,11 +11,24 @@ const markRead = (conversationId) => {
   }
 };
 
+// Oldest first; messages with the same timestamp are ordered by _id, the same
+// tie-breaker the server uses for pages.
+const byTime = (a, b) => a.createdAt.localeCompare(b.createdAt) || a._id.localeCompare(b._id);
+
+// Combines two lists of messages without duplicates, oldest first.
+const mergeMessages = (a, b) => {
+  const byId = new Map([...a, ...b].map((message) => [message._id, message]));
+  return [...byId.values()].sort(byTime);
+};
+
 // One open conversation: its messages, real-time updates and the input.
 // Chat.jsx renders it with key={conversationId}, so switching conversation
 // mounts a fresh instance and all of this state starts empty.
 const ConversationView = ({ conversationId, currentUser }) => {
-  const [messages, setMessages] = useState([]);
+  // The loaded messages and whether older ones exist on the server. Kept in
+  // one state object because they always change together.
+  const [history, setHistory] = useState({ messages: [], hasOlder: false });
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [messageInput, setMessageInput] = useState("");
   // The id comes from the URL now, so it can be wrong or belong to someone else.
   const [joinError, setJoinError] = useState(null);
@@ -26,7 +39,7 @@ const ConversationView = ({ conversationId, currentUser }) => {
     const handleNewMessage = (message) => {
       // Sirf currently selected conversation ka message add karo
       if (message.conversationId === conversationId) {
-        setMessages((prevMessages) => [...prevMessages, message]);
+        setHistory((prev) => ({ ...prev, messages: [...prev.messages, message] }));
         // Seen as it arrives (our own messages are never unread).
         if (message.sender !== currentUserId) {
           markRead(conversationId);
@@ -57,8 +70,8 @@ const ConversationView = ({ conversationId, currentUser }) => {
     let ignore = false;
 
     // Join first, fetch second: anything sent after the join arrives through
-    // the socket, anything before it is in the history. Merging by _id removes
-    // the overlap.
+    // the socket, anything before it is in the newest page. Merging by _id
+    // removes the overlap.
     const joinAndLoadMessages = () => {
       socket.emit("joinConversation", conversationId, async (response) => {
         if (ignore) return;
@@ -71,12 +84,19 @@ const ConversationView = ({ conversationId, currentUser }) => {
           const res = await api.get(`/conversations/${conversationId}/messages`);
           if (ignore) return;
 
-          const history = res.data.messages;
-          const historyIds = new Set(history.map((message) => message._id));
-          setMessages((prevMessages) => [
-            ...history,
-            ...prevMessages.filter((message) => !historyIds.has(message._id)),
-          ]);
+          const { messages: newest, hasMore } = res.data;
+          setHistory((prev) => {
+            const newestIds = new Set(newest.map((message) => message._id));
+            // After a reconnect we may have missed more than one page: then the
+            // newest page doesn't touch what we have, and merging would hide
+            // the gap. Start again from the newest page instead.
+            const hasGap = hasMore && !prev.messages.some((message) => newestIds.has(message._id));
+            if (prev.messages.length === 0 || hasGap) {
+              return { messages: newest, hasOlder: hasMore };
+            }
+            // Overlap: keep the older pages already loaded (and hasOlder).
+            return { ...prev, messages: mergeMessages(prev.messages, newest) };
+          });
           markRead(conversationId);
         } catch (error) {
           console.error("Error fetching messages:", error);
@@ -99,6 +119,24 @@ const ConversationView = ({ conversationId, currentUser }) => {
       }
     };
   }, [conversationId]);
+
+  // The page right before the oldest loaded message.
+  const loadOlderMessages = async () => {
+    setIsLoadingOlder(true);
+    try {
+      const res = await api.get(`/conversations/${conversationId}/messages`, {
+        params: { before: history.messages[0]._id },
+      });
+      setHistory((prev) => ({
+        messages: mergeMessages(res.data.messages, prev.messages),
+        hasOlder: res.data.hasMore,
+      }));
+    } catch (error) {
+      console.error("Error loading older messages:", error);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  };
 
   // Send message
   const handleSendMessage = () => {
@@ -136,12 +174,18 @@ const ConversationView = ({ conversationId, currentUser }) => {
 
   return (
     <div>
+      {history.hasOlder ? (
+        <button type="button" onClick={loadOlderMessages} disabled={isLoadingOlder}>
+          {isLoadingOlder ? "Loading..." : "Load older messages"}
+        </button>
+      ) : null}
+
       {/* role="log": the ARIA role for chat history; screen readers announce
           new messages added to it. */}
       <div role="log" aria-label="Messages">
         <h2>Messages:</h2>
 
-        {messages.map((message) => {
+        {history.messages.map((message) => {
           const isOwnMessage = message.sender === currentUser._id;
 
           return (
