@@ -26,6 +26,10 @@ const getConversationForParticipant = async (conversationId, userId) => {
 
 
 const createOrGetConversation = async (currentUserId, otherUserId) => {
+    if (!mongoose.isValidObjectId(otherUserId)) {
+        throw new AppError("Invalid user id", 400);
+    }
+
     if (currentUserId === otherUserId) {
         throw new AppError("Cannot create a conversation with yourself", 400);
     }

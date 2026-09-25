@@ -1,78 +1,47 @@
+import AppError from "../utils/AppError.js";
 
-
-const validatePassword = (req, res, next) => {
-    const { password } = req.body;
-
-    if (!password) {
-        return res.status(400).json({ message: "Password is required" });
+// Returns the first rule the password breaks, or null if it is valid.
+// `label` is used in the message ("Password" or "New password").
+const getPasswordError = (password, label) => {
+    if (typeof password !== "string" || password === "") {
+        return `${label} is required`;
     }
-
     if (password.length < 8 || password.length > 16) {
-        return res.status(400).json({ message: "Password must be between 8 and 16 characters long" });
+        return `${label} must be between 8 and 16 characters long`;
     }
     if (!/^[a-zA-Z0-9@._-]+$/.test(password)) {
-    return res.status(400).json({
-        message: "Password can only contain letters, numbers, and @, -, _, ." });
+        return `${label} can only contain letters, numbers, and @, -, _, .`;
     }
     if (!/[A-Z]/.test(password)) {
-        return res.status(400).json({
-            message: "Password must contain at least one uppercase letter"
-        });
+        return `${label} must contain at least one uppercase letter`;
     }
     if (!/[a-z]/.test(password)) {
-        return res.status(400).json({
-            message: "Password must contain at least one lowercase letter"
-        });
+        return `${label} must contain at least one lowercase letter`;
     }
     if (!/[0-9]/.test(password)) {
-        return res.status(400).json({
-            message: "Password must contain at least one number"
-        });
+        return `${label} must contain at least one number`;
     }
     if (!/[@._-]/.test(password)) {
-        return res.status(400).json({
-            message: "Password must contain at least one special character (@, -, _, .)"
-        });
+        return `${label} must contain at least one special character (@, -, _, .)`;
+    }
+    return null;
+};
+
+const validatePassword = (req, res, next) => {
+    const error = getPasswordError(req.body.password, "Password");
+    if (error) {
+        throw new AppError(error, 400);
     }
     next();
 };
 
 const validateNewPassword = (req, res, next) => {
-    const { newPassword } = req.body;
-    if (!newPassword) {
-        return res.status(400).json({ message: "New password is required" });
-    }
-
-    if (newPassword.length < 8 || newPassword.length > 16) {
-        return res.status(400).json({ message: "New password must be between 8 and 16 characters long" });
-    }
-    if (!/^[a-zA-Z0-9@._-]+$/.test(newPassword)) {
-    return res.status(400).json({
-        message: "New password can only contain letters, numbers, and @, -, _, ." });
-    }
-    if (!/[A-Z]/.test(newPassword)) {
-        return res.status(400).json({
-            message: "New password must contain at least one uppercase letter"
-        });
-    }
-    if (!/[a-z]/.test(newPassword)) {
-        return res.status(400).json({
-            message: "New password must contain at least one lowercase letter"
-        });
-    }
-    if (!/[0-9]/.test(newPassword)) {
-        return res.status(400).json({
-            message: "New password must contain at least one number"
-        });
-    }
-    if (!/[@._-]/.test(newPassword)) {
-        return res.status(400).json({
-            message: "New password must contain at least one special character (@, -, _, .)"
-        });
+    const error = getPasswordError(req.body.newPassword, "New password");
+    if (error) {
+        throw new AppError(error, 400);
     }
     next();
-
-}
+};
 
 
 export { validatePassword, validateNewPassword };

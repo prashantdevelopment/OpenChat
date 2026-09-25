@@ -6,7 +6,12 @@ import { JWT_SECRET } from "../config/env.js";
 
 const loginUser = async (identifier, password) => {
 
-    const normalizedIdentifier = identifier.toLowerCase();
+    // Strings only: an object like { "$ne": null } must never reach the query.
+    if (typeof identifier !== "string" || typeof password !== "string" || !identifier.trim() || !password) {
+        throw new AppError("Username/email and password are required", 400);
+    }
+
+    const normalizedIdentifier = identifier.trim().toLowerCase();
 
     const findUser = await User.findOne({
         $or: [    

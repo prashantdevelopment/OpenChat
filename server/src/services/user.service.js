@@ -41,6 +41,10 @@ const updateUser = async (userId, updateData) => {
 }
 
 const changePassword = async (userId, currentPassword, newPassword) => {
+    if (typeof currentPassword !== "string" || !currentPassword) {
+        throw new AppError("Current password is required", 400);
+    }
+
     const user = await User.findById(userId).select("+password");
     if (!user) {
         throw new AppError("User not found", 404);
