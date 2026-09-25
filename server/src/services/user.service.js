@@ -33,7 +33,7 @@ const updateUser = async (userId, updateData) => {
     if(Object.keys(allowedUpdates).length === 0) {
         throw new AppError("No valid fields provided for update", 400);
     }
-    const updatedUser = await User.findByIdAndUpdate(userId, allowedUpdates, { new: true, runValidators: true });
+    const updatedUser = await User.findByIdAndUpdate(userId, allowedUpdates, { returnDocument: "after", runValidators: true });
     if (!updatedUser) {
         throw new AppError("User not found", 404);
     }

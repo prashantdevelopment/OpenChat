@@ -1,13 +1,8 @@
 import app from "./app.js";
 import { PORT } from "./config/env.js";
 import { createServer } from "http";
-import { Server } from "socket.io";
-import { CLIENT_URL } from "./config/env.js";
 import connectDatabase from "./config/database.js";
-import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
-import AppError from "./utils/AppError.js";
-import { getConversationForParticipant } from "./services/conversation.service.js";
-import { createMessage } from "./services/message.service.js";
+import createSocketServer from "./socket.js";
 
 const startServer = async () => {
 
@@ -15,71 +10,14 @@ const startServer = async () => {
     await connectDatabase();
 
     const server = createServer(app);
-    const io = new Server(server, {
-        cors: {
-            origin: CLIENT_URL,
-            credentials: true
-        }
-    });
-
-    io.use(socketAuthMiddleware);
-    io.on("connection", (socket) => {
-        console.log("A user connected:", socket.id , "User ID:", socket.userId);
-
-        // Socket handlers are not covered by Express's error middleware:
-        // an uncaught error here would crash the whole server, so every
-        // handler catches its errors and reports them through the ack.
-        const replyWithError = (err, ack) => {
-            if (!(err instanceof AppError)) {
-                console.error("Socket handler error:", err);
-            }
-            if (typeof ack === "function") {
-                ack({
-                    success: false,
-                    message: err instanceof AppError ? err.message : "Something went wrong"
-                });
-            }
-        };
-
-        socket.on("joinConversation", async (conversationId, ack) => {
-            try {
-                const conversation = await getConversationForParticipant(conversationId, socket.userId);
-                socket.join(conversation._id.toString());
-                console.log("User joined conversation:", conversation._id.toString(), "User:", socket.userId);
-
-                if (typeof ack === "function") ack({ success: true });
-            } catch (err) {
-                replyWithError(err, ack);
-            }
-        });
-
-        socket.on("sendMessage", async (data, ack) => {
-            try {
-                const message = await createMessage(data?.conversationId, socket.userId, data?.content);
-                io.to(message.conversationId.toString()).emit("newMessage", message);
-
-                if (typeof ack === "function") ack({ success: true, message });
-            } catch (err) {
-                replyWithError(err, ack);
-            }
-        });
-
-        socket.on("leaveConversation", (conversationId) => {
-            socket.leave(conversationId);
-            console.log("User left conversation:", conversationId, "User:", socket.userId);
-        });
-
-        socket.on("disconnect", () => {
-            console.log("A user disconnected:", socket.id, "User ID:", socket.userId);
-        });
-    });
+    createSocketServer(server);
 
     server.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
     });
     }catch(err){
     console.error("Error starting server:", err);
-    process.exit(1); 
+    process.exit(1);
 }
 }
 

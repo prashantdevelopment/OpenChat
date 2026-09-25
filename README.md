@@ -85,6 +85,14 @@ Requirements: Node.js 20.19+ and MongoDB running locally (or a MongoDB Atlas URI
    ```
    The app runs at http://localhost:5173 and the API at http://localhost:5000.
 
+## Testing
+
+```bash
+npm test
+```
+
+Runs the server test suite (Vitest + supertest + socket.io-client): REST endpoints, validation and error responses, and a two-user real-time Socket.IO flow. MongoDB must be running. Tests use a separate `openchat_test` database (derived from `MONGO_URI`) and drop it after each run, so development data is never touched. Use `npm run test:watch --workspace=server` to re-run tests on every change.
+
 ## Project Status
 
 Phase 0 — Engineering Foundation
