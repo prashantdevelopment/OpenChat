@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 12 – Unread counts
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 13 – Message pagination + indexes
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -274,7 +274,8 @@ Rooms: `conversationId` (existing) and `user:<userId>` (planned, joined automati
 | `sendMessage({conversationId, content}, ack)` | `newMessage` | conversation | exists (hardened in step 2; `content` → `ciphertext, iv` in step 17) |
 | – | `conversationUpdated` `{_id, lastMessage, lastMessageAt}` | user rooms of both participants | exists (step 11) |
 | `typing({conversationId, isTyping})` | `typing` | conversation (except sender) | planned |
-| `markRead({conversationId})` | `messagesRead` | conversation | planned |
+| `markRead(conversationId, ack)` | `conversationRead` `{_id}` | own user room (step 12) | exists |
+| – | `messagesRead` (read receipts to the other user) | conversation | planned (step 31) |
 | – | `presence:update` | contacts' user rooms | planned |
 | `callUser / answerCall / iceCandidate / endCall` | same names | user rooms | planned |
 
@@ -323,7 +324,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 9 | Registration page + server field whitelist + **required state** (dropdown, server-validated list) | done | 2026-09-25 | `/register` with labels, field errors, double-submit guard, auto-login. State list in `shared/indian-states.js` (server + client). 70 server tests, 19/19 register E2E |
 | 10 | User search API + "start conversation" | done | 2026-09-25 | `GET /api/users/search` (prefix, regex-escaped, public fields, max 20); debounced `UserSearch` in the sidebar; simultaneous conversation creates no longer 409. 101 server tests, 19/19 search E2E |
 | 11 | Per-user rooms + live sidebar (`conversationUpdated`: last message, reorder) | done | 2026-09-25 | Personal room `user:<id>` on connect; summary `{_id, lastMessage, lastMessageAt}` to both participants; client merges via `useEffectEvent`, reloads for unknown conversations and after reconnect. Message list is `role="log"`. 104 server tests, 14/14 sidebar E2E (old client fails 8) |
-| 12 | Unread counts (`lastReadAt` per participant) | todo | | |
+| 12 | Unread counts (`lastReadAt` per participant) | done | 2026-09-25 | `Conversation.lastReadAt` Map; list counts in one aggregation; per-participant `unreadCount` in `conversationUpdated` (sent before `newMessage`); `markRead` → `conversationRead` to own tabs; only while the tab is visible. `Message.isRead` removed. 113 server tests, 15/15 unread E2E |
 | 13 | Message pagination (load older on scroll up) + indexes | todo | | |
 | 14 | Response shaping: no emails in conversation list, no internal fields | todo | | |
 

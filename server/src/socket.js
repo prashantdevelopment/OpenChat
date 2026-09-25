@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import { CLIENT_URL } from "./config/env.js";
 import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
-import { getConversationForParticipant } from "./services/conversation.service.js";
+import { countUnread, getConversationForParticipant, markConversationRead } from "./services/conversation.service.js";
 import { createMessage } from "./services/message.service.js";
 
 const userRoom = (userId) => `user:${userId}`;
@@ -56,16 +56,43 @@ const createSocketServer = (httpServer) => {
         socket.on("sendMessage", async (data, ack) => {
             try {
                 const { message, conversation } = await createMessage(data?.conversationId, socket.userId, data?.content);
-                // Full message: only to people who have this conversation open.
-                io.to(message.conversationId.toString()).emit("newMessage", message);
-                // Small summary: to every tab of both participants, for their sidebar.
-                io.to(conversation.participants.map(userRoom)).emit("conversationUpdated", {
-                    _id: conversation._id,
-                    lastMessage: conversation.lastMessage,
-                    lastMessageAt: conversation.lastMessageAt
+
+                // Each participant has their own unread count. Count BEFORE
+                // emitting newMessage: the reader only sends "markRead" after
+                // receiving the message, so it can never be counted as unread
+                // after it was already marked read.
+                const unreadCounts = await Promise.all(
+                    conversation.participants.map((participantId) => countUnread(conversation, participantId))
+                );
+
+                // Small summary: to every tab of each participant, for their sidebar.
+                conversation.participants.forEach((participantId, i) => {
+                    io.to(userRoom(participantId)).emit("conversationUpdated", {
+                        _id: conversation._id,
+                        lastMessage: conversation.lastMessage,
+                        lastMessageAt: conversation.lastMessageAt,
+                        unreadCount: unreadCounts[i]
+                    });
                 });
 
+                // Full message: only to people who have this conversation open.
+                io.to(message.conversationId.toString()).emit("newMessage", message);
+
                 if (typeof ack === "function") ack({ success: true, message });
+            } catch (err) {
+                replyWithError(err, ack);
+            }
+        });
+
+        // The user has seen everything in this conversation. All of their tabs
+        // clear the badge (the other participant is not told: read receipts
+        // are a separate, optional feature).
+        socket.on("markRead", async (conversationId, ack) => {
+            try {
+                const conversation = await markConversationRead(conversationId, socket.userId);
+                io.to(userRoom(socket.userId)).emit("conversationRead", { _id: conversation._id });
+
+                if (typeof ack === "function") ack({ success: true });
             } catch (err) {
                 replyWithError(err, ack);
             }

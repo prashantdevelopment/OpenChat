@@ -180,7 +180,7 @@ describe("conversationUpdated (sidebar updates through personal rooms)", () => {
         expect(toCarol).toEqual([]);         // outsiders get nothing
         expect(newMessages).toEqual([]);     // full messages stay in the conversation room
 
-        expect(toAlice1[0]).toEqual({
+        expect(toAlice1[0]).toMatchObject({
             _id: conversationId,
             lastMessage: "sidebar ping",
             lastMessageAt: res.message.createdAt,
@@ -192,7 +192,7 @@ describe("conversationUpdated (sidebar updates through personal rooms)", () => {
         const toAlice = collectUpdates(a);
         await emitWithAck(b, "sendMessage", { conversationId, content: "just the summary" });
         await waitForDelivery();
-        expect(Object.keys(toAlice[0]).sort()).toEqual(["_id", "lastMessage", "lastMessageAt"]);
+        expect(Object.keys(toAlice[0]).sort()).toEqual(["_id", "lastMessage", "lastMessageAt", "unreadCount"]);
     });
 
     it("does not send an update when the message is rejected", async () => {
@@ -201,6 +201,112 @@ describe("conversationUpdated (sidebar updates through personal rooms)", () => {
         await emitWithAck(b, "sendMessage", { conversationId, content: "   " });
         await waitForDelivery();
         expect(toAlice).toEqual([]);
+    });
+});
+
+describe("unread counts and markRead", () => {
+    // A fresh pair, so earlier tests' messages don't affect the counts.
+    let reader, writer, readerConversationId;
+    beforeAll(async () => {
+        reader = await registerAndLogin("reader_test");
+        writer = await registerAndLogin("writer_test");
+        const res = await request(app)
+            .post("/api/conversations")
+            .set("Cookie", writer.cookie)
+            .send({ otherUserId: reader.id });
+        readerConversationId = res.body.conversation._id;
+    });
+
+    const listFor = async (user) => {
+        const res = await request(app).get("/api/conversations").set("Cookie", user.cookie);
+        return res.body.conversations.find((c) => c._id === readerConversationId);
+    };
+    const send = (socket, content) =>
+        emitWithAck(socket, "sendMessage", { conversationId: readerConversationId, content });
+    const collect = (socket, event) => {
+        const received = [];
+        socket.on(event, (payload) => received.push(payload));
+        return received;
+    };
+
+    it("counts the other user's messages for the reader, never your own", async () => {
+        const [r, w] = await Promise.all([connectAs(reader), connectAs(writer)]);
+        const toReader = collect(r, "conversationUpdated");
+        const toWriter = collect(w, "conversationUpdated");
+
+        await send(w, "one");
+        await send(w, "two");
+        await waitForDelivery();
+
+        expect(toReader.map((u) => u.unreadCount)).toEqual([1, 2]);
+        expect(toWriter.map((u) => u.unreadCount)).toEqual([0, 0]);
+        expect((await listFor(reader)).unreadCount).toBe(2);
+        expect((await listFor(writer)).unreadCount).toBe(0);
+    });
+
+    it("never exposes lastReadAt in the conversation list", async () => {
+        expect(await listFor(reader)).not.toHaveProperty("lastReadAt");
+    });
+
+    it("markRead clears the count and tells every tab of the reader, not the writer", async () => {
+        const [readerTab1, readerTab2, w] = await Promise.all([connectAs(reader), connectAs(reader), connectAs(writer)]);
+        const [toTab1, toTab2, toWriter] = [collect(readerTab1, "conversationRead"), collect(readerTab2, "conversationRead"), collect(w, "conversationRead")];
+
+        expect(await emitWithAck(readerTab1, "markRead", readerConversationId)).toEqual({ success: true });
+        await waitForDelivery();
+
+        expect(toTab1).toEqual([{ _id: readerConversationId }]);
+        expect(toTab2).toEqual([{ _id: readerConversationId }]);
+        expect(toWriter).toEqual([]);
+        expect((await listFor(reader)).unreadCount).toBe(0);
+    });
+
+    it("counts only messages that arrive after the last read", async () => {
+        const [r, w] = await Promise.all([connectAs(reader), connectAs(writer)]);
+        const toReader = collect(r, "conversationUpdated");
+        await send(w, "three");
+        await waitForDelivery();
+        expect(toReader[0].unreadCount).toBe(1);
+        expect((await listFor(reader)).unreadCount).toBe(1);
+    });
+
+    it("sends the sidebar update before the message itself", async () => {
+        const [r, w] = await Promise.all([connectAs(reader), connectAs(writer)]);
+        await emitWithAck(r, "joinConversation", readerConversationId);
+        const order = [];
+        r.on("conversationUpdated", () => order.push("conversationUpdated"));
+        r.on("newMessage", () => order.push("newMessage"));
+        await send(w, "order check");
+        await waitForDelivery();
+        expect(order).toEqual(["conversationUpdated", "newMessage"]);
+    });
+
+    it("markRead at the same moment as a new message does not lose the last message", async () => {
+        const [r, w] = await Promise.all([connectAs(reader), connectAs(writer)]);
+        await Promise.all([
+            send(w, "sent while reading"),
+            emitWithAck(r, "markRead", readerConversationId),
+        ]);
+        const conversation = await Conversation.findById(readerConversationId);
+        expect(conversation.lastMessage).toBe("sent while reading");
+        expect(conversation.lastReadAt.get(reader.id)).toBeInstanceOf(Date);
+    });
+
+    it.each([
+        ["an invalid id", "bad-id", /Invalid conversation id/],
+        ["an unknown conversation", "64b000000000000000000000", /not found/],
+    ])("rejects markRead with %s", async (_name, id, message) => {
+        const r = await connectAs(reader);
+        const res = await emitWithAck(r, "markRead", id);
+        expect(res.success).toBe(false);
+        expect(res.message).toMatch(message);
+    });
+
+    it("refuses markRead from an outsider", async () => {
+        const c = await connectAs(carol);
+        const res = await emitWithAck(c, "markRead", readerConversationId);
+        expect(res.success).toBe(false);
+        expect(res.message).toMatch(/not a participant/);
     });
 });
 

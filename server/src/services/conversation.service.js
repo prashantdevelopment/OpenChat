@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import  Conversation  from '../models/conversation.model.js';
 import AppError from '../utils/AppError.js';
 import User from '../models/user.model.js';
+import Message from '../models/message.model.js';
 
 
 const getConversationForParticipant = async (conversationId, userId) => {
@@ -70,6 +71,21 @@ const createOrGetConversation = async (currentUserId, otherUserId) => {
 }
 
 
+// Query for the messages `userId` has not read yet in `conversation`:
+// sent by the other participant, after the user's lastReadAt (all of them if
+// the user never opened it). ObjectIds are built explicitly because
+// aggregate() does not cast types the way find() does.
+const unreadFilter = (conversation, userId) => {
+    const lastRead = conversation.lastReadAt?.get(userId.toString());
+    return {
+        conversationId: conversation._id,
+        sender: { $ne: new mongoose.Types.ObjectId(userId) },
+        ...(lastRead ? { createdAt: { $gt: lastRead } } : {})
+    };
+};
+
+const countUnread = (conversation, userId) => Message.countDocuments(unreadFilter(conversation, userId));
+
 const getUserConversations = async (userId) => {
     const conversations = await Conversation.find({
         participants: userId
@@ -77,7 +93,41 @@ const getUserConversations = async (userId) => {
     .populate("participants", "username email")
     .sort({ lastMessageAt: -1 });
 
-    return conversations;
+    if (conversations.length === 0) {
+        return [];
+    }
+
+    // One aggregation counts unread messages for every conversation at once,
+    // instead of one query per conversation.
+    const counts = await Message.aggregate([
+        { $match: { $or: conversations.map((conversation) => unreadFilter(conversation, userId)) } },
+        { $group: { _id: "$conversationId", count: { $sum: 1 } } }
+    ]);
+    const unreadById = new Map(counts.map((c) => [c._id.toString(), c.count]));
+
+    return conversations.map((conversation) => {
+        // lastReadAt also holds the other user's read time: keep it private
+        // (read receipts get their own privacy setting later).
+        const { lastReadAt: _lastReadAt, ...rest } = conversation.toObject();
+        return { ...rest, unreadCount: unreadById.get(conversation._id.toString()) ?? 0 };
+    });
 };
 
-export { createOrGetConversation, getUserConversations, getConversationForParticipant };
+const markConversationRead = async (conversationId, userId) => {
+    const conversation = await getConversationForParticipant(conversationId, userId);
+    // $set only this user's entry, so a message being saved at the same moment
+    // (which writes lastMessage) is never overwritten.
+    await Conversation.updateOne(
+        { _id: conversation._id },
+        { $set: { [`lastReadAt.${userId}`]: new Date() } }
+    );
+    return conversation;
+};
+
+export {
+    createOrGetConversation,
+    getUserConversations,
+    getConversationForParticipant,
+    countUnread,
+    markConversationRead
+};

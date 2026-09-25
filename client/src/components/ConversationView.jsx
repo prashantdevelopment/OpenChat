@@ -2,6 +2,15 @@ import { useEffect, useState } from "react";
 import socket from "../socket/socket.js";
 import api from "../api/api.js";
 
+// Tells the server the user has seen this conversation, which clears the
+// unread badge in all their tabs. Only while this browser tab is actually
+// visible: a chat open in a background tab has not been read.
+const markRead = (conversationId) => {
+  if (document.visibilityState === "visible") {
+    socket.emit("markRead", conversationId);
+  }
+};
+
 // One open conversation: its messages, real-time updates and the input.
 // Chat.jsx renders it with key={conversationId}, so switching conversation
 // mounts a fresh instance and all of this state starts empty.
@@ -10,6 +19,7 @@ const ConversationView = ({ conversationId, currentUser }) => {
   const [messageInput, setMessageInput] = useState("");
   // The id comes from the URL now, so it can be wrong or belong to someone else.
   const [joinError, setJoinError] = useState(null);
+  const currentUserId = currentUser._id;
 
   // Receive real-time messages
   useEffect(() => {
@@ -17,6 +27,10 @@ const ConversationView = ({ conversationId, currentUser }) => {
       // Sirf currently selected conversation ka message add karo
       if (message.conversationId === conversationId) {
         setMessages((prevMessages) => [...prevMessages, message]);
+        // Seen as it arrives (our own messages are never unread).
+        if (message.sender !== currentUserId) {
+          markRead(conversationId);
+        }
       }
     };
 
@@ -24,6 +38,15 @@ const ConversationView = ({ conversationId, currentUser }) => {
 
     return () => {
       socket.off("newMessage", handleNewMessage);
+    };
+  }, [conversationId, currentUserId]);
+
+  // Coming back to this browser tab with the chat open counts as reading it.
+  useEffect(() => {
+    const handleVisibilityChange = () => markRead(conversationId);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [conversationId]);
 
@@ -54,6 +77,7 @@ const ConversationView = ({ conversationId, currentUser }) => {
             ...history,
             ...prevMessages.filter((message) => !historyIds.has(message._id)),
           ]);
+          markRead(conversationId);
         } catch (error) {
           console.error("Error fetching messages:", error);
         }

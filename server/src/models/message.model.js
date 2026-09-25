@@ -22,12 +22,9 @@ const messageSchema = new mongoose.Schema({
         enum: ["text", "image", "video", "file"],
         default: "text",
         required: true
-    },
-    isRead: {
-        type: Boolean,
-        default: false
     }
-}, 
+    // Read state lives on the Conversation (lastReadAt), not on each message.
+},
     {
         timestamps: true
     }

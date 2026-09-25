@@ -53,10 +53,19 @@ const Chat = () => {
         .catch((error) => console.error("Error fetching conversations:", error));
     };
 
+    // Read in any of our tabs: clear that conversation's badge (no reordering).
+    const handleConversationRead = ({ _id }) => {
+      setConversations((prev) =>
+        prev.map((conversation) => (conversation._id === _id ? { ...conversation, unreadCount: 0 } : conversation)),
+      );
+    };
+
     socket.on("conversationUpdated", handleConversationUpdated);
+    socket.on("conversationRead", handleConversationRead);
     socket.io.on("reconnect", handleReconnect);
     return () => {
       socket.off("conversationUpdated", handleConversationUpdated);
+      socket.off("conversationRead", handleConversationRead);
       socket.io.off("reconnect", handleReconnect);
     };
   }, []);
@@ -103,6 +112,7 @@ const Chat = () => {
                 style={({ isActive }) => ({ fontWeight: isActive ? "bold" : "normal" })}
               >
                 {otherParticipant?.username}
+                {conversation.unreadCount > 0 ? <strong> ({conversation.unreadCount} unread)</strong> : null}
                 {conversation.lastMessage ? (
                   <>
                     <br />
