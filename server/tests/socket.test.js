@@ -155,6 +155,55 @@ describe("sendMessage between two users", () => {
     });
 });
 
+describe("conversationUpdated (sidebar updates through personal rooms)", () => {
+    const collectUpdates = (socket) => {
+        const received = [];
+        socket.on("conversationUpdated", (update) => received.push(update));
+        return received;
+    };
+
+    it("reaches both participants on every tab, without joining the conversation", async () => {
+        // No joinConversation here: only the automatic personal room.
+        const [aliceTab1, aliceTab2, bobTab, carolTab] = await Promise.all([
+            connectAs(alice), connectAs(alice), connectAs(bob), connectAs(carol),
+        ]);
+        const updates = [aliceTab1, aliceTab2, bobTab, carolTab].map(collectUpdates);
+        const newMessages = collectMessages(aliceTab1);
+
+        const res = await emitWithAck(bobTab, "sendMessage", { conversationId, content: "sidebar ping" });
+        await waitForDelivery();
+
+        const [toAlice1, toAlice2, toBob, toCarol] = updates;
+        expect(toAlice1).toHaveLength(1);
+        expect(toAlice2).toHaveLength(1);
+        expect(toBob).toHaveLength(1);       // the sender's other tabs need it too
+        expect(toCarol).toEqual([]);         // outsiders get nothing
+        expect(newMessages).toEqual([]);     // full messages stay in the conversation room
+
+        expect(toAlice1[0]).toEqual({
+            _id: conversationId,
+            lastMessage: "sidebar ping",
+            lastMessageAt: res.message.createdAt,
+        });
+    });
+
+    it("sends only the summary: no participants, no emails, no message body fields", async () => {
+        const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
+        const toAlice = collectUpdates(a);
+        await emitWithAck(b, "sendMessage", { conversationId, content: "just the summary" });
+        await waitForDelivery();
+        expect(Object.keys(toAlice[0]).sort()).toEqual(["_id", "lastMessage", "lastMessageAt"]);
+    });
+
+    it("does not send an update when the message is rejected", async () => {
+        const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
+        const toAlice = collectUpdates(a);
+        await emitWithAck(b, "sendMessage", { conversationId, content: "   " });
+        await waitForDelivery();
+        expect(toAlice).toEqual([]);
+    });
+});
+
 describe("robustness", () => {
     it("survives malformed events that used to crash the server", async () => {
         const a = await connectAs(alice);

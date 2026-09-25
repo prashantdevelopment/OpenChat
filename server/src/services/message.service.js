@@ -27,7 +27,9 @@ const createMessage = async (conversationId, currentUserId, content) => {
     conversation.lastMessageAt = message.createdAt;
     await conversation.save();
 
-    return message;
+    // The conversation is returned too: the socket layer needs its
+    // participants to notify each of them.
+    return { message, conversation };
 }
 
 

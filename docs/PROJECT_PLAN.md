@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 11 – Per-user rooms + live sidebar
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 12 – Unread counts
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -272,7 +272,7 @@ Rooms: `conversationId` (existing) and `user:<userId>` (planned, joined automati
 | `joinConversation(id, ack)` | – | conversation | exists (ack added in step 2) |
 | `leaveConversation(id)` | – | conversation | exists |
 | `sendMessage({conversationId, content}, ack)` | `newMessage` | conversation | exists (hardened in step 2; `content` → `ciphertext, iv` in step 17) |
-| – | `conversationUpdated` | user rooms of both participants | planned |
+| – | `conversationUpdated` `{_id, lastMessage, lastMessageAt}` | user rooms of both participants | exists (step 11) |
 | `typing({conversationId, isTyping})` | `typing` | conversation (except sender) | planned |
 | `markRead({conversationId})` | `messagesRead` | conversation | planned |
 | – | `presence:update` | contacts' user rooms | planned |
@@ -322,7 +322,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 8 | React Router + AuthContext + protected routes (`/login`, `/register`, `/chat`, `/chat/:id`, 404) | done | 2026-09-25 | React Router 8 (declarative). `/chat/:conversationId?`, deep link kept through login, `ConversationView` keyed by id. 22/22 routing E2E; `/register` route comes with step 9 |
 | 9 | Registration page + server field whitelist + **required state** (dropdown, server-validated list) | done | 2026-09-25 | `/register` with labels, field errors, double-submit guard, auto-login. State list in `shared/indian-states.js` (server + client). 70 server tests, 19/19 register E2E |
 | 10 | User search API + "start conversation" | done | 2026-09-25 | `GET /api/users/search` (prefix, regex-escaped, public fields, max 20); debounced `UserSearch` in the sidebar; simultaneous conversation creates no longer 409. 101 server tests, 19/19 search E2E |
-| 11 | Per-user rooms + live sidebar (`conversationUpdated`: last message, reorder) | todo | | |
+| 11 | Per-user rooms + live sidebar (`conversationUpdated`: last message, reorder) | done | 2026-09-25 | Personal room `user:<id>` on connect; summary `{_id, lastMessage, lastMessageAt}` to both participants; client merges via `useEffectEvent`, reloads for unknown conversations and after reconnect. Message list is `role="log"`. 104 server tests, 14/14 sidebar E2E (old client fails 8) |
 | 12 | Unread counts (`lastReadAt` per participant) | todo | | |
 | 13 | Message pagination (load older on scroll up) + indexes | todo | | |
 | 14 | Response shaping: no emails in conversation list, no internal fields | todo | | |

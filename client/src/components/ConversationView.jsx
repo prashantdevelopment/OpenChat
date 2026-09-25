@@ -112,7 +112,9 @@ const ConversationView = ({ conversationId, currentUser }) => {
 
   return (
     <div>
-      <div>
+      {/* role="log": the ARIA role for chat history; screen readers announce
+          new messages added to it. */}
+      <div role="log" aria-label="Messages">
         <h2>Messages:</h2>
 
         {messages.map((message) => {

@@ -5,6 +5,8 @@ import AppError from "./utils/AppError.js";
 import { getConversationForParticipant } from "./services/conversation.service.js";
 import { createMessage } from "./services/message.service.js";
 
+const userRoom = (userId) => `user:${userId}`;
+
 // Builds the Socket.IO server on top of an HTTP server (like app.js builds
 // the Express app). server.js starts it; tests create their own.
 const createSocketServer = (httpServer) => {
@@ -18,6 +20,11 @@ const createSocketServer = (httpServer) => {
     io.use(socketAuthMiddleware);
     io.on("connection", (socket) => {
         console.log("A user connected:", socket.id , "User ID:", socket.userId);
+
+        // Personal room: every socket (tab/device) of this user joins it, so the
+        // server can reach the user no matter which conversation is open.
+        // Joined on every connection, so it survives reconnects automatically.
+        socket.join(userRoom(socket.userId));
 
         // Socket handlers are not covered by Express's error middleware:
         // an uncaught error here would crash the whole server, so every
@@ -48,8 +55,15 @@ const createSocketServer = (httpServer) => {
 
         socket.on("sendMessage", async (data, ack) => {
             try {
-                const message = await createMessage(data?.conversationId, socket.userId, data?.content);
+                const { message, conversation } = await createMessage(data?.conversationId, socket.userId, data?.content);
+                // Full message: only to people who have this conversation open.
                 io.to(message.conversationId.toString()).emit("newMessage", message);
+                // Small summary: to every tab of both participants, for their sidebar.
+                io.to(conversation.participants.map(userRoom)).emit("conversationUpdated", {
+                    _id: conversation._id,
+                    lastMessage: conversation.lastMessage,
+                    lastMessageAt: conversation.lastMessageAt
+                });
 
                 if (typeof ack === "function") ack({ success: true, message });
             } catch (err) {

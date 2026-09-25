@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { NavLink, useNavigate, useParams } from "react-router";
 import api from "../api/api.js";
+import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
 import ConversationView from "../components/ConversationView.jsx";
 import UserSearch from "../components/UserSearch.jsx";
@@ -20,6 +21,44 @@ const Chat = () => {
     getConversations()
       .then(setConversations)
       .catch((error) => console.error("Error fetching conversations:", error));
+  }, []);
+
+  // Live sidebar. For every message in any of our conversations, the server
+  // sends { _id, lastMessage, lastMessageAt } to our personal room.
+  // useEffectEvent: the listener is added once, but always sees the latest list.
+  const onConversationUpdated = useEffectEvent((update) => {
+    if (conversations.some((conversation) => conversation._id === update._id)) {
+      // Known conversation: new preview, and move it to the top.
+      setConversations((prev) => {
+        const current = prev.find((conversation) => conversation._id === update._id);
+        if (!current) return prev;
+        return [{ ...current, ...update }, ...prev.filter((conversation) => conversation !== current)];
+      });
+    } else {
+      // Someone started a conversation with us: the update has no participant
+      // names, so reload the list (this only happens on a first message).
+      getConversations()
+        .then(setConversations)
+        .catch((error) => console.error("Error fetching conversations:", error));
+    }
+  });
+
+  useEffect(() => {
+    const handleConversationUpdated = (update) => onConversationUpdated(update);
+    // Updates sent while we were offline are lost, so reload after a reconnect.
+    // ("reconnect" fires only on reconnection, not on the first connect.)
+    const handleReconnect = () => {
+      getConversations()
+        .then(setConversations)
+        .catch((error) => console.error("Error fetching conversations:", error));
+    };
+
+    socket.on("conversationUpdated", handleConversationUpdated);
+    socket.io.on("reconnect", handleReconnect);
+    return () => {
+      socket.off("conversationUpdated", handleConversationUpdated);
+      socket.io.off("reconnect", handleReconnect);
+    };
   }, []);
 
   // "Message" on a search result: get (or create) the conversation and open it.
@@ -64,6 +103,12 @@ const Chat = () => {
                 style={({ isActive }) => ({ fontWeight: isActive ? "bold" : "normal" })}
               >
                 {otherParticipant?.username}
+                {conversation.lastMessage ? (
+                  <>
+                    <br />
+                    <small>{conversation.lastMessage}</small>
+                  </>
+                ) : null}
               </NavLink>
             </p>
           );
