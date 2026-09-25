@@ -1,6 +1,6 @@
 import Login from "./pages/Login.jsx";
 import { useEffect , useState } from "react";
-import axios from "axios";
+import api from "./api/api.js";
 import socket from "./socket/socket.js";
 import Chat from "./pages/Chat.jsx";
 
@@ -16,9 +16,7 @@ const App = () => {
     useEffect(() => {
         const restoreSession = async () => {
             try {
-                const response = await axios.get("http://localhost:5000/api/auth/me", {
-                    withCredentials: true,
-                });
+                const response = await api.get("/auth/me");
                 setCurrentUser(response.data.user);
             } catch (error) {
                 // 401 just means there is no valid session: show the login page.
@@ -44,9 +42,7 @@ const App = () => {
 
     const handleLogout = async () => {
         try {
-            await axios.post("http://localhost:5000/api/auth/logout", {}, {
-                withCredentials: true,
-            });
+            await api.post("/auth/logout");
             setCurrentUser(null);
         } catch (error) {
             console.error("Error logging out:", error);

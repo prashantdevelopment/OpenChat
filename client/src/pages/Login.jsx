@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import axios from 'axios'
+import api from '../api/api.js'
 
 const Login = ({ setCurrentUser }) => {
   const [identifier, setIdentifier] = useState('')
@@ -9,15 +9,7 @@ const Login = ({ setCurrentUser }) => {
         e.preventDefault()
 
         try{
-            const response = await axios.post('http://localhost:5000/api/auth/login', 
-                {
-                    identifier,
-                    password
-                },
-                {
-                    withCredentials: true
-                }
-            )
+            const response = await api.post('/auth/login', { identifier, password })
                 setIdentifier('')
                 setPassword('')
                 setCurrentUser(response.data.user)

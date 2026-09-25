@@ -68,6 +68,23 @@ The main learning goals are:
 - WebRTC
 - Socket.IO
 
+## Local Setup
+
+Requirements: Node.js 20.19+ and MongoDB running locally (or a MongoDB Atlas URI).
+
+1. Install dependencies from the project root:
+   ```bash
+   npm install
+   ```
+2. Create the environment files from the examples and fill in the values:
+   - `server/.env.example` → `server/.env` (set `JWT_SECRET` to at least 32 random characters)
+   - `client/.env.example` → `client/.env`
+3. Start the client and the server together:
+   ```bash
+   npm run dev
+   ```
+   The app runs at http://localhost:5173 and the API at http://localhost:5000.
+
 ## Project Status
 
 Phase 0 — Engineering Foundation

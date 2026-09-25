@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import socket from "../socket/socket.js";
-import axios from "axios";
+import api from "../api/api.js";
 
 const Chat = ({ currentUser, onLogout }) => {
   const [messages, setMessages] = useState([]);
@@ -46,10 +46,7 @@ const Chat = ({ currentUser, onLogout }) => {
         }
 
         try {
-          const res = await axios.get(
-            `http://localhost:5000/api/conversations/${conversationId}/messages`,
-            { withCredentials: true },
-          );
+          const res = await api.get(`/conversations/${conversationId}/messages`);
           if (ignore) return;
 
           const history = res.data.messages;
@@ -92,12 +89,7 @@ const Chat = ({ currentUser, onLogout }) => {
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:5000/api/conversations",
-          {
-            withCredentials: true,
-          },
-        );
+        const response = await api.get("/conversations");
 
         setConversations(response.data.conversations);
       } catch (error) {

@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 6 – Client config (VITE_API_URL, api instance, .env.example)
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 7 – Test harness (Vitest + supertest + two-user socket test)
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -313,7 +313,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 3 | REST input validation + error handler: ObjectId checks, `CastError` → 400, login body check, consistent `{success:false,message}` | done | 2026-09-25 | 35/35 REST checks + 12/12 socket regression passed. JSON 404, malformed JSON → 400, `POST /api/messages` removed |
 | 4 | Session restore on refresh (`/auth/me`) + logout | done | 2026-09-25 | 14/14 browser E2E checks in Edge (refresh, logout, two-user chat) |
 | 5 | Reconnect: re-join room on `connect`; fix history race on fast switching | done | 2026-09-25 | 15/15 browser E2E (network drop, server restart, slow history); old code fails 8 of them. Also: offline send refused (no duplicate) |
-| 6 | Client config: `VITE_API_URL`, one `api` axios instance, complete `.env.example` (server + client) | todo | | |
+| 6 | Client config: `VITE_API_URL`, one `api` axios instance, complete `.env.example` (server + client) | done | 2026-09-25 | 6 hardcoded URLs → `client/src/api/api.js`; `server/.env.example` + `client/.env.example`; JWT_SECRET ≥ 32 chars; README setup. E2E 14/14 + 15/15 |
 | 7 | Test harness: Vitest + supertest + two-user socket test against a separate test DB | todo | | Makes every later step verifiable |
 
 ### Phase B — Complete the core product flow (functional UI, minimal styling)
