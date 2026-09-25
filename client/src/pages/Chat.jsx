@@ -11,8 +11,6 @@ const Chat = ({ currentUser, onLogout }) => {
   // Receive real-time messages
   useEffect(() => {
     const handleNewMessage = (message) => {
-      console.log("New message received:", message);
-
       // Sirf currently selected conversation ka message add karo
       if (message.conversationId === conversationId) {
         setMessages((prevMessages) => [...prevMessages, message]);
@@ -26,47 +24,68 @@ const Chat = ({ currentUser, onLogout }) => {
     };
   }, [conversationId]);
 
-  // Fetch messages + join conversation
+  // Join the conversation room, then load its history.
   useEffect(() => {
     if (!conversationId) {
       return;
     }
 
-    const fetchMessages = async () => {
-      try {
-        const response = await axios.get(
-          `http://localhost:5000/api/conversations/${conversationId}/messages`,
-          {
-            withCredentials: true,
-          },
-        );
+    // Set to true when the user switches conversation (or leaves the page),
+    // so a slow response for the old conversation is thrown away.
+    let ignore = false;
 
-        setMessages(response.data.messages);
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-      }
-    };
-
-    fetchMessages();
-
-    // Conversation room join karo
-    if (socket.connected) {
-      socket.emit("joinConversation", conversationId, (response) => {
+    // Join first, fetch second: anything sent after the join arrives through
+    // the socket, anything before it is in the history. Merging by _id removes
+    // the overlap.
+    const joinAndLoadMessages = () => {
+      socket.emit("joinConversation", conversationId, async (response) => {
+        if (ignore) return;
         if (!response.success) {
           console.error("Could not join conversation:", response.message);
+          return;
+        }
+
+        try {
+          const res = await axios.get(
+            `http://localhost:5000/api/conversations/${conversationId}/messages`,
+            { withCredentials: true },
+          );
+          if (ignore) return;
+
+          const history = res.data.messages;
+          const historyIds = new Set(history.map((message) => message._id));
+          setMessages((prevMessages) => [
+            ...history,
+            ...prevMessages.filter((message) => !historyIds.has(message._id)),
+          ]);
+        } catch (error) {
+          console.error("Error fetching messages:", error);
         }
       });
+    };
+
+    // After a reconnect the server sees a brand-new socket with no rooms,
+    // so join again (and refetch to fill the gap) on every "connect".
+    if (socket.connected) {
+      joinAndLoadMessages();
     }
+    socket.on("connect", joinAndLoadMessages);
+
+    return () => {
+      ignore = true;
+      socket.off("connect", joinAndLoadMessages);
+      if (socket.connected) {
+        socket.emit("leaveConversation", conversationId);
+      }
+    };
   }, [conversationId]);
+
   const handleConversationClick = (id) => {
     if (id === conversationId) {
       return;
     }
 
-    if (conversationId && socket.connected) {
-      socket.emit("leaveConversation", conversationId);
-    }
-
+    setMessages([]);
     setConversationId(id);
   };
   // Fetch conversations
@@ -79,8 +98,6 @@ const Chat = ({ currentUser, onLogout }) => {
             withCredentials: true,
           },
         );
-
-        console.log("Conversations:", response.data.conversations);
 
         setConversations(response.data.conversations);
       } catch (error) {
@@ -99,6 +116,14 @@ const Chat = ({ currentUser, onLogout }) => {
     }
     if (!messageInput.trim()) {
       console.log("Message input is empty.");
+      return;
+    }
+
+    // While disconnected, Socket.IO would buffer the emit and send it after
+    // reconnecting — after our timeout already said "failed". Refuse instead,
+    // so a retry can't produce a duplicate message.
+    if (!socket.connected) {
+      console.error("Message not sent: not connected to the server");
       return;
     }
 
