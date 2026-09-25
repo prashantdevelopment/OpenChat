@@ -33,7 +33,7 @@
 <main>
   <header>
     <h1>OpenChat — Blueprint</h1>
-    <p>Real-time open-world 1:1 chat, media and calls with live India presence · React 19 + Vite · Express 5 + Socket.IO + MongoDB · Last updated 2026-09-25</p>
+    <p>Real-time open-world 1:1 end-to-end encrypted chat, media and calls with live India presence · React 19 + Vite · Express 5 + Socket.IO + MongoDB · Design: ui-ux-pro-max, light + dark toggle · Last updated 2026-09-25</p>
   </header>
 
   <nav>
@@ -92,23 +92,26 @@ flowchart LR
     <h3>New user → first conversation</h3>
     <div class="diagram"><pre class="mermaid">
 flowchart TD
-    visit(["New visitor on Landing"]) --> reg["Registers with username, email, password, state"]
-    reg --> app["Lands on /chat - empty state"]
+    visit(["New visitor on Landing"]) --> reg["Registers: username, email, password, state"]
+    reg --> keys["Browser creates encryption key pair; public key to server, private key wrapped with password"]
+    keys --> app["Lands on /chat - empty state"]
     app --> disc["Opens Discover, searches or picks a state"]
     disc --> start["Clicks Message on a user"]
     start --> convo["POST /conversations - create or get"]
-    convo --> talk(["Real-time chat at /chat/:id"])
+    convo --> talk(["Encrypted real-time chat at /chat/:id"])
     </pre></div>
-    <h3>One message, end to end</h3>
+    <h3>One message, end to end (encrypted)</h3>
     <div class="diagram"><pre class="mermaid">
 flowchart TD
-    a_send(["User A sends a message"]) --> s_val["Server: auth, participant check, validate"]
-    s_val --> db["Save Message + update Conversation"]
+    a_type(["User A types a message"]) --> enc["A's browser encrypts - AES-GCM, key from ECDH of A private + B public"]
+    enc --> s_val["Server: auth, participant check, validate size"]
+    s_val --> db["Save ciphertext + iv - server cannot read it"]
     db --> ack["Ack to A - sent"]
     db --> room["Emit newMessage to conversation room"]
     db --> urooms["Emit conversationUpdated to user rooms of A and B"]
     urooms --> b_list["B's sidebar: reorder + unread badge"]
-    room --> b_open["If B has chat open: bubble appears, B emits markRead"]
+    room --> dec["B's browser decrypts with B private + A public"]
+    dec --> b_open["Bubble appears, B emits markRead"]
     b_open --> receipt(["A sees Read"])
     </pre></div>
     <h3>Voice / video call</h3>
@@ -128,7 +131,7 @@ flowchart TD
     <p class="hint">Built before the screens that use them, reused everywhere.</p>
     <div class="diagram"><pre class="mermaid">
 flowchart TD
-    root["App - Router + AuthProvider"] --> pub["PublicLayout"]
+    root["App - Router + AuthProvider + ThemeProvider"] --> pub["PublicLayout"]
     root --> prot["ProtectedRoute"]
     prot --> applayout["AppLayout - sidebar + main"]
     pub --> header["Header"]
@@ -139,13 +142,13 @@ flowchart TD
     sidebar --> badge["Badge"]
     chatpane --> bubble["MessageBubble"]
     chatpane --> composer["Composer"]
-    root --> ui["UI primitives - Button, FormField, Dialog, Toast, Skeleton, Loader, EmptyState"]
+    root --> ui["UI primitives - Button, FormField, Select, Dialog, Toast, Skeleton, Loader, EmptyState"]
     </pre></div>
   </section>
 
   <section id="data">
     <h2>5. Data model</h2>
-    <p class="hint">Online status stays in server memory; read state is per participant on the conversation; media lives in Cloudinary.</p>
+    <p class="hint">Messages are stored only as ciphertext; online status stays in server memory; read state is per participant on the conversation; media lives in Cloudinary (encrypted).</p>
     <div class="diagram"><pre class="mermaid">
 erDiagram
     USER ||--o{ CONVERSATION : "participates in"
@@ -155,17 +158,20 @@ erDiagram
     USER {
         string username
         string email
-        string password "select false"
+        string password "bcrypt, select false"
+        string state "required, Indian state or UT code"
+        string publicKey "ECDH P-256, public"
+        string encryptedPrivateKey "wrapped with password-derived key"
+        string keySalt "PBKDF2 salt"
         string avatar
         string bio
-        string state "Indian state code"
         date lastSeen
         bool readReceipts
     }
     CONVERSATION {
         ObjectId participants "2 users"
         string conversationKey "unique"
-        object lastMessage "text, type, sender, at"
+        object lastMessage "ciphertext, iv, type, sender, at"
         date lastMessageAt
         object lastReadAt "per participant"
     }
@@ -173,8 +179,9 @@ erDiagram
         ObjectId conversationId
         ObjectId sender
         string messageType "text image video file audio call"
-        string content
-        object media "url, publicId, mime, size, duration"
+        string ciphertext "encrypted content"
+        string iv "random per message"
+        object media "url, mime, size, duration, encrypted file key"
         date deliveredAt
         date createdAt
     }
@@ -192,8 +199,8 @@ erDiagram
       <thead><tr><th>#</th><th>Step</th><th>Status</th></tr></thead>
       <tbody>
         <tr class="phase"><td colspan="3">Phase A — Stabilize the core</td></tr>
-        <tr><td>1</td><td>Checkpoint current uncommitted work</td><td class="todo">todo</td></tr>
-        <tr><td>2</td><td>Harden socket handlers (try/catch, ack, validation)</td><td class="todo">todo</td></tr>
+        <tr><td>1</td><td>Checkpoint current uncommitted work</td><td class="done">done</td></tr>
+        <tr><td>2</td><td>Harden socket handlers (try/catch, ack, validation)</td><td class="done">done</td></tr>
         <tr><td>3</td><td>REST input validation + error handler</td><td class="todo">todo</td></tr>
         <tr><td>4</td><td>Session restore on refresh + logout</td><td class="todo">todo</td></tr>
         <tr><td>5</td><td>Reconnect re-join + history race fix</td><td class="todo">todo</td></tr>
@@ -201,56 +208,60 @@ erDiagram
         <tr><td>7</td><td>Test harness (Vitest + supertest + two-user socket test)</td><td class="todo">todo</td></tr>
         <tr class="phase"><td colspan="3">Phase B — Complete the core product flow</td></tr>
         <tr><td>8</td><td>React Router + AuthContext + protected routes</td><td class="todo">todo</td></tr>
-        <tr><td>9</td><td>Registration page</td><td class="todo">todo</td></tr>
+        <tr><td>9</td><td>Registration page + required state</td><td class="todo">todo</td></tr>
         <tr><td>10</td><td>User search + start conversation</td><td class="todo">todo</td></tr>
         <tr><td>11</td><td>Per-user rooms + live sidebar</td><td class="todo">todo</td></tr>
         <tr><td>12</td><td>Unread counts</td><td class="todo">todo</td></tr>
         <tr><td>13</td><td>Message pagination + indexes</td><td class="todo">todo</td></tr>
         <tr><td>14</td><td>Response shaping (no email leaks)</td><td class="todo">todo</td></tr>
-        <tr class="phase"><td colspan="3">Phase C — Design foundation + app UI</td></tr>
-        <tr><td>15</td><td>Design foundation (Tailwind v4, coss ui, tokens)</td><td class="todo">todo</td></tr>
-        <tr><td>16</td><td>App layout shell (responsive)</td><td class="todo">todo</td></tr>
-        <tr><td>17</td><td>Sidebar + conversation items</td><td class="todo">todo</td></tr>
-        <tr><td>18</td><td>Chat header</td><td class="todo">todo</td></tr>
-        <tr><td>19</td><td>Message bubbles, grouping, timestamps</td><td class="todo">todo</td></tr>
-        <tr><td>20</td><td>Composer (multi-line, send states)</td><td class="todo">todo</td></tr>
-        <tr><td>21</td><td>Smart auto-scroll</td><td class="todo">todo</td></tr>
-        <tr><td>22</td><td>Loading / empty / error states</td><td class="todo">todo</td></tr>
-        <tr><td>23</td><td>Auth pages UI</td><td class="todo">todo</td></tr>
-        <tr><td>24</td><td>Settings + profile</td><td class="todo">todo</td></tr>
-        <tr class="phase"><td colspan="3">Phase D — Real-time features</td></tr>
-        <tr><td>25</td><td>Presence (online / last seen)</td><td class="todo">todo</td></tr>
-        <tr><td>26</td><td>Typing indicator</td><td class="todo">todo</td></tr>
-        <tr><td>27</td><td>Delivered + read receipts</td><td class="todo">todo</td></tr>
-        <tr><td>28</td><td>Notifications</td><td class="todo">todo</td></tr>
-        <tr class="phase"><td colspan="3">Phase E — Media sharing</td></tr>
-        <tr><td>29</td><td>Cloudinary signed upload + images</td><td class="todo">todo</td></tr>
-        <tr><td>30</td><td>Video + files</td><td class="todo">todo</td></tr>
-        <tr><td>31</td><td>Voice notes</td><td class="todo">todo</td></tr>
-        <tr><td>32</td><td>Avatar upload</td><td class="todo">todo</td></tr>
-        <tr class="phase"><td colspan="3">Phase F — Calls (WebRTC)</td></tr>
-        <tr><td>33</td><td>Signaling + 1:1 voice call</td><td class="todo">todo</td></tr>
-        <tr><td>34</td><td>Video call + controls + overlay</td><td class="todo">todo</td></tr>
-        <tr><td>35</td><td>Call states + call messages</td><td class="todo">todo</td></tr>
-        <tr><td>36</td><td>Voice-call Liquid Orb</td><td class="todo">todo</td></tr>
-        <tr><td>37</td><td>TURN server</td><td class="todo">todo</td></tr>
-        <tr class="phase"><td colspan="3">Phase G — India presence & discovery</td></tr>
-        <tr><td>38</td><td>State field on user</td><td class="todo">todo</td></tr>
-        <tr><td>39</td><td>Aggregated presence per state</td><td class="todo">todo</td></tr>
-        <tr><td>40</td><td>Discover page (2D)</td><td class="todo">todo</td></tr>
-        <tr><td>41</td><td>Interactive 3D India map (R3F)</td><td class="todo">todo</td></tr>
-        <tr class="phase"><td colspan="3">Phase H — Landing & motion polish</td></tr>
-        <tr><td>42</td><td>Landing structure + content</td><td class="todo">todo</td></tr>
-        <tr><td>43</td><td>Landing 3D hero</td><td class="todo">todo</td></tr>
-        <tr><td>44</td><td>App motion polish (motion)</td><td class="todo">todo</td></tr>
-        <tr><td>45</td><td>Accessibility + reduced-motion pass</td><td class="todo">todo</td></tr>
-        <tr class="phase"><td colspan="3">Phase I — Safety, security & launch</td></tr>
-        <tr><td>46</td><td>Block + report user</td><td class="todo">todo</td></tr>
-        <tr><td>47</td><td>helmet, rate limits, socket session expiry</td><td class="todo">todo</td></tr>
-        <tr><td>48</td><td>Text encryption decision</td><td class="todo">todo</td></tr>
-        <tr><td>49</td><td>SEO basics</td><td class="todo">todo</td></tr>
-        <tr><td>50</td><td>Deploy</td><td class="todo">todo</td></tr>
-        <tr><td>51</td><td>Launch readiness audit</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase C — End-to-end encryption (text)</td></tr>
+        <tr><td>15</td><td>Key pair at registration (ECDH P-256, wrapped private key)</td><td class="todo">todo</td></tr>
+        <tr><td>16</td><td>Unlock at login, IndexedDB key, logout wipe, password re-wrap</td><td class="todo">todo</td></tr>
+        <tr><td>17</td><td>Encrypt/decrypt messages (AES-GCM), ciphertext-only server</td><td class="todo">todo</td></tr>
+        <tr><td>18</td><td>Key fingerprint + forgot-password handling</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase D — Design foundation + app UI</td></tr>
+        <tr><td>19</td><td>Design foundation: ui-ux-pro-max, Tailwind v4, coss ui, light + dark toggle</td><td class="todo">todo</td></tr>
+        <tr><td>20</td><td>App layout shell (responsive)</td><td class="todo">todo</td></tr>
+        <tr><td>21</td><td>Sidebar + conversation items</td><td class="todo">todo</td></tr>
+        <tr><td>22</td><td>Chat header</td><td class="todo">todo</td></tr>
+        <tr><td>23</td><td>Message bubbles, grouping, timestamps</td><td class="todo">todo</td></tr>
+        <tr><td>24</td><td>Composer (multi-line, send states)</td><td class="todo">todo</td></tr>
+        <tr><td>25</td><td>Smart auto-scroll</td><td class="todo">todo</td></tr>
+        <tr><td>26</td><td>Loading / empty / error states</td><td class="todo">todo</td></tr>
+        <tr><td>27</td><td>Auth pages UI</td><td class="todo">todo</td></tr>
+        <tr><td>28</td><td>Settings + profile</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase E — Real-time features</td></tr>
+        <tr><td>29</td><td>Presence (online / last seen)</td><td class="todo">todo</td></tr>
+        <tr><td>30</td><td>Typing indicator</td><td class="todo">todo</td></tr>
+        <tr><td>31</td><td>Delivered + read receipts</td><td class="todo">todo</td></tr>
+        <tr><td>32</td><td>Notifications</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase F — Media sharing (encrypted)</td></tr>
+        <tr><td>33</td><td>Cloudinary signed upload + encrypted images</td><td class="todo">todo</td></tr>
+        <tr><td>34</td><td>Video + files</td><td class="todo">todo</td></tr>
+        <tr><td>35</td><td>Voice notes</td><td class="todo">todo</td></tr>
+        <tr><td>36</td><td>Avatar upload</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase G — Calls (WebRTC)</td></tr>
+        <tr><td>37</td><td>Signaling + 1:1 voice call</td><td class="todo">todo</td></tr>
+        <tr><td>38</td><td>Video call + controls + overlay</td><td class="todo">todo</td></tr>
+        <tr><td>39</td><td>Call states + call messages</td><td class="todo">todo</td></tr>
+        <tr><td>40</td><td>Voice-call Liquid Orb</td><td class="todo">todo</td></tr>
+        <tr><td>41</td><td>TURN server</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase H — India presence &amp; discovery</td></tr>
+        <tr><td>42</td><td>Aggregated presence per state</td><td class="todo">todo</td></tr>
+        <tr><td>43</td><td>Discover page (2D)</td><td class="todo">todo</td></tr>
+        <tr><td>44</td><td>Interactive 3D India map (R3F)</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase I — Landing &amp; motion polish</td></tr>
+        <tr><td>45</td><td>Landing structure + content</td><td class="todo">todo</td></tr>
+        <tr><td>46</td><td>Landing 3D hero</td><td class="todo">todo</td></tr>
+        <tr><td>47</td><td>App motion polish (motion)</td><td class="todo">todo</td></tr>
+        <tr><td>48</td><td>Accessibility + reduced-motion pass</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase J — Safety, security &amp; launch</td></tr>
+        <tr><td>49</td><td>Block + report user</td><td class="todo">todo</td></tr>
+        <tr><td>50</td><td>helmet, rate limits, socket session expiry</td><td class="todo">todo</td></tr>
+        <tr><td>51</td><td>Security review incl. crypto</td><td class="todo">todo</td></tr>
+        <tr><td>52</td><td>SEO basics</td><td class="todo">todo</td></tr>
+        <tr><td>53</td><td>Deploy</td><td class="todo">todo</td></tr>
+        <tr><td>54</td><td>Launch readiness audit</td><td class="todo">todo</td></tr>
       </tbody>
     </table>
   </section>

@@ -1,6 +1,28 @@
+import mongoose from 'mongoose';
 import  Conversation  from '../models/conversation.model.js';
 import AppError from '../utils/AppError.js';
-import User from '../models/user.model.js';  
+import User from '../models/user.model.js';
+
+
+const getConversationForParticipant = async (conversationId, userId) => {
+    if (!mongoose.isValidObjectId(conversationId)) {
+        throw new AppError("Invalid conversation id", 400);
+    }
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+        throw new AppError("Conversation not found", 404);
+    }
+
+    const isParticipant = conversation.participants.some(
+        participantId => participantId.toString() === userId.toString()
+    );
+    if (!isParticipant) {
+        throw new AppError("User is not a participant in this conversation", 403);
+    }
+
+    return conversation;
+}
 
 
 const createOrGetConversation = async (currentUserId, otherUserId) => {
@@ -46,4 +68,4 @@ const getUserConversations = async (userId) => {
     return conversations;
 };
 
-export { createOrGetConversation, getUserConversations };
+export { createOrGetConversation, getUserConversations, getConversationForParticipant };

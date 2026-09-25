@@ -51,7 +51,11 @@ const Chat = ({ currentUser }) => {
 
     // Conversation room join karo
     if (socket.connected) {
-      socket.emit("joinConversation", conversationId);
+      socket.emit("joinConversation", conversationId, (response) => {
+        if (!response.success) {
+          console.error("Could not join conversation:", response.message);
+        }
+      });
     }
   }, [conversationId]);
   const handleConversationClick = (id) => {
@@ -98,12 +102,19 @@ const Chat = ({ currentUser }) => {
       return;
     }
 
-    const messageData = {
-      conversationId,
-      content: messageInput.trim(),
-    };
+    const content = messageInput.trim();
 
-    socket.emit("sendMessage", messageData);
+    // timeout(): if the server never answers (e.g. socket disconnected),
+    // the callback still runs with an error instead of waiting forever.
+    socket
+      .timeout(5000)
+      .emit("sendMessage", { conversationId, content }, (err, response) => {
+        if (err || !response.success) {
+          console.error("Message not sent:", err ? "Server did not respond" : response.message);
+          // Give the text back so the user doesn't lose it.
+          setMessageInput((current) => current || content);
+        }
+      });
     setMessageInput("");
   };
 

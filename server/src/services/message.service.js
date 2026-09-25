@@ -1,56 +1,38 @@
 import Message from "../models/message.model.js";
-import Conversation from "../models/conversation.model.js";
 import AppError from "../utils/AppError.js";
+import { getConversationForParticipant } from "./conversation.service.js";
 
+const MAX_MESSAGE_LENGTH = 2000;
 
 
 const createMessage = async (conversationId, currentUserId, content) => {
-    const conversation = await Conversation.findById(conversationId);
-    if (!conversation) {
-        throw new AppError("Conversation not found", 404);
-    }
-
-    const isParticipant = conversation.participants.some(
-        participantId => participantId.toString() === currentUserId.toString()
-    );
-
-    if (!isParticipant) {
-        throw new AppError("User is not a participant in this conversation", 403);
-    }
-
-    if (!content || content.trim() === "") {
+    if (typeof content !== "string" || content.trim() === "") {
         throw new AppError("Message content cannot be empty", 400);
     }
 
+    const trimmedContent = content.trim();
+    if (trimmedContent.length > MAX_MESSAGE_LENGTH) {
+        throw new AppError(`Message cannot be longer than ${MAX_MESSAGE_LENGTH} characters`, 400);
+    }
 
-    const message = new Message({
+    const conversation = await getConversationForParticipant(conversationId, currentUserId);
+
+    const message = await Message.create({
         conversationId,
         sender: currentUserId,
-        content
+        content: trimmedContent
     });
 
-    conversation.lastMessage = content.trim();
-    conversation.lastMessageAt = new Date();
-
+    conversation.lastMessage = trimmedContent;
+    conversation.lastMessageAt = message.createdAt;
     await conversation.save();
 
-    await message.save();
     return message;
 }
 
 
 const getMessagesByConversationId = async (conversationId, currentUserId) => {
-    const conversation = await Conversation.findById(conversationId);
-    if (!conversation) {
-        throw new AppError("Conversation not found", 404);
-    }
-
-    const isParticipant = conversation.participants.some(
-        participantId => participantId.toString() === currentUserId.toString()
-    );
-    if (!isParticipant) {
-        throw new AppError("User is not a participant in this conversation", 403);
-    }
+    await getConversationForParticipant(conversationId, currentUserId);
 
     const messages = await Message.find({ conversationId }).sort({ createdAt: 1 });
     return messages;

@@ -5,5 +5,7 @@ node_modules/
 
 dist/
 build/
-agent-kit/
+CLAUDE.md
+AGENTS.md
+.claude/
 
