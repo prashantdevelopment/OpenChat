@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 9 – Registration page + required state
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 10 – User search API + start conversation
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -320,7 +320,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
 | 8 | React Router + AuthContext + protected routes (`/login`, `/register`, `/chat`, `/chat/:id`, 404) | done | 2026-09-25 | React Router 8 (declarative). `/chat/:conversationId?`, deep link kept through login, `ConversationView` keyed by id. 22/22 routing E2E; `/register` route comes with step 9 |
-| 9 | Registration page + server field whitelist + **required state** (dropdown, server-validated list) | todo | | |
+| 9 | Registration page + server field whitelist + **required state** (dropdown, server-validated list) | done | 2026-09-25 | `/register` with labels, field errors, double-submit guard, auto-login. State list in `shared/indian-states.js` (server + client). 70 server tests, 19/19 register E2E |
 | 10 | User search API + "start conversation" | todo | | Without this, chats can only be created via Postman |
 | 11 | Per-user rooms + live sidebar (`conversationUpdated`: last message, reorder) | todo | | |
 | 12 | Unread counts (`lastReadAt` per participant) | todo | | |

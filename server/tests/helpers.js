@@ -20,7 +20,7 @@ export const disconnectTestDb = async () => {
 export const registerAndLogin = async (username) => {
     await request(app)
         .post("/api/users")
-        .send({ username, email: `${username}@test.dev`, password: PASSWORD })
+        .send({ username, email: `${username}@test.dev`, password: PASSWORD, state: "delhi" })
         .expect(201);
 
     const res = await request(app)

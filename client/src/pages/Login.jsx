@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useLocation } from 'react-router'
+import { Link, Navigate, useLocation } from 'react-router'
 import api from '../api/api.js'
 import { useAuth } from '../auth/AuthContext.js'
 
@@ -44,6 +44,9 @@ const Login = () => {
             />
             <button>Login</button>
         </form>
+        <p>
+            No account yet? <Link to='/register'>Create one</Link>
+        </p>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router";
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
 import Chat from "./pages/Chat.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
@@ -9,6 +10,7 @@ const App = () => {
     <Routes>
       <Route path="/" element={<Navigate to="/chat" replace />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
       <Route element={<ProtectedRoute />}>
         {/* One route for both /chat and /chat/:id, so the page (and its

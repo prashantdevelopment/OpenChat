@@ -4,13 +4,20 @@ import AppError from "../utils/AppError.js";
 
 const createUser = async (userData) => {
 
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    // Only these fields can be set at registration. Spreading the whole request
+    // body would let a client set anything else on the user (mass assignment),
+    // e.g. isOnline, createdAt or its own _id.
+    const { username, email, password, state } = userData;
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     const createdUser = await User.create({
-        ...userData,
-        password: hashedPassword
+        username,
+        email,
+        password: hashedPassword,
+        state
     });
 
-    const { password, ...UserWithoutPassword } = createdUser.toObject();
+    const { password: _hashedPassword, ...UserWithoutPassword } = createdUser.toObject();
 
     return UserWithoutPassword;
 

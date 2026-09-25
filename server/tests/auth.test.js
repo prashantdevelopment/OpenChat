@@ -14,13 +14,51 @@ beforeAll(connectTestDb);
 afterAll(disconnectTestDb);
 
 describe("POST /api/users (register)", () => {
-    const register = (body) => request(app).post("/api/users").send(body);
+    // A valid state by default; tests that need to can override or remove it.
+    const register = (body) => request(app).post("/api/users").send({ state: "delhi", ...body });
 
-    it("creates a user and never returns the password", async () => {
-        const res = await register({ username: "alice_test", email: "alice@test.dev", password: PASSWORD });
+    it("creates a user with a state and never returns the password", async () => {
+        const res = await register({ username: "alice_test", email: "alice@test.dev", password: PASSWORD, state: "uttar-pradesh" });
         expect(res.status).toBe(201);
         expect(res.body.createdUser.username).toBe("alice_test");
+        expect(res.body.createdUser.state).toBe("uttar-pradesh");
         expect(res.body.createdUser.password).toBeUndefined();
+    });
+
+    it("requires a state", async () => {
+        const res = await register({ username: "nostate_user", email: "nostate@test.dev", password: PASSWORD, state: undefined });
+        expectError(res, 400);
+        expect(res.body.errors.state).toBe("Please select your state");
+    });
+
+    it("rejects a state that is not in the list", async () => {
+        const res = await register({ username: "badstate_user", email: "badstate@test.dev", password: PASSWORD, state: "atlantis" });
+        expectError(res, 400);
+        expect(res.body.errors.state).toBe("Please select a valid state");
+    });
+
+    it("ignores fields that are not allowed at registration (mass assignment)", async () => {
+        const res = await register({
+            username: "sneaky_user",
+            email: "sneaky@test.dev",
+            password: PASSWORD,
+            _id: "64b000000000000000000001",
+            isOnline: true,
+            bio: "set by attacker",
+            createdAt: "2000-01-01T00:00:00.000Z",
+        });
+        expect(res.status).toBe(201);
+        expect(res.body.createdUser._id).not.toBe("64b000000000000000000001");
+        expect(res.body.createdUser.isOnline).toBe(false);
+        expect(res.body.createdUser.bio).toBe("");
+        expect(res.body.createdUser.createdAt).not.toBe("2000-01-01T00:00:00.000Z");
+    });
+
+    it("explains username rules in plain words", async () => {
+        const short = await register({ username: "abc", email: "abc@test.dev", password: PASSWORD });
+        expect(short.body.errors.username).toBe("Username must be at least 8 characters long");
+        const badChars = await register({ username: "bad name!", email: "bad@test.dev", password: PASSWORD });
+        expect(badChars.body.errors.username).toBe("Username can only contain letters, numbers, dots and underscores");
     });
 
     it("rejects a duplicate username with 409", async () => {
@@ -30,7 +68,7 @@ describe("POST /api/users (register)", () => {
     it("reports which field failed model validation", async () => {
         const res = await register({ username: "carol_test", email: "not-an-email", password: PASSWORD });
         expectError(res, 400);
-        expect(res.body.errors.email).toBeTypeOf("string");
+        expect(res.body.errors.email).toBe("Please enter a valid email address");
     });
 
     describe("password policy", () => {
