@@ -6,6 +6,7 @@ const Chat = ({ currentUser }) => {
   const [messages, setMessages] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [conversationId, setConversationId] = useState(null);
+  const [messageInput, setMessageInput] = useState("");
 
   // Receive real-time messages
   useEffect(() => {
@@ -53,11 +54,13 @@ const Chat = ({ currentUser }) => {
       socket.emit("joinConversation", conversationId);
     }
   }, [conversationId]);
-
-  
   const handleConversationClick = (id) => {
     if (id === conversationId) {
       return;
+    }
+
+    if (conversationId && socket.connected) {
+      socket.emit("leaveConversation", conversationId);
     }
 
     setConversationId(id);
@@ -90,22 +93,23 @@ const Chat = ({ currentUser }) => {
       console.log("Please select a conversation first.");
       return;
     }
+    if (!messageInput.trim()) {
+      console.log("Message input is empty.");
+      return;
+    }
 
     const messageData = {
       conversationId,
-      content: "Hello, this is a test message from the client!",
+      content: messageInput.trim(),
     };
 
     socket.emit("sendMessage", messageData);
+    setMessageInput("");
   };
 
   return (
     <div>
       <h1>Chat</h1>
-
-      <button onClick={handleSendMessage} disabled={!conversationId}>
-        Send Message
-      </button>
 
       <div>
         <h2>Conversations:</h2>
@@ -130,9 +134,45 @@ const Chat = ({ currentUser }) => {
       <div>
         <h2>Messages:</h2>
 
-        {messages.map((message) => (
-          <p key={message._id}>{message.content}</p>
-        ))}
+        {messages.map((message) => {
+          const isOwnMessage = message.sender === currentUser._id;
+
+          return (
+            <div
+              key={message._id}
+              style={{
+                display: "flex",
+                justifyContent: isOwnMessage ? "flex-end" : "flex-start",
+                marginBottom: "10px",
+              }}
+            >
+              <div
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "12px",
+                  maxWidth: "70%",
+                }}
+              >
+                {message.content}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div>
+        <input
+          type="text"
+          placeholder="Type a message..."
+          value={messageInput}
+          onChange={(e) => setMessageInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleSendMessage();
+            }
+          }}
+        />
+
+        <button onClick={handleSendMessage}>Send</button>
       </div>
     </div>
   );

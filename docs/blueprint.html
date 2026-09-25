@@ -1,0 +1,264 @@
+<!doctype html>
+<!-- Generated from agent-kit template (skill: project-blueprint). Keep in sync with docs/PROJECT_PLAN.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blueprint – OpenChat</title>
+<style>
+  :root { --bg:#f7f7f5; --card:#ffffff; --text:#1d1d1b; --muted:#6b6b66; --line:#e3e3de; --accent:#2f5bea; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141414; --card:#1d1d1d; --text:#ededea; --muted:#a3a39d; --line:#2e2e2c; --accent:#7c9bff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:32px 16px 64px; }
+  header h1 { margin:0 0 4px; font-size:28px; }
+  header p { margin:0; color:var(--muted); }
+  nav { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 28px; }
+  nav a { color:var(--accent); text-decoration:none; border:1px solid var(--line); padding:4px 10px; border-radius:999px; font-size:14px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:20px; }
+  section h2 { margin:0 0 4px; font-size:19px; }
+  section h3 { margin:18px 0 6px; font-size:15px; color:var(--muted); }
+  section p.hint { margin:0 0 14px; color:var(--muted); font-size:14px; }
+  .diagram { overflow-x:auto; }
+  pre.mermaid { margin:0 0 12px; background:transparent; text-align:center; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .phase td { font-weight:600; background:var(--bg); }
+  .done { color:#1f9d55; font-weight:600; } .doing { color:#d97706; font-weight:600; } .todo { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>OpenChat — Blueprint</h1>
+    <p>Real-time open-world 1:1 chat, media and calls with live India presence · React 19 + Vite · Express 5 + Socket.IO + MongoDB · Last updated 2026-09-25</p>
+  </header>
+
+  <nav>
+    <a href="#sitemap">Sitemap</a><a href="#interlinks">Section links</a><a href="#flows">User flows</a>
+    <a href="#components">Components</a><a href="#data">Data</a><a href="#build">Build order</a>
+  </nav>
+
+  <section id="sitemap">
+    <h2>1. Sitemap</h2>
+    <p class="hint">Every page and how navigation connects them. Chat, Discover, Settings and Profile are protected routes; the call UI is an overlay.</p>
+    <div class="diagram"><pre class="mermaid">
+flowchart TD
+    landing["Landing /"] --> login["Login /login"]
+    landing --> register["Register /register"]
+    login --> chat["Chat /chat"]
+    register --> chat
+    chat --> convo["Conversation /chat/:conversationId"]
+    chat --> discover["Discover /discover"]
+    chat --> settings["Settings /settings"]
+    discover --> profile["User profile /u/:username"]
+    profile -.-> convo
+    convo -.-> call(["Call overlay - voice / video"])
+    landing -.-> notfound["404 page"]
+    </pre></div>
+  </section>
+
+  <section id="interlinks">
+    <h2>2. Section interlink map</h2>
+    <p class="hint">Sections inside each page (solid) and CTA / cross-page links (dashed).</p>
+    <div class="diagram"><pre class="mermaid">
+flowchart LR
+    subgraph LANDING["Landing"]
+        l_hero["Hero 3D"] --> l_feat["Features"] --> l_presence["Presence teaser"]
+    end
+    subgraph AUTH["Login / Register"]
+        a_form["Auth form"]
+    end
+    subgraph CHAT["Chat"]
+        c_side["Sidebar"] --> c_header["Chat header"] --> c_thread["Message thread"] --> c_comp["Composer"]
+    end
+    subgraph DISCOVER["Discover"]
+        d_search["Search"] --> d_map["India map"] --> d_people["People in state"]
+    end
+    l_hero -.-> a_form
+    l_presence -.-> a_form
+    a_form -.-> c_side
+    c_side -.-> d_search
+    d_people -.-> c_thread
+    c_header -.-> callov(["Call overlay"])
+    </pre></div>
+  </section>
+
+  <section id="flows">
+    <h2>3. User flows</h2>
+    <p class="hint">The three key journeys: first chat, one message end to end, and a call.</p>
+    <h3>New user → first conversation</h3>
+    <div class="diagram"><pre class="mermaid">
+flowchart TD
+    visit(["New visitor on Landing"]) --> reg["Registers with username, email, password, state"]
+    reg --> app["Lands on /chat - empty state"]
+    app --> disc["Opens Discover, searches or picks a state"]
+    disc --> start["Clicks Message on a user"]
+    start --> convo["POST /conversations - create or get"]
+    convo --> talk(["Real-time chat at /chat/:id"])
+    </pre></div>
+    <h3>One message, end to end</h3>
+    <div class="diagram"><pre class="mermaid">
+flowchart TD
+    a_send(["User A sends a message"]) --> s_val["Server: auth, participant check, validate"]
+    s_val --> db["Save Message + update Conversation"]
+    db --> ack["Ack to A - sent"]
+    db --> room["Emit newMessage to conversation room"]
+    db --> urooms["Emit conversationUpdated to user rooms of A and B"]
+    urooms --> b_list["B's sidebar: reorder + unread badge"]
+    room --> b_open["If B has chat open: bubble appears, B emits markRead"]
+    b_open --> receipt(["A sees Read"])
+    </pre></div>
+    <h3>Voice / video call</h3>
+    <div class="diagram"><pre class="mermaid">
+flowchart TD
+    caller(["A clicks Call"]) --> offer["callUser - SDP offer via Socket.IO user room"]
+    offer --> ring["B sees incoming call overlay"]
+    ring -->|accept| answer["answerCall - SDP answer"]
+    ring -->|reject or timeout| missed(["Missed call message saved"])
+    answer --> ice["ICE candidates exchanged - STUN / TURN"]
+    ice --> media(["Peer-to-peer audio/video - DTLS-SRTP encrypted"])
+    </pre></div>
+  </section>
+
+  <section id="components">
+    <h2>4. Shared components</h2>
+    <p class="hint">Built before the screens that use them, reused everywhere.</p>
+    <div class="diagram"><pre class="mermaid">
+flowchart TD
+    root["App - Router + AuthProvider"] --> pub["PublicLayout"]
+    root --> prot["ProtectedRoute"]
+    prot --> applayout["AppLayout - sidebar + main"]
+    pub --> header["Header"]
+    pub --> footer["Footer"]
+    applayout --> sidebar["Sidebar"]
+    applayout --> chatpane["Chat pane"]
+    sidebar --> avatar["Avatar + online dot"]
+    sidebar --> badge["Badge"]
+    chatpane --> bubble["MessageBubble"]
+    chatpane --> composer["Composer"]
+    root --> ui["UI primitives - Button, FormField, Dialog, Toast, Skeleton, Loader, EmptyState"]
+    </pre></div>
+  </section>
+
+  <section id="data">
+    <h2>5. Data model</h2>
+    <p class="hint">Online status stays in server memory; read state is per participant on the conversation; media lives in Cloudinary.</p>
+    <div class="diagram"><pre class="mermaid">
+erDiagram
+    USER ||--o{ CONVERSATION : "participates in"
+    CONVERSATION ||--o{ MESSAGE : contains
+    USER ||--o{ MESSAGE : sends
+    USER ||--o{ BLOCK : "blocks"
+    USER {
+        string username
+        string email
+        string password "select false"
+        string avatar
+        string bio
+        string state "Indian state code"
+        date lastSeen
+        bool readReceipts
+    }
+    CONVERSATION {
+        ObjectId participants "2 users"
+        string conversationKey "unique"
+        object lastMessage "text, type, sender, at"
+        date lastMessageAt
+        object lastReadAt "per participant"
+    }
+    MESSAGE {
+        ObjectId conversationId
+        ObjectId sender
+        string messageType "text image video file audio call"
+        string content
+        object media "url, publicId, mime, size, duration"
+        date deliveredAt
+        date createdAt
+    }
+    BLOCK {
+        ObjectId blocker
+        ObjectId blocked
+    }
+    </pre></div>
+  </section>
+
+  <section id="build">
+    <h2>6. Build order</h2>
+    <p class="hint">Keep in sync with docs/PROJECT_PLAN.md. Status: done · in progress · todo.</p>
+    <table>
+      <thead><tr><th>#</th><th>Step</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr class="phase"><td colspan="3">Phase A — Stabilize the core</td></tr>
+        <tr><td>1</td><td>Checkpoint current uncommitted work</td><td class="todo">todo</td></tr>
+        <tr><td>2</td><td>Harden socket handlers (try/catch, ack, validation)</td><td class="todo">todo</td></tr>
+        <tr><td>3</td><td>REST input validation + error handler</td><td class="todo">todo</td></tr>
+        <tr><td>4</td><td>Session restore on refresh + logout</td><td class="todo">todo</td></tr>
+        <tr><td>5</td><td>Reconnect re-join + history race fix</td><td class="todo">todo</td></tr>
+        <tr><td>6</td><td>Client config: VITE_API_URL, api instance, .env.example</td><td class="todo">todo</td></tr>
+        <tr><td>7</td><td>Test harness (Vitest + supertest + two-user socket test)</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase B — Complete the core product flow</td></tr>
+        <tr><td>8</td><td>React Router + AuthContext + protected routes</td><td class="todo">todo</td></tr>
+        <tr><td>9</td><td>Registration page</td><td class="todo">todo</td></tr>
+        <tr><td>10</td><td>User search + start conversation</td><td class="todo">todo</td></tr>
+        <tr><td>11</td><td>Per-user rooms + live sidebar</td><td class="todo">todo</td></tr>
+        <tr><td>12</td><td>Unread counts</td><td class="todo">todo</td></tr>
+        <tr><td>13</td><td>Message pagination + indexes</td><td class="todo">todo</td></tr>
+        <tr><td>14</td><td>Response shaping (no email leaks)</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase C — Design foundation + app UI</td></tr>
+        <tr><td>15</td><td>Design foundation (Tailwind v4, coss ui, tokens)</td><td class="todo">todo</td></tr>
+        <tr><td>16</td><td>App layout shell (responsive)</td><td class="todo">todo</td></tr>
+        <tr><td>17</td><td>Sidebar + conversation items</td><td class="todo">todo</td></tr>
+        <tr><td>18</td><td>Chat header</td><td class="todo">todo</td></tr>
+        <tr><td>19</td><td>Message bubbles, grouping, timestamps</td><td class="todo">todo</td></tr>
+        <tr><td>20</td><td>Composer (multi-line, send states)</td><td class="todo">todo</td></tr>
+        <tr><td>21</td><td>Smart auto-scroll</td><td class="todo">todo</td></tr>
+        <tr><td>22</td><td>Loading / empty / error states</td><td class="todo">todo</td></tr>
+        <tr><td>23</td><td>Auth pages UI</td><td class="todo">todo</td></tr>
+        <tr><td>24</td><td>Settings + profile</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase D — Real-time features</td></tr>
+        <tr><td>25</td><td>Presence (online / last seen)</td><td class="todo">todo</td></tr>
+        <tr><td>26</td><td>Typing indicator</td><td class="todo">todo</td></tr>
+        <tr><td>27</td><td>Delivered + read receipts</td><td class="todo">todo</td></tr>
+        <tr><td>28</td><td>Notifications</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase E — Media sharing</td></tr>
+        <tr><td>29</td><td>Cloudinary signed upload + images</td><td class="todo">todo</td></tr>
+        <tr><td>30</td><td>Video + files</td><td class="todo">todo</td></tr>
+        <tr><td>31</td><td>Voice notes</td><td class="todo">todo</td></tr>
+        <tr><td>32</td><td>Avatar upload</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase F — Calls (WebRTC)</td></tr>
+        <tr><td>33</td><td>Signaling + 1:1 voice call</td><td class="todo">todo</td></tr>
+        <tr><td>34</td><td>Video call + controls + overlay</td><td class="todo">todo</td></tr>
+        <tr><td>35</td><td>Call states + call messages</td><td class="todo">todo</td></tr>
+        <tr><td>36</td><td>Voice-call Liquid Orb</td><td class="todo">todo</td></tr>
+        <tr><td>37</td><td>TURN server</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase G — India presence & discovery</td></tr>
+        <tr><td>38</td><td>State field on user</td><td class="todo">todo</td></tr>
+        <tr><td>39</td><td>Aggregated presence per state</td><td class="todo">todo</td></tr>
+        <tr><td>40</td><td>Discover page (2D)</td><td class="todo">todo</td></tr>
+        <tr><td>41</td><td>Interactive 3D India map (R3F)</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase H — Landing & motion polish</td></tr>
+        <tr><td>42</td><td>Landing structure + content</td><td class="todo">todo</td></tr>
+        <tr><td>43</td><td>Landing 3D hero</td><td class="todo">todo</td></tr>
+        <tr><td>44</td><td>App motion polish (motion)</td><td class="todo">todo</td></tr>
+        <tr><td>45</td><td>Accessibility + reduced-motion pass</td><td class="todo">todo</td></tr>
+        <tr class="phase"><td colspan="3">Phase I — Safety, security & launch</td></tr>
+        <tr><td>46</td><td>Block + report user</td><td class="todo">todo</td></tr>
+        <tr><td>47</td><td>helmet, rate limits, socket session expiry</td><td class="todo">todo</td></tr>
+        <tr><td>48</td><td>Text encryption decision</td><td class="todo">todo</td></tr>
+        <tr><td>49</td><td>SEO basics</td><td class="todo">todo</td></tr>
+        <tr><td>50</td><td>Deploy</td><td class="todo">todo</td></tr>
+        <tr><td>51</td><td>Launch readiness audit</td><td class="todo">todo</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  mermaid.initialize({ startOnLoad: true, theme: dark ? 'dark' : 'default', securityLevel: 'strict' });
+</script>
+</body>
+</html>

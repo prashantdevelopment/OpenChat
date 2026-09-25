@@ -56,6 +56,18 @@ const startServer = async () => {
                 io.to(conversationId).emit("newMessage", message);
             })
 
+
+            socket.on("leaveConversation", (conversationId) => {
+                    socket.leave(conversationId);
+
+                    console.log(
+                        "User left conversation:",
+                        conversationId,
+                        "User:",
+                        socket.userId
+                    );
+            })
+
         socket.on("disconnect", () => {
             console.log("A user disconnected:", socket.id, "User ID:", socket.userId);
         });
