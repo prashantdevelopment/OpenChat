@@ -54,11 +54,35 @@ describe("POST /api/users (register)", () => {
         expect(res.body.createdUser.createdAt).not.toBe("2000-01-01T00:00:00.000Z");
     });
 
-    it("explains username rules in plain words", async () => {
-        const short = await register({ username: "abc", email: "abc@test.dev", password: PASSWORD });
-        expect(short.body.errors.username).toBe("Username must be at least 8 characters long");
-        const badChars = await register({ username: "bad name!", email: "bad@test.dev", password: PASSWORD });
-        expect(badChars.body.errors.username).toBe("Username can only contain letters, numbers, dots and underscores");
+    describe("username rules", () => {
+        let n = 0;
+        const tryUsername = (username) =>
+            register({ username, email: `uname${n++}@test.dev`, password: PASSWORD });
+
+        it.each([
+            ["shorter than 3", "ab", "Username must be at least 3 characters long"],
+            ["longer than 30", "a".repeat(31), "Username must be at most 30 characters long"],
+            ["with spaces or symbols", "bad name!", "Username can only contain letters, numbers, dots and underscores"],
+            ["starting with a dot", ".hidden", "Username must start with a letter or a number"],
+            ["starting with an underscore", "_hidden", "Username must start with a letter or a number"],
+            ["ending with a dot", "raj.", "Username cannot end with a dot"],
+            ["with two dots in a row", "raj..kumar", "Username cannot contain two dots in a row"],
+            ["reserved", "admin", "This username is reserved"],
+            ["reserved, disguised with dots/underscores", "open_chat", "This username is reserved"],
+        ])("rejects a username %s", async (_name, username, message) => {
+            const res = await tryUsername(username);
+            expectError(res, 400);
+            expect(res.body.errors.username).toBe(message);
+        });
+
+        it.each(["raj", "priya.k", "dev_99", "a1b", "rahul_"])("accepts %s", async (username) => {
+            expect((await tryUsername(username)).status).toBe(201);
+        });
+
+        it("stores usernames in lowercase", async () => {
+            const res = await tryUsername("MixedCase");
+            expect(res.body.createdUser.username).toBe("mixedcase");
+        });
     });
 
     it("rejects a duplicate username with 409", async () => {

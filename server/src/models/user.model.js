@@ -1,6 +1,13 @@
 import mongoose from "mongoose";
 import { INDIAN_STATE_CODES } from "../../../shared/indian-states.js";
 
+// Names nobody can register, so no one can pose as the app or its staff.
+// Dots and underscores are ignored when comparing, so "open_chat" is blocked too.
+const RESERVED_USERNAMES = new Set([
+    "admin", "administrator", "root", "system", "support", "help", "helpdesk",
+    "moderator", "mod", "staff", "official", "security", "openchat", "team",
+]);
+
 const userSchema =  new mongoose.Schema({
 
     username: {
@@ -8,10 +15,17 @@ const userSchema =  new mongoose.Schema({
         required: [true, "Username is required"],
         unique: true,
         lowercase: true,
-        match: [/^[a-z0-9._]+$/, "Username can only contain letters, numbers, dots and underscores"],
-        minlength: [8, "Username must be at least 8 characters long"],
+        minlength: [3, "Username must be at least 3 characters long"],
         maxlength: [30, "Username must be at most 30 characters long"],
-        trim: true
+        trim: true,
+        // Each rule has its own message; Mongoose reports the first one that fails.
+        validate: [
+            { validator: (v) => /^[a-z0-9._]+$/.test(v), message: "Username can only contain letters, numbers, dots and underscores" },
+            { validator: (v) => /^[a-z0-9]/.test(v), message: "Username must start with a letter or a number" },
+            { validator: (v) => !v.endsWith("."), message: "Username cannot end with a dot" },
+            { validator: (v) => !v.includes(".."), message: "Username cannot contain two dots in a row" },
+            { validator: (v) => !RESERVED_USERNAMES.has(v.replace(/[._]/g, "")), message: "This username is reserved" },
+        ]
 
     },
     email: {

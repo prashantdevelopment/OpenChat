@@ -67,7 +67,7 @@ const Register = () => {
             aria-describedby="username-hint username-error"
           />
           <br />
-          <small id="username-hint">8–30 characters: letters, numbers, dots and underscores.</small>
+          <small id="username-hint">3–30 characters: letters, numbers, dots and underscores. Must start with a letter or number.</small>
           {fieldErrors.username ? <><br /><small id="username-error" role="alert">{fieldErrors.username}</small></> : null}
         </p>
 
