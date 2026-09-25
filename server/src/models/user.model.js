@@ -1,5 +1,51 @@
 import mongoose from "mongoose";
+import { createPublicKey } from "crypto";
 import { INDIAN_STATE_CODES } from "../../../shared/indian-states.js";
+
+// --- End-to-end encryption keys ---------------------------------------------
+// Created in the browser at registration (client/src/crypto/keys.js). The
+// server cannot use them; it only checks that they have the right shape so no
+// garbage is stored.
+
+const isBase64 = (value) => typeof value === "string" && /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+const base64Length = (value) => Buffer.from(value, "base64").length;
+
+// The public key must really be an ECDH P-256 key in SPKI format.
+const isP256PublicKey = (value) => {
+    if (!isBase64(value)) return false;
+    try {
+        const key = createPublicKey({ key: Buffer.from(value, "base64"), format: "der", type: "spki" });
+        return key.asymmetricKeyType === "ec" && key.asymmetricKeyDetails?.namedCurve === "prime256v1";
+    } catch {
+        return false;
+    }
+};
+
+// The private key, locked with a key derived from the user's password.
+const encryptedPrivateKeySchema = new mongoose.Schema({
+    data: {
+        type: String,
+        required: true,
+        validate: { validator: (v) => isBase64(v) && base64Length(v) >= 32 && base64Length(v) <= 512, message: "Invalid encrypted private key" }
+    },
+    iv: {
+        type: String,
+        required: true,
+        validate: { validator: (v) => isBase64(v) && base64Length(v) === 12, message: "IV must be 12 bytes" }
+    },
+    salt: {
+        type: String,
+        required: true,
+        validate: { validator: (v) => isBase64(v) && base64Length(v) === 16, message: "Salt must be 16 bytes" }
+    },
+    iterations: {
+        type: Number,
+        required: true,
+        min: [100_000, "Too few PBKDF2 iterations"],
+        max: [10_000_000, "Too many PBKDF2 iterations"],
+        validate: { validator: Number.isInteger, message: "Iterations must be a whole number" }
+    }
+}, { _id: false });
 
 // Names nobody can register, so no one can pose as the app or its staff.
 // Dots and underscores are ignored when comparing, so "open_chat" is blocked too.
@@ -46,8 +92,21 @@ const userSchema =  new mongoose.Schema({
         type: String,
         required: true,
         select: false,
-        
-        
+
+
+    },
+    // Public by design: others use it to encrypt messages for this user.
+    publicKey: {
+        type: String,
+        required: [true, "Encryption keys are required"],
+        validate: { validator: isP256PublicKey, message: "Invalid public key" }
+    },
+    // Only the user needs this (to unlock their private key at login), so it
+    // is never loaded unless a query asks for it.
+    encryptedPrivateKey: {
+        type: encryptedPrivateKeySchema,
+        required: [true, "Encryption keys are required"],
+        select: false
     },
     avatar: {
         type: String,

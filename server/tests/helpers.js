@@ -1,8 +1,23 @@
 import mongoose from "mongoose";
 import request from "supertest";
+import { generateKeyPairSync, randomBytes } from "crypto";
 import app from "../src/app.js";
 
 export const PASSWORD = "Secret@123";
+
+// Encryption keys for test users. The browser normally creates these; the
+// server only checks their shape, so one real P-256 public key and a random
+// "locked" blob of the right size are enough (shared by all test users).
+const { publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+export const TEST_KEYS = {
+    publicKey: publicKey.export({ format: "der", type: "spki" }).toString("base64"),
+    encryptedPrivateKey: {
+        data: randomBytes(154).toString("base64"),
+        iv: randomBytes(12).toString("base64"),
+        salt: randomBytes(16).toString("base64"),
+        iterations: 600_000,
+    },
+};
 
 // Fresh, empty test database for each test file.
 export const connectTestDb = async () => {
@@ -20,7 +35,7 @@ export const disconnectTestDb = async () => {
 export const registerAndLogin = async (username) => {
     await request(app)
         .post("/api/users")
-        .send({ username, email: `${username}@test.dev`, password: PASSWORD, state: "delhi" })
+        .send({ username, email: `${username}@test.dev`, password: PASSWORD, state: "delhi", ...TEST_KEYS })
         .expect(201);
 
     const res = await request(app)

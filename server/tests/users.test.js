@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import app from "../src/app.js";
 import User from "../src/models/user.model.js";
-import { connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
+import { TEST_KEYS, connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
 
 let rahul;
 
@@ -19,6 +19,7 @@ beforeAll(async () => {
             email: `zed${i}@test.dev`,
             password: "not-a-real-hash",
             state: "goa",
+            ...TEST_KEYS,
         })),
     );
 });

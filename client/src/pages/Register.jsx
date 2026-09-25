@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router";
 import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
+import { createKeyBundle } from "../crypto/keys.js";
 
 const Register = () => {
   const [form, setForm] = useState({ username: "", email: "", password: "", state: "" });
@@ -23,8 +24,21 @@ const Register = () => {
     setFieldErrors({});
     setFormError("");
 
+    // End-to-end encryption: the key pair is created here in the browser. Only
+    // the public key and the password-locked private key go to the server.
+    let keys;
     try {
-      await api.post("/users", form);
+      keys = await createKeyBundle(form.password);
+    } catch (error) {
+      // crypto.subtle only exists on HTTPS or localhost.
+      console.error("Could not create encryption keys:", error);
+      setFormError("This browser could not create encryption keys. Please use an up-to-date browser over HTTPS.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await api.post("/users", { ...form, ...keys });
       // Registration doesn't start a session, so log in with the same details.
       const response = await api.post("/auth/login", {
         identifier: form.username,

@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
+import { generateKeyPairSync, randomBytes } from "crypto";
 import app from "../src/app.js";
-import { PASSWORD, connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
+import User from "../src/models/user.model.js";
+import { PASSWORD, TEST_KEYS, connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
 
 // Every error response must look the same: { success: false, message }.
 const expectError = (res, status) => {
@@ -15,7 +17,7 @@ afterAll(disconnectTestDb);
 
 describe("POST /api/users (register)", () => {
     // A valid state by default; tests that need to can override or remove it.
-    const register = (body) => request(app).post("/api/users").send({ state: "delhi", ...body });
+    const register = (body) => request(app).post("/api/users").send({ state: "delhi", ...TEST_KEYS, ...body });
 
     it("creates a user with a state and never returns the password", async () => {
         const res = await register({ username: "alice_test", email: "alice@test.dev", password: PASSWORD, state: "uttar-pradesh" });
@@ -93,6 +95,69 @@ describe("POST /api/users (register)", () => {
         const res = await register({ username: "carol_test", email: "not-an-email", password: PASSWORD });
         expectError(res, 400);
         expect(res.body.errors.email).toBe("Please enter a valid email address");
+    });
+
+    describe("encryption keys", () => {
+        let n = 0;
+        const withKeys = (keys) =>
+            register({ username: `keys_user${n++}`, email: `keys${n}@test.dev`, password: PASSWORD, ...keys });
+        const b64 = (bytes) => randomBytes(bytes).toString("base64");
+        const lockedKey = (overrides) => ({ ...TEST_KEYS.encryptedPrivateKey, ...overrides });
+
+        it("stores the public key and the locked private key, and returns only the public one", async () => {
+            const res = await withKeys({});
+            expect(res.status).toBe(201);
+            expect(res.body.createdUser.publicKey).toBe(TEST_KEYS.publicKey);
+            expect(res.body.createdUser).not.toHaveProperty("encryptedPrivateKey");
+
+            const saved = await User.findById(res.body.createdUser._id).select("+encryptedPrivateKey").lean();
+            expect(saved.encryptedPrivateKey).toEqual(TEST_KEYS.encryptedPrivateKey);
+        });
+
+        it("does not load the locked private key unless asked for", async () => {
+            const user = await User.findOne({ username: "keys_user0" }).lean();
+            expect(user).not.toHaveProperty("encryptedPrivateKey");
+        });
+
+        it("requires both keys", async () => {
+            const res = await withKeys({ publicKey: undefined, encryptedPrivateKey: undefined });
+            expectError(res, 400);
+            expect(res.body.errors.publicKey).toBe("Encryption keys are required");
+            expect(res.body.errors.encryptedPrivateKey).toBe("Encryption keys are required");
+        });
+
+        const otherCurve = generateKeyPairSync("ec", { namedCurve: "secp384r1" }).publicKey.export({ format: "der", type: "spki" }).toString("base64");
+        const rsaKey = generateKeyPairSync("rsa", { modulusLength: 2048 }).publicKey.export({ format: "der", type: "spki" }).toString("base64");
+
+        it.each([
+            ["random bytes", b64(91)],
+            ["not base64", "not base64!"],
+            ["a P-384 key (wrong curve)", otherCurve],
+            ["an RSA key", rsaKey],
+        ])("rejects %s as the public key", async (_name, publicKey) => {
+            const res = await withKeys({ publicKey });
+            expectError(res, 400);
+            expect(res.body.errors.publicKey).toBe("Invalid public key");
+        });
+
+        it.each([
+            ["an IV of the wrong size", { iv: b64(16) }, "encryptedPrivateKey.iv", "IV must be 12 bytes"],
+            ["a salt of the wrong size", { salt: b64(8) }, "encryptedPrivateKey.salt", "Salt must be 16 bytes"],
+            ["too few PBKDF2 iterations", { iterations: 1000 }, "encryptedPrivateKey.iterations", "Too few PBKDF2 iterations"],
+            ["fractional iterations", { iterations: 600000.5 }, "encryptedPrivateKey.iterations", "Iterations must be a whole number"],
+            ["a tiny blob", { data: b64(4) }, "encryptedPrivateKey.data", "Invalid encrypted private key"],
+        ])("rejects a locked key with %s", async (_name, overrides, field, message) => {
+            const res = await withKeys({ encryptedPrivateKey: lockedKey(overrides) });
+            expectError(res, 400);
+            expect(res.body.errors[field]).toBe(message);
+        });
+
+        it("drops unknown fields inside the locked key", async () => {
+            const res = await withKeys({ encryptedPrivateKey: lockedKey({ plaintextPrivateKey: "oops" }) });
+            expect(res.status).toBe(201);
+            const saved = await User.findById(res.body.createdUser._id).select("+encryptedPrivateKey").lean();
+            expect(saved.encryptedPrivateKey).not.toHaveProperty("plaintextPrivateKey");
+        });
     });
 
     describe("password policy", () => {

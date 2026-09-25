@@ -91,7 +91,12 @@ Requirements: Node.js 22.22+ and MongoDB running locally (or a MongoDB Atlas URI
 npm test
 ```
 
-Runs the server test suite (Vitest + supertest + socket.io-client): REST endpoints, validation and error responses, and a two-user real-time Socket.IO flow. MongoDB must be running. Tests use a separate `openchat_test` database (derived from `MONGO_URI`) and drop it after each run, so development data is never touched. Use `npm run test:watch --workspace=server` to re-run tests on every change.
+Runs both test suites with Vitest:
+
+- **server** (Vitest + supertest + socket.io-client): REST endpoints, validation and error responses, privacy of responses, and two-user real-time Socket.IO flows. MongoDB must be running. Tests use a separate `openchat_test` database (derived from `MONGO_URI`) and drop it after each run, so development data is never touched.
+- **client**: the end-to-end encryption helpers (`client/src/crypto/`), using Node's Web Crypto API.
+
+Use `npm run test:watch --workspace=server` to re-run the server tests on every change. Both suites start Vitest through `scripts/vitest.mjs`, which works around a Windows issue with lowercase drive letters (`c:\...`).
 
 ## Project Status
 

@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 15 – E2EE: key pair at registration (Phase B complete)
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 16 – E2EE: unlock at login, keep key for refresh, wipe on logout
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -331,7 +331,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 ### Phase C — End-to-end encryption for text (before UI, so everything later is built on encrypted messages)
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
-| 15 | Key pair at registration: ECDH P-256 in the browser, public key + password-wrapped private key stored on server | todo | | Crypto concepts walkthrough first |
+| 15 | Key pair at registration: ECDH P-256 in the browser, public key + password-wrapped private key stored on server | done | 2026-09-25 | `client/src/crypto/keys.js` (Web Crypto: ECDH P-256, PBKDF2-SHA-256 600k, AES-GCM wrap, NFC passwords); server validates the SPKI curve and blob shape, `encryptedPrivateKey` is `select: false` and never in others' responses. Client unit tests (7) + 147 server tests; register E2E unlocks the browser-made key. Dev data NOT cleared (user did not confirm): legacy users have no keys, handled in step 16. Also fixed: Vitest failing on Windows lowercase drive paths (`scripts/vitest.mjs`) |
 | 16 | Unlock at login, keep a non-extractable key in IndexedDB for refresh, wipe on logout, re-wrap on password change | todo | | |
 | 17 | Encrypt/decrypt messages (ECDH → HKDF → AES-GCM); server stores only `ciphertext + iv`; sidebar preview decrypted in the browser | todo | | Existing plaintext dev messages get cleared |
 | 18 | Key fingerprint ("safety number") on profile + "forgot password = old messages unreadable" handling | todo | | |

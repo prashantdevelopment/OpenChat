@@ -7,17 +7,21 @@ const createUser = async (userData) => {
     // Only these fields can be set at registration. Spreading the whole request
     // body would let a client set anything else on the user (mass assignment),
     // e.g. isOnline, createdAt or its own _id.
-    const { username, email, password, state } = userData;
+    // The two key fields are created in the browser (end-to-end encryption).
+    const { username, email, password, state, publicKey, encryptedPrivateKey } = userData;
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const createdUser = await User.create({
         username,
         email,
         password: hashedPassword,
-        state
+        state,
+        publicKey,
+        encryptedPrivateKey
     });
 
-    const { password: _hashedPassword, ...UserWithoutPassword } = createdUser.toObject();
+    // The locked private key is only handed out at login (to its owner).
+    const { password: _hashedPassword, encryptedPrivateKey: _lockedKey, ...UserWithoutPassword } = createdUser.toObject();
 
     return UserWithoutPassword;
 

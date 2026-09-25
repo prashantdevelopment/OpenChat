@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "node ../scripts/vitest.mjs run",
+    "test:watch": "node ../scripts/vitest.mjs"
   },
   "keywords": [],
   "author": "",

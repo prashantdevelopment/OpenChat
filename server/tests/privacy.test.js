@@ -6,7 +6,7 @@ import app from "../src/app.js";
 import createSocketServer from "../src/socket.js";
 import User from "../src/models/user.model.js";
 import Conversation from "../src/models/conversation.model.js";
-import { PASSWORD, connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
+import { PASSWORD, TEST_KEYS, connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
 
 // Everything that must never reach another user.
 const BOB_EMAIL = "bobby_test@test.dev";
@@ -16,6 +16,9 @@ const expectNothingPrivate = (payload, { allowOwnEmail } = {}) => {
     expect(json).not.toContain('"password"');
     expect(json).not.toContain("$2b$");       // bcrypt hash prefix
     expect(json).not.toContain("lastReadAt");
+    // Locked private keys: only ever for their owner, at login (step 16).
+    expect(json).not.toContain("encryptedPrivateKey");
+    expect(json).not.toContain(TEST_KEYS.encryptedPrivateKey.data);
 };
 
 let io, url, alice, bob, conversationId;
@@ -97,7 +100,7 @@ describe("a user's own data", () => {
             request(app).post("/api/auth/login").send({ identifier: "bobby_test", password: PASSWORD }),
             request(app).get("/api/auth/me").set("Cookie", bob.cookie),
             request(app).patch("/api/users/me").set("Cookie", bob.cookie).send({ bio: "hello" }),
-            request(app).post("/api/users").send({ username: "newbie", email: "newbie@test.dev", password: PASSWORD, state: "goa" }),
+            request(app).post("/api/users").send({ username: "newbie", email: "newbie@test.dev", password: PASSWORD, state: "goa", ...TEST_KEYS }),
         ]);
         for (const res of responses) {
             expect(res.status).toBeLessThan(300);
