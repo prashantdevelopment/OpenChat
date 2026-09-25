@@ -1,25 +1,26 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router'
-import api from '../api/api.js'
 import { useAuth } from '../auth/AuthContext.js'
 
 const Login = () => {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
-  const { currentUser, setCurrentUser } = useAuth()
+  const [error, setError] = useState('')
+  // Logging in now also unlocks the encryption key (PBKDF2 takes a moment).
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { currentUser, login } = useAuth()
   const location = useLocation()
 
     const handleLogin = async (e) => {
         e.preventDefault()
+        setError('')
+        setIsSubmitting(true)
 
         try{
-            const response = await api.post('/auth/login', { identifier, password })
-
-                setIdentifier('')
-                setPassword('')
-                setCurrentUser(response.data.user)
+            await login(identifier, password)
         } catch (error) {
-            console.error('Error logging in:', error)
+            setError(error.response?.data?.message ?? 'Could not reach the server. Please try again.')
+            setIsSubmitting(false)
         }
 
     }
@@ -32,6 +33,7 @@ const Login = () => {
   return (
     <div>
         <form onSubmit={handleLogin}>
+            {error ? <p role='alert'>{error}</p> : null}
             <input type="text"
             placeholder = "Email or Username"
             value={identifier}
@@ -39,10 +41,11 @@ const Login = () => {
             />
             <input type="password"
             placeholder = "Password"
+            autoComplete='current-password'
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             />
-            <button>Login</button>
+            <button disabled={isSubmitting}>{isSubmitting ? 'Logging in...' : 'Login'}</button>
         </form>
         <p>
             No account yet? <Link to='/register'>Create one</Link>

@@ -28,8 +28,10 @@ const createUser = async (userData) => {
 }
 
 
-const getUserById = async (userId) => {
-    const user = await User.findById(userId);
+// The logged-in user's own profile, including their locked private key: after
+// a refresh the browser may need it to unlock the key again. Only for the owner.
+const getCurrentUser = async (userId) => {
+    const user = await User.findById(userId).select("+encryptedPrivateKey");
     if (!user) {
         throw new AppError("User not found", 404);
     }
@@ -82,9 +84,16 @@ const updateUser = async (userId, updateData) => {
     return updatedUser;
 }
 
-const changePassword = async (userId, currentPassword, newPassword) => {
+// The private key is locked with the password, so a new password needs a newly
+// locked key (made in the browser with rewrapPrivateKey). Both are saved
+// together; otherwise the key would stay locked with the old password and the
+// user could never open it again.
+const changePassword = async (userId, currentPassword, newPassword, encryptedPrivateKey) => {
     if (typeof currentPassword !== "string" || !currentPassword) {
         throw new AppError("Current password is required", 400);
+    }
+    if (!encryptedPrivateKey || typeof encryptedPrivateKey !== "object") {
+        throw new AppError("encryptedPrivateKey (your key locked with the new password) is required", 400);
     }
 
     const user = await User.findById(userId).select("+password");
@@ -97,13 +106,16 @@ const changePassword = async (userId, currentPassword, newPassword) => {
     }
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedNewPassword;
+    // Only the four known fields; the schema validates their shape on save.
+    const { data, iv, salt, iterations } = encryptedPrivateKey;
+    user.encryptedPrivateKey = { data, iv, salt, iterations };
     await user.save();
     return user;
 }
 
 export {
     createUser,
-    getUserById,
+    getCurrentUser,
     updateUser,
     changePassword,
     searchUsers

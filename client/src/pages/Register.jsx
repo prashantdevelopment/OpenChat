@@ -12,7 +12,7 @@ const Register = () => {
   // Messages that belong to no single field (e.g. "Username already exists")
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { currentUser, setCurrentUser } = useAuth();
+  const { currentUser, login } = useAuth();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -39,12 +39,9 @@ const Register = () => {
 
     try {
       await api.post("/users", { ...form, ...keys });
-      // Registration doesn't start a session, so log in with the same details.
-      const response = await api.post("/auth/login", {
-        identifier: form.username,
-        password: form.password,
-      });
-      setCurrentUser(response.data.user);
+      // Registration doesn't start a session, so log in with the same details
+      // (this also unlocks and stores the new private key).
+      await login(form.username, form.password);
     } catch (error) {
       const data = error.response?.data;
       if (data?.errors) {

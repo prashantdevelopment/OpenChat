@@ -24,8 +24,8 @@ const updateUserController = async (req, res) => {
 
 const changePasswordController = async (req, res) => {
     const userId = req.user.userId;
-    const { currentPassword, newPassword } = req.body;
-    const updatedUser = await changePassword(userId, currentPassword, newPassword);
+    const { currentPassword, newPassword, encryptedPrivateKey } = req.body;
+    await changePassword(userId, currentPassword, newPassword, encryptedPrivateKey);
     res.status(200).json({
         success: true,
         message: "Password changed successfully",

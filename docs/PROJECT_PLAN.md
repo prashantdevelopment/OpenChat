@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 16 – E2EE: unlock at login, keep key for refresh, wipe on logout
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 17 – E2EE: encrypt/decrypt messages
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -332,7 +332,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
 | 15 | Key pair at registration: ECDH P-256 in the browser, public key + password-wrapped private key stored on server | done | 2026-09-25 | `client/src/crypto/keys.js` (Web Crypto: ECDH P-256, PBKDF2-SHA-256 600k, AES-GCM wrap, NFC passwords); server validates the SPKI curve and blob shape, `encryptedPrivateKey` is `select: false` and never in others' responses. Client unit tests (7) + 147 server tests; register E2E unlocks the browser-made key. Dev data NOT cleared (user did not confirm): legacy users have no keys, handled in step 16. Also fixed: Vitest failing on Windows lowercase drive paths (`scripts/vitest.mjs`) |
-| 16 | Unlock at login, keep a non-extractable key in IndexedDB for refresh, wipe on logout, re-wrap on password change | todo | | |
+| 16 | Unlock at login, keep a non-extractable key in IndexedDB for refresh, wipe on logout, re-wrap on password change | done | 2026-09-25 | Login and `/me` return the owner's locked key; `AuthProvider.login()/unlock()`; `crypto/keyStore.js` (IndexedDB, one key, cleared on logout); unlock screen when the device has no key (URL kept) and a clear message for legacy accounts; password change requires a re-locked key (`rewrapPrivateKey`), saved atomically. Password-change UI comes in step 28. 151 server + 9 client tests, 20/20 unlock E2E |
 | 17 | Encrypt/decrypt messages (ECDH → HKDF → AES-GCM); server stores only `ciphertext + iv`; sidebar preview decrypted in the browser | todo | | Existing plaintext dev messages get cleared |
 | 18 | Key fingerprint ("safety number") on profile + "forgot password = old messages unreadable" handling | todo | | |
 
@@ -408,7 +408,7 @@ Status values: `todo` · `in progress` · `done` · `blocked (<reason>)`
 2. **Risk, cookies in production:** `sameSite: strict` only works if frontend and API are on the same site (e.g. `app.domain.com` + `api.domain.com`). Decide the hosting setup before step 53.
 3. **Risk, WebRTC across networks:** without a TURN server, many calls (mobile data, strict NAT) will fail.
 4. **Risk, E2EE and forgotten passwords:** a password reset cannot recover old messages. The UI must say so clearly (step 18).
-5. **Existing dev data:** users created before step 9/15 have no `state` or keys. The plan is to clear dev data at step 15 rather than write a migration.
+5. **Existing dev data:** user chose to clear it (option b, 2026-09-25). The delete was blocked by the agent's permission rules, so the user runs it themselves. Until then, old accounts log in to a clear "Encryption is not set up" screen.
 
 **Resolved (2026-09-25):**
 - Design: `ui-ux-pro-max`, light default + dark toggle.

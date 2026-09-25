@@ -278,23 +278,60 @@ describe("profile and password change", () => {
     });
 
     const changePassword = (body) => request(app).patch("/api/users/me/password").set("Cookie", user.cookie).send(body);
+    const login = (password) => request(app).post("/api/auth/login").send({ identifier: "profile_user", password });
+    // What the browser would send: the private key locked again with the new password.
+    const relockedKey = {
+        data: randomBytes(154).toString("base64"),
+        iv: randomBytes(12).toString("base64"),
+        salt: randomBytes(16).toString("base64"),
+        iterations: 600_000,
+    };
 
     it("requires the current password", async () => {
-        expectError(await changePassword({ newPassword: "Newer@1234" }), 400);
+        expectError(await changePassword({ newPassword: "Newer@1234", encryptedPrivateKey: relockedKey }), 400);
+    });
+
+    it("requires the private key locked with the new password", async () => {
+        const res = await changePassword({ currentPassword: PASSWORD, newPassword: "Newer@1234" });
+        expectError(res, 400);
+        expect(res.body.message).toMatch(/encryptedPrivateKey/);
     });
 
     it("rejects a wrong current password", async () => {
-        expectError(await changePassword({ currentPassword: "Wrong@1234", newPassword: "Newer@1234" }), 401);
+        expectError(await changePassword({ currentPassword: "Wrong@1234", newPassword: "Newer@1234", encryptedPrivateKey: relockedKey }), 401);
     });
 
     it("applies the password policy to the new password", async () => {
-        expectError(await changePassword({ currentPassword: PASSWORD, newPassword: "12345678" }), 400);
+        expectError(await changePassword({ currentPassword: PASSWORD, newPassword: "12345678", encryptedPrivateKey: relockedKey }), 400);
     });
 
-    it("changes the password, and the new one works for login", async () => {
-        expect((await changePassword({ currentPassword: PASSWORD, newPassword: "Newer@1234" })).status).toBe(200);
-        const res = await request(app).post("/api/auth/login").send({ identifier: "profile_user", password: "Newer@1234" });
+    it("rejects a badly shaped locked key and then changes nothing", async () => {
+        const res = await changePassword({ currentPassword: PASSWORD, newPassword: "Newer@1234", encryptedPrivateKey: { ...relockedKey, iv: "AAAA" } });
+        expectError(res, 400);
+        expect((await login(PASSWORD)).status).toBe(200);   // old password still works
+        expect((await login("Newer@1234")).status).toBe(401);
+    });
+
+    it("changes the password and the locked key together", async () => {
+        const res = await changePassword({ currentPassword: PASSWORD, newPassword: "Newer@1234", encryptedPrivateKey: relockedKey });
         expect(res.status).toBe(200);
+        const newLogin = await login("Newer@1234");
+        expect(newLogin.status).toBe(200);
+        expect(newLogin.body.user.encryptedPrivateKey).toEqual(relockedKey);
+        expect((await login(PASSWORD)).status).toBe(401);
+    });
+});
+
+describe("the owner's locked private key", () => {
+    it("comes with login and /auth/me (so the browser can unlock it), never the password", async () => {
+        const owner = await registerAndLogin("key_owner");
+        const loginRes = await request(app).post("/api/auth/login").send({ identifier: "key_owner", password: PASSWORD });
+        const meRes = await request(app).get("/api/auth/me").set("Cookie", owner.cookie);
+        for (const res of [loginRes, meRes]) {
+            expect(res.body.user.encryptedPrivateKey).toEqual(TEST_KEYS.encryptedPrivateKey);
+            expect(res.body.user.publicKey).toBe(TEST_KEYS.publicKey);
+            expect(res.body.user).not.toHaveProperty("password");
+        }
     });
 });
 

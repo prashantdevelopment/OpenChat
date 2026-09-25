@@ -1,18 +1,20 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuth } from "./AuthContext.js";
+import Unlock from "../pages/Unlock.jsx";
 
-// Layout route: renders its child routes only for a logged-in user.
-// Otherwise it redirects to /login and remembers where the user wanted to go.
+// Layout route: renders its child routes only for a logged-in user whose
+// private key is unlocked on this device. Not logged in: redirect to /login
+// and remember where the user wanted to go. Logged in but no key: ask for the
+// password (the URL stays, so the user lands where they wanted afterwards).
 // This is only for UX; the server still checks auth on every request.
 const ProtectedRoute = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, privateKey } = useAuth();
   const location = useLocation();
 
-  return currentUser ? (
-    <Outlet />
-  ) : (
-    <Navigate to="/login" replace state={{ from: location.pathname }} />
-  );
+  if (!currentUser) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+  return privateKey ? <Outlet /> : <Unlock />;
 };
 
 export default ProtectedRoute;

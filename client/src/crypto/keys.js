@@ -34,34 +34,19 @@ const deriveWrappingKey = async (password, salt, iterations) => {
   );
 };
 
-// Creates a new key pair for registration. Returns what the server stores.
-export const createKeyBundle = async (password) => {
-  // extractable: true only so the private key can be wrapped right now; the
-  // unlocked key used later is imported as non-extractable.
-  const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey"]);
-
+// Locks an (extractable) private key with a password: fresh salt and IV
+// every time. Returns the encryptedPrivateKey object the server stores.
+const lockPrivateKey = async (privateKey, password) => {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const wrappingKey = await deriveWrappingKey(password, salt, PBKDF2_ITERATIONS);
-
-  const lockedPrivateKey = await crypto.subtle.wrapKey("pkcs8", keyPair.privateKey, wrappingKey, { name: "AES-GCM", iv });
-  const publicKey = await crypto.subtle.exportKey("spki", keyPair.publicKey);
-
-  return {
-    publicKey: toBase64(publicKey),
-    encryptedPrivateKey: {
-      data: toBase64(lockedPrivateKey),
-      iv: toBase64(iv),
-      salt: toBase64(salt),
-      iterations: PBKDF2_ITERATIONS,
-    },
-  };
+  const locked = await crypto.subtle.wrapKey("pkcs8", privateKey, wrappingKey, { name: "AES-GCM", iv });
+  return { data: toBase64(locked), iv: toBase64(iv), salt: toBase64(salt), iterations: PBKDF2_ITERATIONS };
 };
 
-// Unlocks the private key with the password. The result is non-extractable:
-// JavaScript can use it but can never read its bytes, even via an XSS bug.
-// Throws if the password is wrong (AES-GCM detects the mismatch).
-export const unlockPrivateKey = async (encryptedPrivateKey, password) => {
+// Opens a locked private key. Throws if the password is wrong (AES-GCM
+// detects the mismatch).
+const openPrivateKey = async (encryptedPrivateKey, password, extractable) => {
   const { data, iv, salt, iterations } = encryptedPrivateKey;
   const wrappingKey = await deriveWrappingKey(password, fromBase64(salt), iterations);
   return crypto.subtle.unwrapKey(
@@ -70,7 +55,33 @@ export const unlockPrivateKey = async (encryptedPrivateKey, password) => {
     wrappingKey,
     { name: "AES-GCM", iv: fromBase64(iv) },
     { name: "ECDH", namedCurve: "P-256" },
-    false,
+    extractable,
     ["deriveKey"],
   );
+};
+
+// Creates a new key pair for registration. Returns what the server stores.
+export const createKeyBundle = async (password) => {
+  // extractable: true only so the private key can be locked right now; the
+  // unlocked key used later is non-extractable.
+  const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey"]);
+  const publicKey = await crypto.subtle.exportKey("spki", keyPair.publicKey);
+
+  return {
+    publicKey: toBase64(publicKey),
+    encryptedPrivateKey: await lockPrivateKey(keyPair.privateKey, password),
+  };
+};
+
+// Unlocks the private key with the password. The result is non-extractable:
+// JavaScript can use it but can never read its bytes, even via an XSS bug.
+export const unlockPrivateKey = (encryptedPrivateKey, password) =>
+  openPrivateKey(encryptedPrivateKey, password, false);
+
+// Password change: the same private key, locked again with the new password,
+// so everything encrypted before stays readable. The key is extractable only
+// inside this function, just long enough to lock it again.
+export const rewrapPrivateKey = async (encryptedPrivateKey, currentPassword, newPassword) => {
+  const privateKey = await openPrivateKey(encryptedPrivateKey, currentPassword, true);
+  return lockPrivateKey(privateKey, newPassword);
 };

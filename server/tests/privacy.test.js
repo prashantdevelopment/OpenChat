@@ -10,15 +10,17 @@ import { PASSWORD, TEST_KEYS, connectTestDb, disconnectTestDb, registerAndLogin 
 
 // Everything that must never reach another user.
 const BOB_EMAIL = "bobby_test@test.dev";
-const expectNothingPrivate = (payload, { allowOwnEmail } = {}) => {
+const expectNothingPrivate = (payload, { allowOwnEmail, allowOwnLockedKey } = {}) => {
     const json = JSON.stringify(payload);
     if (!allowOwnEmail) expect(json).not.toContain(BOB_EMAIL);
     expect(json).not.toContain('"password"');
     expect(json).not.toContain("$2b$");       // bcrypt hash prefix
     expect(json).not.toContain("lastReadAt");
-    // Locked private keys: only ever for their owner, at login (step 16).
-    expect(json).not.toContain("encryptedPrivateKey");
-    expect(json).not.toContain(TEST_KEYS.encryptedPrivateKey.data);
+    // Locked private keys: only for their owner, at login and /auth/me.
+    if (!allowOwnLockedKey) {
+        expect(json).not.toContain("encryptedPrivateKey");
+        expect(json).not.toContain(TEST_KEYS.encryptedPrivateKey.data);
+    }
 };
 
 let io, url, alice, bob, conversationId;
@@ -95,10 +97,19 @@ describe("what alice can see about bob", () => {
 });
 
 describe("a user's own data", () => {
-    it("login, /me, register and profile update return the user's own email but never the password", async () => {
+    it("login and /me return the user's own email and locked key, never the password", async () => {
         const responses = await Promise.all([
             request(app).post("/api/auth/login").send({ identifier: "bobby_test", password: PASSWORD }),
             request(app).get("/api/auth/me").set("Cookie", bob.cookie),
+        ]);
+        for (const res of responses) {
+            expect(res.status).toBe(200);
+            expectNothingPrivate(res.body, { allowOwnEmail: true, allowOwnLockedKey: true });
+        }
+    });
+
+    it("register and profile update don't even return the locked key", async () => {
+        const responses = await Promise.all([
             request(app).patch("/api/users/me").set("Cookie", bob.cookie).send({ bio: "hello" }),
             request(app).post("/api/users").send({ username: "newbie", email: "newbie@test.dev", password: PASSWORD, state: "goa", ...TEST_KEYS }),
         ]);

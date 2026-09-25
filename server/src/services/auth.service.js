@@ -18,7 +18,7 @@ const loginUser = async (identifier, password) => {
             { username: normalizedIdentifier }, 
             { email: normalizedIdentifier }
         ]
-    }).select("+password");
+    }).select("+password +encryptedPrivateKey");
 
     if (!findUser) {
         throw new AppError("Invalid username/email or password", 401);

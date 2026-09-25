@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { createKeyBundle, unlockPrivateKey, PBKDF2_ITERATIONS } from "../src/crypto/keys.js";
+import { createKeyBundle, unlockPrivateKey, rewrapPrivateKey, PBKDF2_ITERATIONS } from "../src/crypto/keys.js";
 
 // Runs in Node, which has the same Web Crypto API as the browser.
 // PBKDF2 with 600k iterations is deliberately slow, so allow some time.
@@ -66,6 +66,24 @@ describe("createKeyBundle / unlockPrivateKey", () => {
     const bobSide = await sharedKeyBytes(bobPrivate, alice.publicKey);
     expect(aliceSide).toBe(bobSide);
     expect(aliceSide).toHaveLength(64); // 256-bit key
+  }, TIMEOUT);
+
+  it("rewrap (password change): opens with the new password only, and it is still the same key", async () => {
+    const relocked = await rewrapPrivateKey(alice.encryptedPrivateKey, "alice passphrase", "alice NEW passphrase");
+    expect(relocked.salt).not.toBe(alice.encryptedPrivateKey.salt);
+    expect(relocked.iv).not.toBe(alice.encryptedPrivateKey.iv);
+    await expect(unlockPrivateKey(relocked, "alice passphrase")).rejects.toThrow();
+
+    // Same key pair: the shared key with bob is unchanged, so old messages stay readable.
+    const [before, after] = await Promise.all([
+      unlockPrivateKey(alice.encryptedPrivateKey, "alice passphrase"),
+      unlockPrivateKey(relocked, "alice NEW passphrase"),
+    ]);
+    expect(await sharedKeyBytes(after, bob.publicKey)).toBe(await sharedKeyBytes(before, bob.publicKey));
+  }, TIMEOUT);
+
+  it("rewrap refuses a wrong current password", async () => {
+    await expect(rewrapPrivateKey(alice.encryptedPrivateKey, "wrong", "anything new")).rejects.toThrow();
   }, TIMEOUT);
 
   it("accepts the same non-English password typed in a different Unicode form", async () => {

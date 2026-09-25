@@ -1,6 +1,6 @@
 import { createContext, use } from "react";
 
-// Holds { currentUser, setCurrentUser, logout } for the whole app.
+// Holds { currentUser, privateKey, login, unlock, logout } for the whole app.
 // The provider lives in AuthProvider.jsx.
 export const AuthContext = createContext(null);
 

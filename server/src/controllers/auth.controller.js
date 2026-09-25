@@ -1,5 +1,5 @@
 import { loginUser } from "../services/auth.service.js";
-import { getUserById } from "../services/user.service.js";
+import { getCurrentUser } from "../services/user.service.js";
 
 
 const loginUserController = async (req, res) => {
@@ -23,7 +23,7 @@ const loginUserController = async (req, res) => {
 
 
 const getCurrentUserController = async (req, res) => {
-    const user = await getUserById(req.user.userId);
+    const user = await getCurrentUser(req.user.userId);
     res.status(200).json({
         success: true,
         user
