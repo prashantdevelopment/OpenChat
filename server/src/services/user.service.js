@@ -32,6 +32,37 @@ const getUserById = async (userId) => {
     return user;
 }
 
+const MAX_SEARCH_RESULTS = 20;
+
+// Finds users whose username starts with `query` (case-insensitive).
+// Returns only public profile fields — never email or password.
+const searchUsers = async (query, currentUserId) => {
+    if (typeof query !== "string" || query.trim() === "") {
+        throw new AppError("Search query is required", 400);
+    }
+
+    const normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.length > 30) {
+        throw new AppError("Search query is too long", 400);
+    }
+
+    // The query goes into a regex, so escape every regex special character:
+    // otherwise ".*" would match everyone and patterns like "(a+)+$" could
+    // make the database work very hard (ReDoS).
+    const escapedQuery = normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    // Usernames are stored in lowercase, so an anchored "^prefix" regex can use
+    // the username index.
+    return User.find({
+        username: { $regex: `^${escapedQuery}` },
+        _id: { $ne: currentUserId },
+    })
+        .select("username avatar state")
+        .sort({ username: 1 })
+        .limit(MAX_SEARCH_RESULTS)
+        .lean();
+}
+
 const updateUser = async (userId, updateData) => {
     const allowedUpdates = {}
     if (updateData.username !== undefined) allowedUpdates.username = updateData.username;
@@ -70,5 +101,6 @@ export {
     createUser,
     getUserById,
     updateUser,
-    changePassword
+    changePassword,
+    searchUsers
 }   

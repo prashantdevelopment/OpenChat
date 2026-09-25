@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 10 – User search API + start conversation
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 11 – Per-user rooms + live sidebar
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -321,7 +321,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 |---|---|---|---|---|
 | 8 | React Router + AuthContext + protected routes (`/login`, `/register`, `/chat`, `/chat/:id`, 404) | done | 2026-09-25 | React Router 8 (declarative). `/chat/:conversationId?`, deep link kept through login, `ConversationView` keyed by id. 22/22 routing E2E; `/register` route comes with step 9 |
 | 9 | Registration page + server field whitelist + **required state** (dropdown, server-validated list) | done | 2026-09-25 | `/register` with labels, field errors, double-submit guard, auto-login. State list in `shared/indian-states.js` (server + client). 70 server tests, 19/19 register E2E |
-| 10 | User search API + "start conversation" | todo | | Without this, chats can only be created via Postman |
+| 10 | User search API + "start conversation" | done | 2026-09-25 | `GET /api/users/search` (prefix, regex-escaped, public fields, max 20); debounced `UserSearch` in the sidebar; simultaneous conversation creates no longer 409. 101 server tests, 19/19 search E2E |
 | 11 | Per-user rooms + live sidebar (`conversationUpdated`: last message, reorder) | todo | | |
 | 12 | Unread counts (`lastReadAt` per participant) | todo | | |
 | 13 | Message pagination (load older on scroll up) + indexes | todo | | |
@@ -414,4 +414,5 @@ Status values: `todo` · `in progress` · `done` · `blocked (<reason>)`
 - State: asked at registration (required).
 - Text: proper end-to-end encryption.
 - Agent Kit moved to the project root.
+- Username rules: 3–30 chars, lowercase letters/numbers/`.`/`_`, starts with a letter or number, no trailing or double dot, reserved names (admin, support, openchat, …) blocked.
 - Password policy (OWASP ASVS 5.0): 8–64 characters (max 72 bytes, the bcrypt limit), any characters, no composition rules, common passwords blocked. The built-in list is small; a larger breached-password list is part of step 51.

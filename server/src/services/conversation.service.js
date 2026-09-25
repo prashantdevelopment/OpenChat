@@ -53,12 +53,20 @@ const createOrGetConversation = async (currentUserId, otherUserId) => {
         return existingConversation;
     }
 
-    const newConversation = await Conversation.create({
-        participants: [currentUserId, otherUserId],
-        conversationKey
-    });
-
-    return newConversation;
+    try {
+        return await Conversation.create({
+            participants: [currentUserId, otherUserId],
+            conversationKey
+        });
+    } catch (err) {
+        // Two requests (e.g. a double click, or both users at once) can both
+        // miss the findOne above. The unique index lets only one create win;
+        // the other gets a duplicate-key error (11000) and returns the winner.
+        if (err.code === 11000) {
+            return Conversation.findOne({ conversationKey });
+        }
+        throw err;
+    }
 }
 
 

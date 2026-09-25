@@ -36,6 +36,18 @@ describe("POST /api/conversations", () => {
         expect((await createConversation(alice, alice.id)).status).toBe(400);
     });
 
+    it("handles two simultaneous creates: both succeed with the same conversation", async () => {
+        const dave = await registerAndLogin("dave_test");
+        const eve = await registerAndLogin("eve_test");
+        const results = await Promise.all([
+            createConversation(dave, eve.id),
+            createConversation(eve, dave.id),
+            createConversation(dave, eve.id),
+        ]);
+        expect(results.map((res) => res.status)).toEqual([200, 200, 200]);
+        expect(new Set(results.map((res) => res.body.conversation._id)).size).toBe(1);
+    });
+
     it("returns the same conversation no matter who creates it (no duplicates)", async () => {
         const fromAlice = await createConversation(alice, bob.id);
         const fromBob = await createConversation(bob, alice.id);
