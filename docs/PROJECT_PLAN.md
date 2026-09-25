@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 8 – React Router + AuthContext + protected routes (Phase A complete)
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 9 – Registration page + required state
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -319,7 +319,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 ### Phase B — Complete the core product flow (functional UI, minimal styling)
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
-| 8 | React Router + AuthContext + protected routes (`/login`, `/register`, `/chat`, `/chat/:id`, 404) | todo | | |
+| 8 | React Router + AuthContext + protected routes (`/login`, `/register`, `/chat`, `/chat/:id`, 404) | done | 2026-09-25 | React Router 8 (declarative). `/chat/:conversationId?`, deep link kept through login, `ConversationView` keyed by id. 22/22 routing E2E; `/register` route comes with step 9 |
 | 9 | Registration page + server field whitelist + **required state** (dropdown, server-validated list) | todo | | |
 | 10 | User search API + "start conversation" | todo | | Without this, chats can only be created via Postman |
 | 11 | Per-user rooms + live sidebar (`conversationUpdated`: last message, reorder) | todo | | |
@@ -396,7 +396,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 50 | helmet, rate limits (auth + socket events), socket session expiry | todo | | |
 | 51 | Security review incl. crypto (`owasp-security`); forward-secrecy study | todo | | |
 | 52 | SEO basics: titles, favicon, meta, 404 | todo | | |
-| 53 | Deploy: MongoDB Atlas, backend on a WebSocket-capable host, frontend host, same-site cookies, HTTPS | todo | | |
+| 53 | Deploy: MongoDB Atlas, backend on a WebSocket-capable host, frontend host, same-site cookies, HTTPS | todo | | SPA fallback: host must serve `index.html` for all app paths (e.g. `/chat/:id`) |
 | 54 | `launch-readiness-audit` | todo | | |
 
 Status values: `todo` · `in progress` · `done` · `blocked (<reason>)`

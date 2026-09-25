@@ -70,7 +70,7 @@ The main learning goals are:
 
 ## Local Setup
 
-Requirements: Node.js 20.19+ and MongoDB running locally (or a MongoDB Atlas URI).
+Requirements: Node.js 22.22+ and MongoDB running locally (or a MongoDB Atlas URI).
 
 1. Install dependencies from the project root:
    ```bash
