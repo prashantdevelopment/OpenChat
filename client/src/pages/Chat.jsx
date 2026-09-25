@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import socket from "../socket/socket.js";
 import axios from "axios";
 
-const Chat = ({ currentUser }) => {
+const Chat = ({ currentUser, onLogout }) => {
   const [messages, setMessages] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [conversationId, setConversationId] = useState(null);
@@ -121,6 +121,10 @@ const Chat = ({ currentUser }) => {
   return (
     <div>
       <h1>Chat</h1>
+      <p>
+        Logged in as {currentUser.username}{" "}
+        <button type="button" onClick={onLogout}>Logout</button>
+      </p>
 
       <div>
         <h2>Conversations:</h2>

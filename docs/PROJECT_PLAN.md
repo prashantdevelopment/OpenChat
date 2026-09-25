@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 4 – Session restore on refresh + logout
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 5 – Reconnect re-join + history race fix
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -311,7 +311,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 1 | Checkpoint current uncommitted work (message input, leaveConversation, bubbles) | done | 2026-09-25 | Committed by user (`84a8b64`) |
 | 2 | Harden socket handlers: try/catch, ack callbacks, content validation (string, trim, max length), one shared participant check | done | 2026-09-25 | Crash fixed; 26/26 two-user checks passed. Messages REST route now returns 400 for invalid ids |
 | 3 | REST input validation + error handler: ObjectId checks, `CastError` → 400, login body check, consistent `{success:false,message}` | done | 2026-09-25 | 35/35 REST checks + 12/12 socket regression passed. JSON 404, malformed JSON → 400, `POST /api/messages` removed |
-| 4 | Session restore on refresh (`/auth/me`) + logout | todo | | |
+| 4 | Session restore on refresh (`/auth/me`) + logout | done | 2026-09-25 | 14/14 browser E2E checks in Edge (refresh, logout, two-user chat) |
 | 5 | Reconnect: re-join room on `connect`; fix history race on fast switching | todo | | |
 | 6 | Client config: `VITE_API_URL`, one `api` axios instance, complete `.env.example` (server + client) | todo | | |
 | 7 | Test harness: Vitest + supertest + two-user socket test against a separate test DB | todo | | Makes every later step verifiable |
@@ -407,11 +407,11 @@ Status values: `todo` · `in progress` · `done` · `blocked (<reason>)`
 2. **Risk, cookies in production:** `sameSite: strict` only works if frontend and API are on the same site (e.g. `app.domain.com` + `api.domain.com`). Decide the hosting setup before step 53.
 3. **Risk, WebRTC across networks:** without a TURN server, many calls (mobile data, strict NAT) will fail.
 4. **Risk, E2EE and forgotten passwords:** a password reset cannot recover old messages. The UI must say so clearly (step 18).
-5. **Password policy (decide before step 9):** the current rules (8–16 chars, limited character set, forced composition) go against OWASP ASVS 5.0 (min 8, 15+ recommended, any characters allowed, no composition rules, block common passwords). With E2EE the password also protects the private key, so long passphrases matter even more. Suggested: 8–64 chars, any characters, no composition rules, block common passwords.
-6. **Existing dev data:** users created before step 9/15 have no `state` or keys. The plan is to clear dev data at step 15 rather than write a migration.
+5. **Existing dev data:** users created before step 9/15 have no `state` or keys. The plan is to clear dev data at step 15 rather than write a migration.
 
 **Resolved (2026-09-25):**
 - Design: `ui-ux-pro-max`, light default + dark toggle.
 - State: asked at registration (required).
 - Text: proper end-to-end encryption.
 - Agent Kit moved to the project root.
+- Password policy (OWASP ASVS 5.0): 8–64 characters (max 72 bytes, the bcrypt limit), any characters, no composition rules, common passwords blocked. The built-in list is small; a larger breached-password list is part of step 51.

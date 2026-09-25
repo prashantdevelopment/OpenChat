@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 
-const Login = ({ setIsLoggedIn, setCurrentUser }) => {
+const Login = ({ setCurrentUser }) => {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
 
@@ -18,12 +18,9 @@ const Login = ({ setIsLoggedIn, setCurrentUser }) => {
                     withCredentials: true
                 }
             )
-            console.log(response.data)
-
                 setIdentifier('')
                 setPassword('')
                 setCurrentUser(response.data.user)
-                setIsLoggedIn(true)
         } catch (error) {
             console.error('Error logging in:', error)
         }
