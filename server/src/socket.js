@@ -2,14 +2,18 @@ import { Server } from "socket.io";
 import { CLIENT_URL } from "./config/env.js";
 import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
-import { countUnread, getConversationForParticipant, markConversationRead } from "./services/conversation.service.js";
+import { countUnread, getContactIds, getConversationForParticipant, markConversationRead } from "./services/conversation.service.js";
+import User from "./models/user.model.js";
+import { socketClosed, socketOpened } from "./presence.js";
 import { createMessage } from "./services/message.service.js";
 
 const userRoom = (userId) => `user:${userId}`;
 
 // Builds the Socket.IO server on top of an HTTP server (like app.js builds
 // the Express app). server.js starts it; tests create their own.
-const createSocketServer = (httpServer) => {
+// presenceGraceMs: how long a user whose last tab closed still counts as
+// online (a page reload reconnects within that time). Tests make it short.
+const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
     const io = new Server(httpServer, {
         cors: {
             origin: CLIENT_URL,
@@ -18,6 +22,12 @@ const createSocketServer = (httpServer) => {
     });
 
     io.use(socketAuthMiddleware);
+
+    // Presence goes only to people who share a conversation with the user.
+    const notifyContacts = async (userId, presence) => {
+        const contactIds = await getContactIds(userId);
+        contactIds.forEach((contactId) => io.to(userRoom(contactId)).emit("presence", { userId, ...presence }));
+    };
     io.on("connection", (socket) => {
         console.log("A user connected:", socket.id , "User ID:", socket.userId);
 
@@ -25,6 +35,11 @@ const createSocketServer = (httpServer) => {
         // server can reach the user no matter which conversation is open.
         // Joined on every connection, so it survives reconnects automatically.
         socket.join(userRoom(socket.userId));
+
+        // First tab/device: tell the contacts. (More tabs change nothing.)
+        if (socketOpened(socket.userId)) {
+            notifyContacts(socket.userId, { online: true }).catch((err) => console.error("Presence error:", err));
+        }
 
         // Socket handlers are not covered by Express's error middleware:
         // an uncaught error here would crash the whole server, so every
@@ -120,6 +135,15 @@ const createSocketServer = (httpServer) => {
 
         socket.on("disconnect", () => {
             console.log("A user disconnected:", socket.id, "User ID:", socket.userId);
+            socketClosed(socket.userId, presenceGraceMs, async () => {
+                try {
+                    const lastSeen = new Date();
+                    await User.updateOne({ _id: socket.userId }, { lastSeen });
+                    await notifyContacts(socket.userId, { online: false, lastSeen });
+                } catch (err) {
+                    console.error("Presence error:", err);
+                }
+            });
         });
     });
 

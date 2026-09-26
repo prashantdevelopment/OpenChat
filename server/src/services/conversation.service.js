@@ -3,6 +3,7 @@ import  Conversation  from '../models/conversation.model.js';
 import AppError from '../utils/AppError.js';
 import User, { PUBLIC_USER_FIELDS } from '../models/user.model.js';
 import Message from '../models/message.model.js';
+import { isOnline } from "../presence.js";
 
 
 const getConversationForParticipant = async (conversationId, userId) => {
@@ -90,7 +91,9 @@ const getUserConversations = async (userId) => {
     const conversations = await Conversation.find({
         participants: userId
     })
-    .populate("participants", PUBLIC_USER_FIELDS)
+    // lastSeen only here: people you chat with may see it, strangers who
+    // search for you may not (it is not in PUBLIC_USER_FIELDS).
+    .populate("participants", `${PUBLIC_USER_FIELDS} lastSeen`)
     .sort({ lastMessageAt: -1 });
 
     if (conversations.length === 0) {
@@ -106,10 +109,21 @@ const getUserConversations = async (userId) => {
     const unreadById = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
     // toJSON() applies the model's privacy rules (no lastReadAt).
-    return conversations.map((conversation) => ({
-        ...conversation.toJSON(),
-        unreadCount: unreadById.get(conversation._id.toString()) ?? 0
-    }));
+    return conversations.map((conversation) => {
+        const json = conversation.toJSON();
+        return {
+            ...json,
+            participants: json.participants.map((participant) => ({ ...participant, online: isOnline(participant._id) })),
+            unreadCount: unreadById.get(conversation._id.toString()) ?? 0
+        };
+    });
+};
+
+// Everyone who shares a conversation with the user: they are told when the
+// user comes online or goes offline.
+const getContactIds = async (userId) => {
+    const ids = await Conversation.distinct("participants", { participants: userId });
+    return ids.map(String).filter((id) => id !== String(userId));
 };
 
 const markConversationRead = async (conversationId, userId) => {
@@ -128,5 +142,6 @@ export {
     getUserConversations,
     getConversationForParticipant,
     countUnread,
-    markConversationRead
+    markConversationRead,
+    getContactIds
 };

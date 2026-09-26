@@ -45,3 +45,15 @@ export const formatConversationTime = (value, now = new Date()) => {
 // Full date and time, for tooltips and screen readers.
 export const formatFullDateTime = (value) =>
   new Date(value).toLocaleString(LOCALE, { dateStyle: "medium", timeStyle: "short" });
+
+// Chat header, for someone who is offline: "Last seen today at 10:42 am",
+// "Last seen yesterday at 9:05 pm", "Last seen Tue at 8:00 am" (this week),
+// "Last seen 12 Sept" or "Last seen 12 Sept 2025".
+export const formatLastSeen = (value, now = new Date()) => {
+  const date = new Date(value);
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / DAY_MS);
+  if (days <= 0) return `Last seen today at ${formatTimeOfDay(date)}`;
+  if (days === 1) return `Last seen yesterday at ${formatTimeOfDay(date)}`;
+  if (days < 7) return `Last seen ${formatConversationTime(date, now)} at ${formatTimeOfDay(date)}`;
+  return `Last seen ${formatConversationTime(date, now)}`;
+};

@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 29 – Presence: online/offline + last seen (multi-tab aware, in memory)
+**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 30 – Typing indicator (throttled, auto-stop)
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -353,7 +353,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 ### Phase E — Real-time features (one at a time)
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
-| 29 | Presence: online/offline + last seen (multi-tab aware, in memory) | todo | | |
+| 29 | Presence: online/offline + last seen (multi-tab aware, in memory) | done | 2026-09-26 | `server/src/presence.js`: userId → open sockets (tabs/devices), in memory; the unused `isOnline` DB field was removed (it would stay "online" after a crash). Offline only when the last tab closes, after a 5s grace period (a reload never shows as offline); then `lastSeen` is saved. `presence` events go only to people who share a conversation; `online`/`lastSeen` appear only in your own conversation list, never in search. Client: green dot on the avatar (+ "online" for screen readers), header "Online" / "Last seen today at 10:42 am" (`formatLastSeen`); the list reload after a reconnect catches up on missed changes. 171 server tests (+4), 15/15 presence E2E |
 | 30 | Typing indicator (throttled, auto-stop) | todo | | |
 | 31 | Delivered + read receipts (privacy toggle) | todo | | |
 | 32 | Notifications: tab title badge, optional browser notification (text decrypted in the browser) | todo | | |

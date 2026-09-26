@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastManager } from "@/components/ui/toast";
 import { useIsConnected } from "../socket/useIsConnected.js";
+import { formatLastSeen } from "../lib/time.js";
 import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 
@@ -101,11 +102,30 @@ const Chat = () => {
       );
     };
 
+    // A contact came online or went offline (the server only tells us about
+    // people we share a conversation with).
+    const handlePresence = ({ userId, online, lastSeen }) => {
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation.participants.some((participant) => participant._id === userId)
+            ? {
+                ...conversation,
+                participants: conversation.participants.map((participant) =>
+                  participant._id === userId ? { ...participant, online, lastSeen: lastSeen ?? participant.lastSeen } : participant,
+                ),
+              }
+            : conversation,
+        ),
+      );
+    };
+
     socket.on("conversationUpdated", handleConversationUpdated);
+    socket.on("presence", handlePresence);
     socket.on("conversationRead", handleConversationRead);
     socket.io.on("reconnect", handleReconnect);
     return () => {
       socket.off("conversationUpdated", handleConversationUpdated);
+      socket.off("presence", handlePresence);
       socket.off("conversationRead", handleConversationRead);
       socket.io.off("reconnect", handleReconnect);
     };
@@ -234,10 +254,18 @@ const Chat = () => {
                 >
                   <ArrowLeftIcon aria-hidden="true" />
                 </Button>
-                {peer ? <Avatar name={peer.username} /> : null}
+                {peer ? <Avatar name={peer.username} online={peer.online} /> : null}
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-base leading-tight">{peer?.username ?? "Conversation"}</h2>
-                  <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={peer?.username} />
+                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                    {peer?.online ? (
+                      <span className="font-medium text-success-foreground">Online</span>
+                    ) : peer?.lastSeen ? (
+                      <span>{formatLastSeen(peer.lastSeen)}</span>
+                    ) : null}
+                    {peer?.online || peer?.lastSeen ? <span aria-hidden="true">·</span> : null}
+                    <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={peer?.username} />
+                  </div>
                 </div>
               </header>
               <ConversationView

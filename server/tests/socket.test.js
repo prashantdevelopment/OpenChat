@@ -9,6 +9,8 @@ import Message from "../src/models/message.model.js";
 import Conversation from "../src/models/conversation.model.js";
 import { connectTestDb, disconnectTestDb, encrypted, readText, registerAndLogin } from "./helpers.js";
 
+// Short, so the presence tests do not wait 5 seconds.
+const PRESENCE_GRACE_MS = 400;
 let io, url;
 let alice, bob, carol, conversationId;
 const openSockets = [];
@@ -17,7 +19,7 @@ const openSockets = [];
 beforeAll(async () => {
     await connectTestDb();
     const httpServer = createServer(app);
-    io = createSocketServer(httpServer);
+    io = createSocketServer(httpServer, { presenceGraceMs: PRESENCE_GRACE_MS });
     await new Promise((resolve) => httpServer.listen(0, resolve));
     url = `http://localhost:${httpServer.address().port}`;
 
@@ -424,5 +426,86 @@ describe("robustness", () => {
         await emitWithAck(b, "sendMessage", { conversationId, ...encrypted("after leave") });
         await waitForDelivery();
         expect(toA).toEqual([]);
+    });
+});
+
+describe("presence (online / last seen)", () => {
+    // Own users, so other tests' connections and conversations don't interfere.
+    let ana, ben, chetan;
+    beforeAll(async () => {
+        [ana, ben, chetan] = await Promise.all(["ana_pres", "ben_pres", "chetan_pres"].map(registerAndLogin));
+        await request(app).post("/api/conversations").set("Cookie", ana.cookie).send({ otherUserId: ben.id });
+    });
+
+    const collectPresence = (socket) => {
+        const received = [];
+        socket.on("presence", (event) => received.push(event));
+        return received;
+    };
+    const afterGrace = () => new Promise((resolve) => setTimeout(resolve, PRESENCE_GRACE_MS + 150));
+    const presenceOf = async (viewer, userId) => {
+        const res = await request(app).get("/api/conversations").set("Cookie", viewer.cookie);
+        return res.body.conversations.flatMap((c) => c.participants).find((p) => p._id === userId);
+    };
+
+    it("tells contacts when someone comes online, and nobody else", async () => {
+        const [b, c] = await Promise.all([connectAs(ben), connectAs(chetan)]);
+        const [toBen, toChetan] = [collectPresence(b), collectPresence(c)];
+        const a = await connectAs(ana);
+        await waitForDelivery();
+
+        expect(toBen).toEqual([{ userId: ana.id, online: true }]);
+        expect(toChetan).toEqual([]);
+        expect((await presenceOf(ben, ana.id)).online).toBe(true);
+
+        a.disconnect();
+        await afterGrace();
+    });
+
+    it("counts tabs: only the last one closing makes the user offline, after a grace period", async () => {
+        const b = await connectAs(ben);
+        const toBen = collectPresence(b);
+        const tab1 = await connectAs(ana);
+        const tab2 = await connectAs(ana);
+        await waitForDelivery();
+        expect(toBen).toEqual([{ userId: ana.id, online: true }]); // not twice
+
+        tab1.disconnect();
+        await afterGrace();
+        expect(toBen).toHaveLength(1); // still online in tab 2
+
+        const before = Date.now();
+        tab2.disconnect();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(toBen).toHaveLength(1); // grace period: not offline yet
+        expect((await presenceOf(ben, ana.id)).online).toBe(true);
+
+        await afterGrace();
+        expect(toBen).toHaveLength(2);
+        const offline = toBen[1];
+        expect(offline).toMatchObject({ userId: ana.id, online: false });
+        expect(new Date(offline.lastSeen).getTime()).toBeGreaterThanOrEqual(before);
+
+        const seen = await presenceOf(ben, ana.id);
+        expect(seen.online).toBe(false);
+        expect(seen.lastSeen).toBe(offline.lastSeen); // saved in the database
+    });
+
+    it("a quick reconnect (page reload) is not reported at all", async () => {
+        const b = await connectAs(ben);
+        const a = await connectAs(ana);
+        await afterGrace();
+        const toBen = collectPresence(b);
+
+        a.disconnect();
+        await connectAs(ana); // back within the grace period
+        await afterGrace();
+        expect(toBen).toEqual([]);
+    });
+
+    it("never shows last seen or online status in search results", async () => {
+        const res = await request(app).get("/api/users/search").query({ q: "ana_pres" }).set("Cookie", chetan.cookie);
+        expect(res.body.users[0]).not.toHaveProperty("lastSeen");
+        expect(res.body.users[0]).not.toHaveProperty("online");
     });
 });

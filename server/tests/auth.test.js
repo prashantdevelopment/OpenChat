@@ -45,13 +45,13 @@ describe("POST /api/users (register)", () => {
             email: "sneaky@test.dev",
             password: PASSWORD,
             _id: "64b000000000000000000001",
-            isOnline: true,
+            lastSeen: "2000-01-01T00:00:00.000Z",
             bio: "set by attacker",
             createdAt: "2000-01-01T00:00:00.000Z",
         });
         expect(res.status).toBe(201);
         expect(res.body.createdUser._id).not.toBe("64b000000000000000000001");
-        expect(res.body.createdUser.isOnline).toBe(false);
+        expect(res.body.createdUser.lastSeen).toBeNull();
         expect(res.body.createdUser.bio).toBe("");
         expect(res.body.createdUser.createdAt).not.toBe("2000-01-01T00:00:00.000Z");
     });

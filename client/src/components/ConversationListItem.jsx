@@ -31,12 +31,13 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
           )
         }
       >
-        <Avatar name={otherParticipant?.username} />
+        <Avatar name={otherParticipant?.username} online={otherParticipant?.online} />
 
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
             <span className={cn("min-w-0 flex-1 truncate", isUnread ? "font-semibold" : "font-medium")}>
               {otherParticipant?.username}
+              {otherParticipant?.online ? <span className="sr-only">, online</span> : null}
             </span>
             {lastMessageAt ? (
               <time

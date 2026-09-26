@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatConversationTime, formatFullDateTime } from "../src/lib/time.js";
+import { formatConversationTime, formatFullDateTime, formatLastSeen } from "../src/lib/time.js";
 
 // A fixed "now": Saturday 26 September 2026, 3:30 pm (local time).
 const now = new Date(2026, 8, 26, 15, 30);
@@ -41,5 +41,20 @@ describe("formatConversationTime", () => {
 describe("formatFullDateTime", () => {
   it("gives the full date and time", () => {
     expect(formatFullDateTime(at(8, 12, 10, 42))).toMatch(/^12 Sept?,? 2026,? (at )?10:42\s?am$/i);
+  });
+});
+
+describe("formatLastSeen", () => {
+  const now = new Date(2026, 8, 26, 15, 30); // Saturday 26 September 2026
+
+  it("says today / yesterday with the time", () => {
+    expect(formatLastSeen(new Date(2026, 8, 26, 10, 42), now)).toMatch(/^Last seen today at 10:42\s?am$/i);
+    expect(formatLastSeen(new Date(2026, 8, 25, 21, 5), now)).toMatch(/^Last seen yesterday at 9:05\s?pm$/i);
+  });
+
+  it("uses the weekday within a week, the date after that", () => {
+    expect(formatLastSeen(new Date(2026, 8, 22, 8, 0), now)).toMatch(/^Last seen Tue at 8:00\s?am$/i);
+    expect(formatLastSeen(new Date(2026, 8, 12, 8, 0), now)).toMatch(/^Last seen 12 Sept?$/);
+    expect(formatLastSeen(new Date(2025, 11, 31, 8, 0), now)).toBe("Last seen 31 Dec 2025");
   });
 });

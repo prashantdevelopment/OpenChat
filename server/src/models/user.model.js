@@ -117,10 +117,8 @@ const userSchema =  new mongoose.Schema({
         maxlength: [160, "Bio must be at most 160 characters long"],
         default: ""
     },
-    isOnline: {
-        type: Boolean,
-        default: false
-    },
+    // When the user's last tab closed. Whether they are online right now is
+    // kept in memory (src/presence.js), not here.
     lastSeen: {
         type: Date,
         default: null
