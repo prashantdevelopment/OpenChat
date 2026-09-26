@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-27 · **Next step:** 45 – Landing page structure + content
+**Status:** Approved, building · **Last updated:** 2026-09-27 · **Next step:** 46 – Landing 3D hero (ThreeUI / R3F / shader), poster fallback
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -385,7 +385,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 ### Phase I — Landing page & motion polish
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
-| 45 | Landing page structure + content | todo | | |
+| 45 | Landing page structure + content | done | 2026-09-27 | `client/src/pages/Landing.jsx` at `/` (logged in: straight to `/chat`, like /login and /register): skip link; sticky header (logo, Log in, Create account, theme toggle); hero with the promise, two CTAs and a static example conversation drawn in the app's own styles (no image; the poster the 3D hero of step 46 builds on); six feature cards (encryption, files, calls, online/typing/read, Discover by state, Hindi and English), all claims true to what's built; live presence teaser; footer. `client/src/components/LandingPresence.jsx`: total online and the 5 busiest states, refreshed every 30 s while the tab is visible, skeleton while loading, calm message if it fails. **`GET /api/presence/states` is now public** (the teaser needs it): counts only, under 5 still hidden for everyone, nothing a free account couldn't see; rate limits come in step 50. Meta description + `<title>`; buttons no longer pick up the old global link underline (`no-underline` in `Button`). No three.js on this page. Server test updated (public, counts only); 25/25 landing E2E (visitor, counts hidden under 5, never usernames, auto refresh, skip link, all CTAs, dark theme, API down, logged-in redirect, 360px phone); mutation check (endpoint behind login again) caught. 3 older suites now open `/login` instead of `/` |
 | 46 | Landing 3D hero (ThreeUI / R3F / shader), poster fallback | todo | | |
 | 47 | App motion polish with `motion` (messages, lists, overlays, routes) | todo | | |
 | 48 | Accessibility + reduced-motion pass (both themes) | todo | | |

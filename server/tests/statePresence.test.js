@@ -45,8 +45,11 @@ const fromApi = async () => (await request(app).get("/api/presence/states").set(
 describe("online counts per state", () => {
     let watching, updates;
 
-    it("needs a login", async () => {
-        expect((await request(app).get("/api/presence/states")).status).toBe(401);
+    it("is public (the landing page), and still counts only", async () => {
+        const response = await request(app).get("/api/presence/states");
+        expect(response.status).toBe(200);
+        expect(response.body.states).toHaveLength(36);
+        expect(response.body.total).toBeNull(); // nobody online yet: fewer than 5
     });
 
     it("counts people per state, hiding counts under 5", async () => {

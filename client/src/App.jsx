@@ -1,11 +1,12 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router";
+import { Route, Routes } from "react-router";
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import PublicLayout from "./components/PublicLayout.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Chat from "./pages/Chat.jsx";
 import NotFound from "./pages/NotFound.jsx";
+import Landing from "./pages/Landing.jsx";
 import { Spinner } from "@/components/ui/spinner";
 
 // Opened now and then, so it is downloaded only when needed (its own file).
@@ -21,7 +22,7 @@ const PageSpinner = () => (
 const App = () => {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/chat" replace />} />
+      <Route path="/" element={<Landing />} />
 
       <Route element={<PublicLayout />}>
         <Route path="/login" element={<Login />} />
