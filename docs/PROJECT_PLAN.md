@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 21 – Sidebar + conversation items
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 22 – Chat header
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -341,7 +341,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 |---|---|---|---|---|
 | 19 | Design foundation: `ui-ux-pro-max` design system → MASTER.md, Tailwind v4, shadcn/coss init, tokens, **light default + dark toggle** | done | 2026-09-26 | `design-system/openchat/MASTER.md` (generated + reviewed "OpenChat decisions": WCAG-checked light/dark tokens, fixed a failing generated button colour, Hindi-capable self-hosted fonts Poppins + Noto Sans Devanagari); Tailwind v4 (Vite plugin); shadcn with coss ui (`components.json`, only Button + Spinner kept, the rest added per step); `ThemeToggle` + no-flash inline script; interim base styles keep plain buttons/links/inputs usable. 21/21 theme E2E |
 | 20 | App layout shell: 2-pane desktop, 1-pane mobile (360 → 1440px) | done | 2026-09-26 | Full-height (`h-dvh`) shell: 320px sidebar + chat pane from 768px; below that the URL picks one pane (back link + the phone's back button). Page never scrolls; messages scroll, composer stays at the bottom. Chat header with the other person's name; theme toggle in the sidebar header; `PublicLayout` for login/register/404/unlock. 23/23 layout E2E at 1280, 768, 360px |
-| 21 | Sidebar + conversation items (avatar, name, last message, time, unread) | todo | | |
+| 21 | Sidebar + conversation items (avatar, name, last message, time, unread) | done | 2026-09-26 | `ConversationListItem`: initial-letter `Avatar`, name, en-IN time (`lib/time.js`: "10:42 am" / "Yesterday" / "Tue" / "12 Sept"), one-line truncated preview ("You:" / "No messages yet"), unread badge (99+, screen-reader "N unread"), bolder unread, highlighted active row; `ul > li` list; empty state; styled search results. All new colour pairs WCAG-checked. 31 client tests, 29/29 sidebar-items E2E |
 | 22 | Chat header (incl. encryption lock indicator) | todo | | |
 | 23 | Message bubbles: grouping, timestamps, date separators | todo | | |
 | 24 | Composer: multi-line, Shift+Enter, sending/failed state, retry | todo | | |

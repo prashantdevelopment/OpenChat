@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "../api/api.js";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import Avatar from "./Avatar.jsx";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
 
 const SEARCH_DELAY_MS = 300;
@@ -47,11 +50,13 @@ const UserSearch = ({ onMessageUser }) => {
 
   return (
     <div>
-      <label htmlFor="user-search">Find people</label>
-      <br />
+      <label htmlFor="user-search" className="mb-1.5 block text-sm font-medium">
+        Find people
+      </label>
       <input
         id="user-search"
         type="search"
+        className="w-full"
         placeholder="Search by username"
         autoComplete="off"
         maxLength={30}
@@ -60,23 +65,38 @@ const UserSearch = ({ onMessageUser }) => {
       />
 
       {/* aria-live: screen readers announce "No users found" etc. */}
-      <p aria-live="polite">{status}</p>
+      <p
+        aria-live="polite"
+        className={cn(
+          "text-sm",
+          status && "mt-2",
+          hasResults && search.error ? "text-destructive-foreground" : "text-muted-foreground",
+        )}
+      >
+        {status}
+      </p>
 
       {hasResults && search.users.length > 0 ? (
-        <ul>
+        <ul className="mt-2 flex flex-col gap-1">
           {search.users.map((user) => (
-            <li key={user._id}>
-              {user.username}
-              {stateName(user.state) ? ` · ${stateName(user.state)}` : ""}{" "}
-              <button
-                type="button"
+            <li key={user._id} className="flex items-center gap-3 rounded-lg px-1 py-1.5">
+              <Avatar name={user.username} className="size-9 text-sm" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{user.username}</span>
+                {stateName(user.state) ? (
+                  <span className="block truncate text-xs text-muted-foreground">{stateName(user.state)}</span>
+                ) : null}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setQuery("");
                   onMessageUser(user);
                 }}
               >
                 Message
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

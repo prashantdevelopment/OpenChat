@@ -20,12 +20,17 @@ const Chat = () => {
   // refresh, back/forward and shared links all keep it.
   const { conversationId } = useParams();
   const [conversations, setConversations] = useState([]);
+  // Show "no conversations yet" only once we know it is true (not while loading).
+  const [hasLoadedConversations, setHasLoadedConversations] = useState(false);
   const navigate = useNavigate();
 
   // Fetch conversations
   useEffect(() => {
     getConversations()
-      .then(setConversations)
+      .then((list) => {
+        setConversations(list);
+        setHasLoadedConversations(true);
+      })
       .catch((error) => console.error("Error fetching conversations:", error));
   }, []);
 
@@ -129,9 +134,18 @@ const Chat = () => {
 
         <nav aria-label="Conversations" className="min-h-0 flex-1 overflow-y-auto p-2">
           <h2 className="sr-only">Conversations</h2>
-          {conversations.map((conversation) => (
-            <ConversationListItem key={conversation._id} conversation={conversation} currentUserId={currentUser._id} />
-          ))}
+          {hasLoadedConversations && conversations.length === 0 ? (
+            <div className="px-3 py-8 text-center">
+              <p className="font-medium">No conversations yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">Find someone above and send them a message.</p>
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-0.5">
+              {conversations.map((conversation) => (
+                <ConversationListItem key={conversation._id} conversation={conversation} currentUserId={currentUser._id} />
+              ))}
+            </ul>
+          )}
         </nav>
       </aside>
 
