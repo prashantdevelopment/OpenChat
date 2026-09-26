@@ -4,7 +4,8 @@ import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
 import { countUnread, getContactIds, getConversationForParticipant, markAllDelivered, markConversationDelivered, markConversationRead, readReceiptsShared } from "./services/conversation.service.js";
 import User from "./models/user.model.js";
-import { socketClosed, socketOpened } from "./presence.js";
+import { isOnline, socketClosed, socketOpened } from "./presence.js";
+import { markOffline, markOnline, statePresenceSnapshot } from "./statePresence.js";
 import { createMessage } from "./services/message.service.js";
 import registerCallHandlers from "./calls.js";
 
@@ -14,7 +15,10 @@ const userRoom = (userId) => `user:${userId}`;
 // the Express app). server.js starts it; tests create their own.
 // presenceGraceMs: how long a user whose last tab closed still counts as
 // online (a page reload reconnects within that time). Tests make it short.
-const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
+// statePresenceIntervalMs: the state counts (for the Discover page) are sent
+// at most this often, and only when they changed.
+const STATE_PRESENCE_ROOM = "state-presence";
+const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceIntervalMs = 3000 } = {}) => {
     const io = new Server(httpServer, {
         cors: {
             origin: CLIENT_URL,
@@ -32,6 +36,23 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
             .forEach((participantId) => {
                 io.to(userRoom(participantId)).emit("receipt", { conversationId: conversation._id, userId, ...times });
             });
+    };
+
+    // Online counts per state, to the pages that watch them (Discover).
+    // Batched: many people coming online at once cause one update.
+    let lastSentCounts = JSON.stringify(statePresenceSnapshot());
+    let countsTimer = null;
+    const scheduleStateCounts = () => {
+        if (countsTimer) return;
+        countsTimer = setTimeout(() => {
+            countsTimer = null;
+            const snapshot = statePresenceSnapshot();
+            const json = JSON.stringify(snapshot);
+            if (json === lastSentCounts) return;
+            lastSentCounts = json;
+            io.to(STATE_PRESENCE_ROOM).emit("statePresence", snapshot);
+        }, statePresenceIntervalMs);
+        countsTimer.unref(); // never keeps the process alive on its own
     };
 
     // Presence goes only to people who share a conversation with the user.
@@ -55,7 +76,24 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
         // First tab/device: tell the contacts. (More tabs change nothing.)
         if (socketOpened(socket.userId)) {
             notifyContacts(socket.userId, { online: true }).catch((err) => console.error("Presence error:", err));
+            // Counted in their state. (Still online once the state is loaded:
+            // a very quick disconnect must not leave a count behind.)
+            User.findById(socket.userId).select("state")
+                .then((user) => {
+                    if (user && isOnline(socket.userId)) {
+                        markOnline(socket.userId, user.state);
+                        scheduleStateCounts();
+                    }
+                })
+                .catch((err) => console.error("Presence error:", err));
         }
+
+        // The Discover page: current counts now (in the ack), then live updates.
+        socket.on("watchStatePresence", (ack) => {
+            socket.join(STATE_PRESENCE_ROOM);
+            if (typeof ack === "function") ack({ success: true, ...statePresenceSnapshot() });
+        });
+        socket.on("unwatchStatePresence", () => socket.leave(STATE_PRESENCE_ROOM));
 
         // Socket handlers are not covered by Express's error middleware:
         // an uncaught error here would crash the whole server, so every
@@ -180,6 +218,8 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
         socket.on("disconnect", () => {
             console.log("A user disconnected:", socket.id, "User ID:", socket.userId);
             socketClosed(socket.userId, presenceGraceMs, async () => {
+                markOffline(socket.userId);
+                scheduleStateCounts();
                 try {
                     const lastSeen = new Date();
                     await User.updateOne({ _id: socket.userId }, { lastSeen });
