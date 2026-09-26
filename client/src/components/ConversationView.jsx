@@ -49,7 +49,7 @@ const enterSends = () => !window.matchMedia("(pointer: coarse)").matches;
 // mounts a fresh instance and all of this state starts empty.
 // peerPublicKey: the other participant's public key, needed to derive the
 // conversation's encryption key (undefined until the conversation list loads).
-const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName }) => {
+const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName, receipts }) => {
   // The loaded messages and whether older ones exist on the server. Kept in
   // one state object because they always change together.
   const [history, setHistory] = useState({ messages: [], hasOlder: false });
@@ -403,6 +403,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
                   senderName={peerName}
                   isFirstInGroup={item.isFirstInGroup}
                   isLastInGroup={item.isLastInGroup}
+                  receipts={receipts}
                   onRetry={item.message.status ? () => deliver(item.message) : undefined}
                 />
               ),

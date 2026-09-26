@@ -77,6 +77,13 @@ const updateUser = async (userId, updateData) => {
     if (updateData.username !== undefined) allowedUpdates.username = updateData.username;
     if (updateData.bio !== undefined) allowedUpdates.bio = updateData.bio;
     if (updateData.state !== undefined) allowedUpdates.state = updateData.state;
+    if (updateData.readReceipts !== undefined) {
+        // Strict: Mongoose would turn "no" or 0 into false without complaint.
+        if (typeof updateData.readReceipts !== "boolean") {
+            throw new AppError("readReceipts must be true or false", 400);
+        }
+        allowedUpdates.readReceipts = updateData.readReceipts;
+    }
     if(Object.keys(allowedUpdates).length === 0) {
         throw new AppError("No valid fields provided for update", 400);
     }

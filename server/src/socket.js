@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import { CLIENT_URL } from "./config/env.js";
 import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
-import { countUnread, getContactIds, getConversationForParticipant, markConversationRead } from "./services/conversation.service.js";
+import { countUnread, getContactIds, getConversationForParticipant, markAllDelivered, markConversationDelivered, markConversationRead, readReceiptsShared } from "./services/conversation.service.js";
 import User from "./models/user.model.js";
 import { socketClosed, socketOpened } from "./presence.js";
 import { createMessage } from "./services/message.service.js";
@@ -23,6 +23,16 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
 
     io.use(socketAuthMiddleware);
 
+    // Delivered / read receipt: to the other participants (every tab), so
+    // their messages get the right ticks. { deliveredAt } and/or { readAt }.
+    const sendReceipt = (conversation, userId, times) => {
+        conversation.participants
+            .filter((participantId) => participantId.toString() !== userId)
+            .forEach((participantId) => {
+                io.to(userRoom(participantId)).emit("receipt", { conversationId: conversation._id, userId, ...times });
+            });
+    };
+
     // Presence goes only to people who share a conversation with the user.
     const notifyContacts = async (userId, presence) => {
         const contactIds = await getContactIds(userId);
@@ -35,6 +45,11 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
         // server can reach the user no matter which conversation is open.
         // Joined on every connection, so it survives reconnects automatically.
         socket.join(userRoom(socket.userId));
+
+        // The app is open: messages sent while the user was away have arrived.
+        markAllDelivered(socket.userId)
+            .then((delivered) => delivered.forEach(({ conversation, deliveredAt }) => sendReceipt(conversation, socket.userId, { deliveredAt })))
+            .catch((err) => console.error("Receipt error:", err));
 
         // First tab/device: tell the contacts. (More tabs change nothing.)
         if (socketOpened(socket.userId)) {
@@ -119,8 +134,11 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
         // are a separate, optional feature).
         socket.on("markRead", async (conversationId, ack) => {
             try {
-                const conversation = await markConversationRead(conversationId, socket.userId);
+                const { conversation, readAt } = await markConversationRead(conversationId, socket.userId);
                 io.to(userRoom(socket.userId)).emit("conversationRead", { _id: conversation._id });
+                // Read implies delivered. The read time only if both share read receipts.
+                const shared = await readReceiptsShared(conversation);
+                sendReceipt(conversation, socket.userId, shared ? { deliveredAt: readAt, readAt } : { deliveredAt: readAt });
 
                 if (typeof ack === "function") ack({ success: true });
             } catch (err) {
@@ -137,6 +155,18 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
             if (typeof conversationId !== "string" || typeof data.isTyping !== "boolean") return;
             if (!socket.rooms.has(conversationId)) return;
             socket.to(conversationId).emit("typing", { conversationId, userId: socket.userId, isTyping: data.isTyping });
+        });
+
+        // The client received a new message notice (conversationUpdated) for a
+        // conversation: its messages reached this device.
+        socket.on("markDelivered", async (conversationId, ack) => {
+            try {
+                const { conversation, deliveredAt } = await markConversationDelivered(conversationId, socket.userId);
+                sendReceipt(conversation, socket.userId, { deliveredAt });
+                if (typeof ack === "function") ack({ success: true });
+            } catch (err) {
+                replyWithError(err, ack);
+            }
         });
 
         socket.on("leaveConversation", (conversationId) => {

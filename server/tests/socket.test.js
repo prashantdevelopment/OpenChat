@@ -562,3 +562,111 @@ describe("typing indicator", () => {
         expect((await emitWithAck(a, "joinConversation", conversationId)).success).toBe(true); // still alive
     });
 });
+
+describe("delivered and read receipts", () => {
+    let rita, sam, tara, chatId;
+    beforeAll(async () => {
+        [rita, sam, tara] = await Promise.all(["rita_rcpt", "sam_rcpt", "tara_rcpt"].map(registerAndLogin));
+        const res = await request(app).post("/api/conversations").set("Cookie", rita.cookie).send({ otherUserId: sam.id });
+        chatId = res.body.conversation._id;
+    });
+
+    const collectReceipts = (socket) => {
+        const received = [];
+        socket.on("receipt", (event) => received.push(event));
+        return received;
+    };
+    const receiptsSeenBy = async (user) => {
+        const res = await request(app).get("/api/conversations").set("Cookie", user.cookie);
+        return res.body.conversations.find((c) => c._id === chatId);
+    };
+    const setReadReceipts = (user, value) =>
+        request(app).patch("/api/users/me").set("Cookie", user.cookie).send({ readReceipts: value });
+
+    it("delivered: the recipient's app confirms, the sender is told", async () => {
+        const [r, s] = await Promise.all([connectAs(rita), connectAs(sam)]);
+        await waitForDelivery();
+        const toRita = collectReceipts(r);
+        const sent = await emitWithAck(r, "sendMessage", { conversationId: chatId, ...encrypted("hi sam") });
+
+        expect((await emitWithAck(s, "markDelivered", chatId)).success).toBe(true);
+        await waitForDelivery();
+
+        expect(toRita).toHaveLength(1);
+        expect(toRita[0]).toMatchObject({ conversationId: chatId, userId: sam.id });
+        expect(toRita[0]).not.toHaveProperty("readAt");
+        const { receipts } = await receiptsSeenBy(rita);
+        expect(new Date(receipts.deliveredAt) >= new Date(sent.message.createdAt)).toBe(true);
+        expect(receipts.readAt).toBeNull();
+    });
+
+    it("read: includes delivered, and the sender sees the read time", async () => {
+        const [r, s] = await Promise.all([connectAs(rita), connectAs(sam)]);
+        await waitForDelivery();
+        const toRita = collectReceipts(r);
+
+        await emitWithAck(s, "markRead", chatId);
+        await waitForDelivery();
+
+        expect(toRita).toHaveLength(1);
+        expect(toRita[0].readAt).toBeDefined();
+        expect(toRita[0].deliveredAt).toBe(toRita[0].readAt);
+        expect((await receiptsSeenBy(rita)).receipts.readAt).toBe(toRita[0].readAt);
+    });
+
+    it("messages sent while the recipient was away are delivered when their app opens, once", async () => {
+        const r = await connectAs(rita);
+        const toRita = collectReceipts(r);
+        const sent = await emitWithAck(r, "sendMessage", { conversationId: chatId, ...encrypted("while you were away") });
+        await waitForDelivery();
+        expect(toRita).toEqual([]); // sam has no app open
+
+        const s = await connectAs(sam);
+        await waitForDelivery();
+        expect(toRita).toHaveLength(1);
+        expect(new Date(toRita[0].deliveredAt) >= new Date(sent.message.createdAt)).toBe(true);
+
+        s.disconnect();
+        await connectAs(sam); // opening the app again: nothing new to deliver
+        await waitForDelivery();
+        expect(toRita).toHaveLength(1);
+    });
+
+    it("turning read receipts off hides reads both ways, delivered ticks stay", async () => {
+        expect((await setReadReceipts(sam, false)).status).toBe(200);
+        const [r, s] = await Promise.all([connectAs(rita), connectAs(sam)]);
+        await waitForDelivery();
+        const toRita = collectReceipts(r);
+        const toSam = collectReceipts(s);
+
+        await emitWithAck(r, "sendMessage", { conversationId: chatId, ...encrypted("read this?") });
+        await emitWithAck(s, "markRead", chatId);
+        await emitWithAck(r, "markRead", chatId); // rita reads sam's side too
+        await waitForDelivery();
+
+        expect(toRita).toHaveLength(1);
+        expect(toRita[0]).toHaveProperty("deliveredAt");
+        expect(toRita[0]).not.toHaveProperty("readAt"); // sam doesn't share reads
+        expect(toSam.every((event) => !("readAt" in event))).toBe(true); // ...and sees none
+        expect((await receiptsSeenBy(rita)).receipts.readAt).toBeNull();
+        expect((await receiptsSeenBy(sam)).receipts.readAt).toBeNull();
+        expect((await receiptsSeenBy(rita)).receipts.deliveredAt).not.toBeNull();
+
+        await setReadReceipts(sam, true);
+        expect((await receiptsSeenBy(rita)).receipts.readAt).not.toBeNull(); // shared again
+    });
+
+    it("refuses outsiders and bad settings, and never leaks the raw maps or the setting", async () => {
+        const t = await connectAs(tara);
+        const res = await emitWithAck(t, "markDelivered", chatId);
+        expect(res.success).toBe(false);
+        expect(res.message).toMatch(/not a participant/);
+
+        expect((await setReadReceipts(sam, "no")).status).toBe(400);
+
+        const conversation = await receiptsSeenBy(rita);
+        expect(conversation).not.toHaveProperty("lastReadAt");
+        expect(conversation).not.toHaveProperty("lastDeliveredAt");
+        conversation.participants.forEach((participant) => expect(participant).not.toHaveProperty("readReceipts"));
+    });
+});

@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toastManager } from "@/components/ui/toast";
 import { useIsConnected } from "../socket/useIsConnected.js";
 import { formatLastSeen } from "../lib/time.js";
+import { mergeReceipts } from "../lib/receipts.js";
 import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 
@@ -69,6 +70,11 @@ const Chat = () => {
   // sends { _id, lastMessage, lastMessageAt } to our personal room.
   // useEffectEvent: the listener is added once, but always sees the latest list.
   const onConversationUpdated = useEffectEvent((update) => {
+    // Someone else's new message reached this device: "delivered" (the
+    // sender's ticks turn double).
+    if (update.lastMessage && update.lastMessage.sender !== currentUser._id) {
+      socket.emit("markDelivered", update._id);
+    }
     if (conversations.some((conversation) => conversation._id === update._id)) {
       // Known conversation: new preview, and move it to the top.
       setConversations((prev) => {
@@ -119,12 +125,23 @@ const Chat = () => {
       );
     };
 
+    // The other person received / read a conversation: new ticks on my messages.
+    const handleReceipt = ({ conversationId: id, deliveredAt, readAt }) => {
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation._id === id ? { ...conversation, receipts: mergeReceipts(conversation.receipts, { deliveredAt, readAt }) } : conversation,
+        ),
+      );
+    };
+
     socket.on("conversationUpdated", handleConversationUpdated);
+    socket.on("receipt", handleReceipt);
     socket.on("presence", handlePresence);
     socket.on("conversationRead", handleConversationRead);
     socket.io.on("reconnect", handleReconnect);
     return () => {
       socket.off("conversationUpdated", handleConversationUpdated);
+      socket.off("receipt", handleReceipt);
       socket.off("presence", handlePresence);
       socket.off("conversationRead", handleConversationRead);
       socket.io.off("reconnect", handleReconnect);
@@ -155,9 +172,8 @@ const Chat = () => {
   // The other participant in the open conversation (their public key is needed
   // for encryption). Undefined until the list has loaded, or if the
   // conversation isn't ours.
-  const peer = conversations
-    .find((conversation) => conversation._id === conversationId)
-    ?.participants.find((participant) => participant._id !== currentUser._id);
+  const openConversation = conversations.find((conversation) => conversation._id === conversationId);
+  const peer = openConversation?.participants.find((participant) => participant._id !== currentUser._id);
 
   return (
     // The whole app fits the screen (dvh also follows mobile browser bars):
@@ -274,6 +290,7 @@ const Chat = () => {
                 currentUser={currentUser}
                 peerPublicKey={peer?.publicKey}
                 peerName={peer?.username}
+                receipts={openConversation?.receipts}
               />
             </>
           ) : (

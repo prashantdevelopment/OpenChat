@@ -46,15 +46,25 @@ const conversationSchema = new mongoose.Schema({
         default: () => new Map()
     },
 
+    // When each participant's app last received this conversation's messages
+    // (delivered receipts). Same idea: my message is delivered if it was
+    // created before the other participant's lastDeliveredAt.
+    lastDeliveredAt: {
+        type: Map,
+        of: Date,
+        default: () => new Map()
+    },
+
 },
     {
         timestamps: true,
-        // lastReadAt includes when the OTHER participant read the chat. That
-        // is read-receipt data with its own privacy setting later, so it never
-        // leaves the server. The server itself still reads the field normally.
+        // Both maps include the OTHER participant's times. They only leave the
+        // server as `receipts`, after the read-receipt privacy setting was
+        // applied (conversation.service.js), never raw.
         toJSON: {
             transform: (_doc, ret) => {
                 delete ret.lastReadAt;
+                delete ret.lastDeliveredAt;
                 return ret;
             }
         }

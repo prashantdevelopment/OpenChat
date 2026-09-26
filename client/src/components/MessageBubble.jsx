@@ -1,6 +1,7 @@
-import { AlertCircleIcon, RotateCwIcon } from "lucide-react";
+import { AlertCircleIcon, CheckCheckIcon, CheckIcon, RotateCwIcon } from "lucide-react";
 import { useDecryptedText } from "../crypto/hooks.js";
 import { formatFullDateTime, formatTimeOfDay } from "../lib/time.js";
+import { receiptStatus } from "../lib/receipts.js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +10,15 @@ import { cn } from "@/lib/utils";
 // bubbles sit close together and only the last one shows the time.
 // A message still on its way (see ConversationView) has `status` "sending" or
 // "failed" and its plain `text`; it shows that status instead of a time.
-const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, onRetry }) => {
+// Ticks on my messages: one = on the server, two = reached their app, two in
+// blue = read. The word is there too (tooltip and screen readers).
+const RECEIPTS = {
+  sent: { Icon: CheckIcon, label: "Sent", className: "text-muted-foreground" },
+  delivered: { Icon: CheckCheckIcon, label: "Delivered", className: "text-muted-foreground" },
+  read: { Icon: CheckCheckIcon, label: "Read", className: "text-primary" },
+};
+
+const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, receipts, onRetry }) => {
   const { text, failed } = useDecryptedText(conversationKey, message, message.sender);
 
   let content = message.status ? message.text : text;
@@ -55,15 +64,24 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
           </Button>
         </div>
       ) : isLastInGroup && message.createdAt ? (
-        <time
-          dateTime={message.createdAt}
-          title={formatFullDateTime(message.createdAt)}
-          className="mt-1 px-1 text-xs text-muted-foreground"
-        >
-          {formatTimeOfDay(message.createdAt)}
-        </time>
+        <div className="mt-1 flex items-center gap-1 px-1 text-xs text-muted-foreground">
+          <time dateTime={message.createdAt} title={formatFullDateTime(message.createdAt)}>
+            {formatTimeOfDay(message.createdAt)}
+          </time>
+          {isOwnMessage ? <ReceiptTicks status={receiptStatus(message, receipts)} /> : null}
+        </div>
       ) : null}
     </div>
+  );
+};
+
+const ReceiptTicks = ({ status }) => {
+  const { Icon, label, className } = RECEIPTS[status];
+  return (
+    <span data-receipt={status} title={label} className={cn("inline-flex", className)}>
+      <Icon aria-hidden="true" className="size-3.5" />
+      <span className="sr-only">{label}</span>
+    </span>
   );
 };
 

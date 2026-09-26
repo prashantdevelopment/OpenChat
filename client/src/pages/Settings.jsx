@@ -241,6 +241,57 @@ const PasswordSection = () => {
   );
 };
 
+const PrivacySection = () => {
+  const { currentUser, updateCurrentUser } = useAuth();
+  const [isOn, setIsOn] = useState(currentUser.readReceipts !== false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // Saved as soon as it is switched (no Save button for one switch). The
+  // switch moves at once and moves back if saving fails.
+  const handleChange = async (e) => {
+    const readReceipts = e.target.checked;
+    setIsOn(readReceipts);
+    setIsSaving(true);
+    setError("");
+    try {
+      await api.patch("/users/me", { readReceipts });
+      updateCurrentUser({ readReceipts });
+    } catch (err) {
+      setIsOn(!readReceipts);
+      setError(err.response?.data?.message ?? "Could not save. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Section title="Privacy">
+      <div className="space-y-3">
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={isOn}
+            disabled={isSaving}
+            onChange={handleChange}
+            aria-describedby="read-receipts-hint"
+            className="mt-0.5 size-4 shrink-0 accent-primary"
+          />
+          <span>
+            <span className="block text-sm font-medium">Read receipts</span>
+            <span id="read-receipts-hint" className="mt-0.5 block text-sm text-muted-foreground">
+              Let people see when you&apos;ve read their messages. If you turn this off, you won&apos;t see
+              when others read yours either. Delivered ticks are always shown.
+            </span>
+          </span>
+        </label>
+        {error ? <FormAlert>{error}</FormAlert> : null}
+      </div>
+    </Section>
+  );
+};
+
 const THEMES = [
   { value: "light", label: "Light", Icon: SunIcon },
   { value: "dark", label: "Dark", Icon: MoonIcon },
@@ -311,6 +362,7 @@ const Settings = () => (
     <main className="mx-auto max-w-2xl space-y-6 px-4 py-6">
       <ProfileSection />
       <PasswordSection />
+      <PrivacySection />
       <AppearanceSection />
       <AccountSection />
     </main>

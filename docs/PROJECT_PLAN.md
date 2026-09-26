@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 31 – Delivered + read receipts (privacy toggle)
+**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 32 – Notifications: tab title badge, optional browser notification (text decrypted in the browser)
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -355,7 +355,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 |---|---|---|---|---|
 | 29 | Presence: online/offline + last seen (multi-tab aware, in memory) | done | 2026-09-26 | `server/src/presence.js`: userId → open sockets (tabs/devices), in memory; the unused `isOnline` DB field was removed (it would stay "online" after a crash). Offline only when the last tab closes, after a 5s grace period (a reload never shows as offline); then `lastSeen` is saved. `presence` events go only to people who share a conversation; `online`/`lastSeen` appear only in your own conversation list, never in search. Client: green dot on the avatar (+ "online" for screen readers), header "Online" / "Last seen today at 10:42 am" (`formatLastSeen`); the list reload after a reconnect catches up on missed changes. 171 server tests (+4), 15/15 presence E2E |
 | 30 | Typing indicator (throttled, auto-stop) | done | 2026-09-26 | Server relays `typing` only into a conversation room the socket joined (the participant check happened at join: no DB query per keystroke), never back to the typist. `client/src/socket/useTyping.js`: the sender sends `true` once, again every 3s while typing, and `false` after 5s idle, on send, on empty text or on leaving the chat; the receiver hides the dots after 5s without a refresh (closed tab, lost network) or when the message arrives. Bouncing dots bubble (still with reduced motion) plus a status region "alice is typing" for screen readers. Server-side rate limits for socket events stay in step 50. 174 server tests (+3), 19/19 typing E2E |
-| 31 | Delivered + read receipts (privacy toggle) | todo | | |
+| 31 | Delivered + read receipts (privacy toggle) | done | 2026-09-26 | No flag per message: the conversation keeps each participant's `lastDeliveredAt` next to `lastReadAt`; a message is delivered/read if created before the other person's time. Delivered when the recipient's app gets the new-message notice (`markDelivered`), when their app opens (only conversations with something new, so senders are told once), or when they read. `receipt` events go to the other participant; the list carries `receipts: { deliveredAt, readAt }`, never the raw maps. Privacy: `readReceipts` setting (Settings → Privacy, optimistic switch); off hides reads both ways (like WhatsApp), delivered stays. Ticks on my messages next to the time: ✓ sent, ✓✓ delivered, blue ✓✓ read (+ word for screen readers and tooltip). 179 server tests (+5), 18/18 receipts E2E |
 | 32 | Notifications: tab title badge, optional browser notification (text decrypted in the browser) | todo | | |
 
 ### Phase F — Media sharing (encrypted)

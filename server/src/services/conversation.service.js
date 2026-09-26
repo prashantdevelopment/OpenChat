@@ -93,7 +93,8 @@ const getUserConversations = async (userId) => {
     })
     // lastSeen only here: people you chat with may see it, strangers who
     // search for you may not (it is not in PUBLIC_USER_FIELDS).
-    .populate("participants", `${PUBLIC_USER_FIELDS} lastSeen`)
+    // readReceipts is loaded to apply the privacy rule, then left out.
+    .populate("participants", `${PUBLIC_USER_FIELDS} lastSeen readReceipts`)
     .sort({ lastMessageAt: -1 });
 
     if (conversations.length === 0) {
@@ -108,16 +109,41 @@ const getUserConversations = async (userId) => {
     ]);
     const unreadById = new Map(counts.map((c) => [c._id.toString(), c.count]));
 
-    // toJSON() applies the model's privacy rules (no lastReadAt).
+    // toJSON() applies the model's privacy rules (no raw lastReadAt/lastDeliveredAt).
     return conversations.map((conversation) => {
         const json = conversation.toJSON();
         return {
             ...json,
-            participants: json.participants.map((participant) => ({ ...participant, online: isOnline(participant._id) })),
+            participants: json.participants.map(({ readReceipts: _setting, ...participant }) => ({
+                ...participant,
+                online: isOnline(participant._id)
+            })),
+            receipts: receiptsFor(conversation, userId),
             unreadCount: unreadById.get(conversation._id.toString()) ?? 0
         };
     });
 };
+
+// Read receipts are shared only if every participant allows them: turning
+// them off hides your reads from others and theirs from you.
+const shareReadReceipts = (participants) => participants.every((participant) => participant.readReceipts !== false);
+
+// When the OTHER participant last received / read the conversation, as seen
+// by userId. My message is delivered if created before deliveredAt, read if
+// before readAt. `conversation` must have its participants populated.
+const receiptsFor = (conversation, userId) => {
+    const other = conversation.participants.find((participant) => participant._id.toString() !== userId.toString());
+    if (!other) return { deliveredAt: null, readAt: null };
+    const otherId = other._id.toString();
+    return {
+        deliveredAt: conversation.lastDeliveredAt?.get(otherId) ?? null,
+        readAt: shareReadReceipts(conversation.participants) ? (conversation.lastReadAt?.get(otherId) ?? null) : null
+    };
+};
+
+// Whether the participants of a (not populated) conversation share read receipts.
+const readReceiptsShared = async (conversation) =>
+    shareReadReceipts(await User.find({ _id: { $in: conversation.participants } }).select("readReceipts"));
 
 // Everyone who shares a conversation with the user: they are told when the
 // user comes online or goes offline.
@@ -128,13 +154,46 @@ const getContactIds = async (userId) => {
 
 const markConversationRead = async (conversationId, userId) => {
     const conversation = await getConversationForParticipant(conversationId, userId);
+    const readAt = new Date();
     // $set only this user's entry, so a message being saved at the same moment
-    // (which writes lastMessage) is never overwritten.
+    // (which writes lastMessage) is never overwritten. Read implies delivered.
     await Conversation.updateOne(
         { _id: conversation._id },
-        { $set: { [`lastReadAt.${userId}`]: new Date() } }
+        { $set: { [`lastReadAt.${userId}`]: readAt }, $max: { [`lastDeliveredAt.${userId}`]: readAt } }
     );
-    return conversation;
+    return { conversation, readAt };
+};
+
+// The user's app received the conversation's messages so far.
+const markConversationDelivered = async (conversationId, userId) => {
+    const conversation = await getConversationForParticipant(conversationId, userId);
+    const deliveredAt = new Date();
+    // $max: never moves back (e.g. if an older event arrives late).
+    await Conversation.updateOne({ _id: conversation._id }, { $max: { [`lastDeliveredAt.${userId}`]: deliveredAt } });
+    return { conversation, deliveredAt };
+};
+
+// The user opened the app: everything sent to them until now has arrived.
+// Returns only the conversations that had undelivered messages, so senders
+// are told once, not on every page load.
+const markAllDelivered = async (userId) => {
+    const deliveredAt = new Date();
+    const candidates = await Conversation.find({
+        participants: userId,
+        lastMessageAt: { $ne: null },
+        "lastMessage.sender": { $ne: new mongoose.Types.ObjectId(userId) }
+    });
+    const pending = candidates.filter((conversation) => {
+        const delivered = conversation.lastDeliveredAt?.get(userId.toString());
+        return !delivered || delivered < conversation.lastMessageAt;
+    });
+    if (pending.length > 0) {
+        await Conversation.updateMany(
+            { _id: { $in: pending.map((conversation) => conversation._id) } },
+            { $max: { [`lastDeliveredAt.${userId}`]: deliveredAt } }
+        );
+    }
+    return pending.map((conversation) => ({ conversation, deliveredAt }));
 };
 
 export {
@@ -143,5 +202,8 @@ export {
     getConversationForParticipant,
     countUnread,
     markConversationRead,
+    markConversationDelivered,
+    markAllDelivered,
+    readReceiptsShared,
     getContactIds
 };

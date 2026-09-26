@@ -117,6 +117,12 @@ const userSchema =  new mongoose.Schema({
         maxlength: [160, "Bio must be at most 160 characters long"],
         default: ""
     },
+    // Privacy: share read receipts. Off = others don't see when you read their
+    // messages, and you don't see theirs either (like WhatsApp).
+    readReceipts: {
+        type: Boolean,
+        default: true
+    },
     // When the user's last tab closed. Whether they are online right now is
     // kept in memory (src/presence.js), not here.
     lastSeen: {
