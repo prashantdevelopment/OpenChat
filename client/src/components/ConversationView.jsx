@@ -185,21 +185,28 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey }) => {
   };
 
   if (joinError) {
-    return <p role="alert">Could not open this conversation: {joinError}</p>;
+    return (
+      <p role="alert" className="p-4 text-destructive-foreground">
+        Could not open this conversation: {joinError}
+      </p>
+    );
   }
 
   return (
-    <div>
-      {history.hasOlder ? (
-        <button type="button" onClick={loadOlderMessages} disabled={isLoadingOlder}>
-          {isLoadingOlder ? "Loading..." : "Load older messages"}
-        </button>
-      ) : null}
-
+    // Fills the space under the chat header: messages scroll, the composer stays at the bottom.
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* role="log": the ARIA role for chat history; screen readers announce
           new messages added to it. */}
-      <div role="log" aria-label="Messages">
-        <h2>Messages:</h2>
+      <div role="log" aria-label="Messages" className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <h2 className="sr-only">Messages</h2>
+
+        {history.hasOlder ? (
+          <div className="mb-3 flex justify-center">
+            <button type="button" onClick={loadOlderMessages} disabled={isLoadingOlder}>
+              {isLoadingOlder ? "Loading..." : "Load older messages"}
+            </button>
+          </div>
+        ) : null}
 
         {history.messages.map((message) => (
           <MessageBubble
@@ -210,9 +217,11 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey }) => {
           />
         ))}
       </div>
-      <div>
+      <div className="flex shrink-0 gap-2 border-t border-border p-3">
         <input
           type="text"
+          className="min-w-0 flex-1"
+          aria-label="Message"
           placeholder="Type a message..."
           maxLength={MAX_MESSAGE_LENGTH}
           value={messageInput}

@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuth } from "./AuthContext.js";
 import Unlock from "../pages/Unlock.jsx";
+import PublicLayout from "../components/PublicLayout.jsx";
 
 // Layout route: renders its child routes only for a logged-in user whose
 // private key is unlocked on this device. Not logged in: redirect to /login
@@ -14,7 +15,13 @@ const ProtectedRoute = () => {
   if (!currentUser) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
-  return privateKey ? <Outlet /> : <Unlock />;
+  return privateKey ? (
+    <Outlet />
+  ) : (
+    <PublicLayout>
+      <Unlock />
+    </PublicLayout>
+  );
 };
 
 export default ProtectedRoute;

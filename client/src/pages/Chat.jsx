@@ -1,11 +1,15 @@
 import { useEffect, useEffectEvent, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
+import { ArrowLeftIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
 import ConversationListItem from "../components/ConversationListItem.jsx";
 import ConversationView from "../components/ConversationView.jsx";
 import SafetyNumber from "../components/SafetyNumber.jsx";
+import ThemeToggle from "../components/ThemeToggle.jsx";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 
 const getConversations = async () => (await api.get("/conversations")).data.conversations;
@@ -96,36 +100,73 @@ const Chat = () => {
     ?.participants.find((participant) => participant._id !== currentUser._id);
 
   return (
-    <div>
-      <h1>Chat</h1>
-      <p>
-        Logged in as {currentUser.username}{" "}
-        <button type="button" onClick={logout}>Logout</button>
-      </p>
+    // The whole app fits the screen (dvh also follows mobile browser bars):
+    // the page never scrolls, only the list and the messages do.
+    <div className="flex h-dvh overflow-hidden bg-background">
+      {/* Sidebar. Desktop: always visible. Mobile: only when no conversation
+          is open (the URL decides, so the phone's back button just works). */}
+      <aside
+        aria-label="Chats"
+        className={cn(
+          "w-full flex-col border-border md:flex md:w-80 md:shrink-0 md:border-r",
+          conversationId ? "hidden" : "flex",
+        )}
+      >
+        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg leading-tight">OpenChat</h1>
+            <p className="truncate text-sm text-muted-foreground">Logged in as {currentUser.username}</p>
+          </div>
+          <ThemeToggle />
+          <Button variant="outline" size="sm" onClick={logout}>
+            Logout
+          </Button>
+        </header>
 
-      <UserSearch onMessageUser={handleMessageUser} />
+        <div className="border-b border-border px-4 py-3">
+          <UserSearch onMessageUser={handleMessageUser} />
+        </div>
 
-      <nav aria-label="Conversations">
-        <h2>Conversations:</h2>
+        <nav aria-label="Conversations" className="min-h-0 flex-1 overflow-y-auto p-2">
+          <h2 className="sr-only">Conversations</h2>
+          {conversations.map((conversation) => (
+            <ConversationListItem key={conversation._id} conversation={conversation} currentUserId={currentUser._id} />
+          ))}
+        </nav>
+      </aside>
 
-        {conversations.map((conversation) => (
-          <ConversationListItem key={conversation._id} conversation={conversation} currentUserId={currentUser._id} />
-        ))}
-      </nav>
-
-      {conversationId ? (
-        <>
-          <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={peer?.username} />
-          <ConversationView
-            key={conversationId}
-            conversationId={conversationId}
-            currentUser={currentUser}
-            peerPublicKey={peer?.publicKey}
-          />
-        </>
-      ) : (
-        <p>Select a conversation to start chatting.</p>
-      )}
+      {/* Open conversation. Mobile: shown instead of the sidebar. */}
+      <main className={cn("min-w-0 flex-1 flex-col md:flex", conversationId ? "flex" : "hidden")}>
+        {conversationId ? (
+          <>
+            <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+              <Button
+                render={<Link to="/chat" />}
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label="Back to conversations"
+              >
+                <ArrowLeftIcon aria-hidden="true" />
+              </Button>
+              <h2 className="min-w-0 flex-1 truncate text-lg">{peer?.username ?? "Conversation"}</h2>
+            </header>
+            <div className="border-b border-border px-4 py-2 text-sm">
+              <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={peer?.username} />
+            </div>
+            <ConversationView
+              key={conversationId}
+              conversationId={conversationId}
+              currentUser={currentUser}
+              peerPublicKey={peer?.publicKey}
+            />
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center p-8 text-center text-muted-foreground">
+            <p>Select a conversation to start chatting.</p>
+          </div>
+        )}
+      </main>
     </div>
   );
 };
