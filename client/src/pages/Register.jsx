@@ -110,7 +110,12 @@ const Register = () => {
             aria-describedby="password-hint"
           />
           <br />
-          <small id="password-hint">At least 8 characters. A short phrase is easy to remember and hard to guess.</small>
+          <small id="password-hint">
+            At least 8 characters. A short phrase is easy to remember and hard to guess.
+            <br />
+            <strong>Don&apos;t lose it:</strong> your password also unlocks your end-to-end encrypted
+            messages. If you forget it, they can&apos;t be recovered, not even by OpenChat.
+          </small>
         </p>
 
         <p>

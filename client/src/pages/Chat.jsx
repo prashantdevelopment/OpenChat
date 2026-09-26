@@ -5,6 +5,7 @@ import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
 import ConversationListItem from "../components/ConversationListItem.jsx";
 import ConversationView from "../components/ConversationView.jsx";
+import SafetyNumber from "../components/SafetyNumber.jsx";
 import UserSearch from "../components/UserSearch.jsx";
 
 const getConversations = async () => (await api.get("/conversations")).data.conversations;
@@ -87,11 +88,12 @@ const Chat = () => {
     }
   };
 
-  // The other participant's public key for the open conversation (encryption).
-  // Undefined until the list has loaded, or if the conversation isn't ours.
-  const peerPublicKey = conversations
+  // The other participant in the open conversation (their public key is needed
+  // for encryption). Undefined until the list has loaded, or if the
+  // conversation isn't ours.
+  const peer = conversations
     .find((conversation) => conversation._id === conversationId)
-    ?.participants.find((participant) => participant._id !== currentUser._id)?.publicKey;
+    ?.participants.find((participant) => participant._id !== currentUser._id);
 
   return (
     <div>
@@ -112,12 +114,15 @@ const Chat = () => {
       </nav>
 
       {conversationId ? (
-        <ConversationView
-          key={conversationId}
-          conversationId={conversationId}
-          currentUser={currentUser}
-          peerPublicKey={peerPublicKey}
-        />
+        <>
+          <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={peer?.username} />
+          <ConversationView
+            key={conversationId}
+            conversationId={conversationId}
+            currentUser={currentUser}
+            peerPublicKey={peer?.publicKey}
+          />
+        </>
       ) : (
         <p>Select a conversation to start chatting.</p>
       )}

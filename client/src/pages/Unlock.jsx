@@ -62,6 +62,12 @@ const Unlock = () => {
       </form>
 
       <p>
+        Forgot your password? Your messages are end-to-end encrypted, so nobody, not even OpenChat,
+        can recover them without it. You can log out and create a new account, but the old messages
+        will stay locked.
+      </p>
+
+      <p>
         Not you? <button type="button" onClick={logout}>Log out</button>
       </p>
     </div>

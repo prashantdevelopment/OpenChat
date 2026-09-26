@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 18 – Key fingerprint + forgot-password handling
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 19 – Design foundation: ui-ux-pro-max, Tailwind v4, coss ui, light + dark toggle (Phase C complete)
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -334,7 +334,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 15 | Key pair at registration: ECDH P-256 in the browser, public key + password-wrapped private key stored on server | done | 2026-09-25 | `client/src/crypto/keys.js` (Web Crypto: ECDH P-256, PBKDF2-SHA-256 600k, AES-GCM wrap, NFC passwords); server validates the SPKI curve and blob shape, `encryptedPrivateKey` is `select: false` and never in others' responses. Client unit tests (7) + 147 server tests; register E2E unlocks the browser-made key. Dev data NOT cleared (user did not confirm): legacy users have no keys, handled in step 16. Also fixed: Vitest failing on Windows lowercase drive paths (`scripts/vitest.mjs`) |
 | 16 | Unlock at login, keep a non-extractable key in IndexedDB for refresh, wipe on logout, re-wrap on password change | done | 2026-09-25 | Login and `/me` return the owner's locked key; `AuthProvider.login()/unlock()`; `crypto/keyStore.js` (IndexedDB, one key, cleared on logout); unlock screen when the device has no key (URL kept) and a clear message for legacy accounts; password change requires a re-locked key (`rewrapPrivateKey`), saved atomically. Password-change UI comes in step 28. 151 server + 9 client tests, 20/20 unlock E2E |
 | 17 | Encrypt/decrypt messages (ECDH → HKDF → AES-GCM); server stores only `ciphertext + iv`; sidebar preview decrypted in the browser | done | 2026-09-26 | `crypto/messages.js` (ECDH deriveBits → HKDF-SHA-256 with conversation id → AES-256-GCM, random 12-byte IV, sender id as AAD); `crypto/hooks.js` caches conversation keys; `MessageBubble` / `ConversationListItem` decrypt in the browser; server validates sizes only; `lastMessage` is `{ciphertext, iv, sender}`; public key in public fields. Legacy plain-text data is never shown or sent. 20 client + 154 server tests, 16/16 encryption E2E (DB + network have no plaintext, forged sender and tampering refused) |
-| 18 | Key fingerprint ("safety number") on profile + "forgot password = old messages unreadable" handling | todo | | |
+| 18 | Key fingerprint ("safety number") on profile + "forgot password = old messages unreadable" handling | done | 2026-09-26 | `crypto/safetyNumber.js` (SHA-512 over both sorted public keys → 12×5 digits); "Verify encryption with …" panel above the open chat (native `<details>`; moves to the profile page in step 28). Clear warnings on Register and the unlock screen. 23 client tests, 10/10 safety E2E incl. a simulated man-in-the-middle (swapped public key → numbers differ, bob can't read) |
 
 ### Phase D — Design foundation + app UI (one piece at a time)
 | # | Step | Status | Done on | Notes |
@@ -407,7 +407,8 @@ Status values: `todo` · `in progress` · `done` · `blocked (<reason>)`
 1. **Cloudinary and TURN accounts:** free tiers are enough for development. Needed before steps 33 and 41.
 2. **Risk, cookies in production:** `sameSite: strict` only works if frontend and API are on the same site (e.g. `app.domain.com` + `api.domain.com`). Decide the hosting setup before step 53.
 3. **Risk, WebRTC across networks:** without a TURN server, many calls (mobile data, strict NAT) will fail.
-4. **Risk, E2EE and forgotten passwords:** a password reset cannot recover old messages. The UI must say so clearly (step 18).
+4. **E2EE and forgotten passwords:** a password reset cannot recover old messages. The UI says so on Register and the unlock screen (step 18); there is no password-reset flow yet.
+6. **Key-change warning (step 51):** users are only protected from a malicious server if they compare safety numbers. A "this person's key changed" warning (remember each contact's key on first use) would catch it automatically.
 5. **Existing dev data:** user chose to clear it (option b, 2026-09-25). The delete was blocked by the agent's permission rules, so the user runs it themselves. Until then, old accounts log in to a clear "Encryption is not set up" screen.
 
 **Resolved (2026-09-25):**
