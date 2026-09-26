@@ -1,16 +1,21 @@
+import { AlertCircleIcon, RotateCwIcon } from "lucide-react";
 import { useDecryptedText } from "../crypto/hooks.js";
 import { formatFullDateTime, formatTimeOfDay } from "../lib/time.js";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // One message. It arrives encrypted and is decrypted here, in the browser.
 // Mine: right, blue. Theirs: left, muted. Within a group (see lib/timeline.js)
 // bubbles sit close together and only the last one shows the time.
-const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup }) => {
+// A message still on its way (see ConversationView) has `status` "sending" or
+// "failed" and its plain `text`; it shows that status instead of a time.
+const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, onRetry }) => {
   const { text, failed } = useDecryptedText(conversationKey, message, message.sender);
 
-  let content = text;
+  let content = message.status ? message.text : text;
   let isStatus = true; // a note about the message rather than its text
-  if (!message.ciphertext) content = "[Sent before encryption; can't be shown]";
+  if (message.status) isStatus = false;
+  else if (!message.ciphertext) content = "[Sent before encryption; can't be shown]";
   else if (failed) content = "[This message could not be decrypted]";
   else if (text === undefined) content = "Decrypting...";
   else isStatus = false;
@@ -36,7 +41,20 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
         </p>
       </div>
 
-      {isLastInGroup && message.createdAt ? (
+      {message.status === "sending" ? (
+        <span className="reveal-late mt-1 px-1 text-xs text-muted-foreground">Sending...</span>
+      ) : message.status === "failed" ? (
+        <div className="mt-1 flex items-center gap-2 px-1 text-xs">
+          <span className="inline-flex items-center gap-1 text-destructive-foreground">
+            <AlertCircleIcon aria-hidden="true" className="size-3.5" />
+            Not sent
+          </span>
+          <Button type="button" variant="outline" size="xs" onClick={onRetry}>
+            <RotateCwIcon aria-hidden="true" />
+            Retry
+          </Button>
+        </div>
+      ) : isLastInGroup && message.createdAt ? (
         <time
           dateTime={message.createdAt}
           title={formatFullDateTime(message.createdAt)}

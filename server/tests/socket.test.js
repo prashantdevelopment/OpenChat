@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { createServer } from "http";
+import { randomUUID } from "crypto";
 import request from "supertest";
 import { io as connectClient } from "socket.io-client";
 import app from "../src/app.js";
@@ -155,6 +156,71 @@ describe("sendMessage between two users", () => {
         const res = await emitWithAck(a, "sendMessage", payload);
         expect(res.success).toBe(false);
         expect(res.message).toMatch(message);
+    });
+});
+
+describe("retries with the same clientId (no duplicate messages)", () => {
+    // The unique index is what stops two copies; the test database starts empty.
+    beforeAll(() => Message.createIndexes());
+
+    it("saves a retried message once, confirms both sends and announces it once", async () => {
+        const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
+        await emitWithAck(b, "joinConversation", conversationId);
+        const toB = collectMessages(b);
+        const payload = { conversationId, clientId: randomUUID(), ...encrypted("sent twice") };
+
+        const first = await emitWithAck(a, "sendMessage", payload);
+        const retry = await emitWithAck(a, "sendMessage", payload);
+        await waitForDelivery();
+
+        expect(first.success && retry.success).toBe(true);
+        expect(retry.message._id).toBe(first.message._id);
+        expect(retry.message.clientId).toBe(payload.clientId);
+        expect(await Message.countDocuments({ clientId: payload.clientId })).toBe(1);
+        expect(toB.map(readText)).toEqual(["sent twice"]);
+    });
+
+    it("keeps one copy when the same message arrives twice at the same moment", async () => {
+        const a = await connectAs(alice);
+        const payload = { conversationId, clientId: randomUUID(), ...encrypted("race") };
+        const [one, two] = await Promise.all([
+            emitWithAck(a, "sendMessage", payload),
+            emitWithAck(a, "sendMessage", payload),
+        ]);
+        expect(one.success && two.success).toBe(true);
+        expect(one.message._id).toBe(two.message._id);
+        expect(await Message.countDocuments({ clientId: payload.clientId })).toBe(1);
+    });
+
+    it("treats the same clientId from another user as a different message", async () => {
+        const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
+        const clientId = randomUUID();
+        const fromA = await emitWithAck(a, "sendMessage", { conversationId, clientId, ...encrypted("a") });
+        const fromB = await emitWithAck(b, "sendMessage", { conversationId, clientId, ...encrypted("b") });
+        expect(fromA.success && fromB.success).toBe(true);
+        expect(fromA.message._id).not.toBe(fromB.message._id);
+    });
+
+    it("refuses a clientId reused in another conversation", async () => {
+        const res = await request(app).post("/api/conversations").set("Cookie", alice.cookie).send({ otherUserId: carol.id });
+        const otherConversationId = res.body.conversation._id;
+        const a = await connectAs(alice);
+        const clientId = randomUUID();
+        await emitWithAck(a, "sendMessage", { conversationId, clientId, ...encrypted("here") });
+        const reused = await emitWithAck(a, "sendMessage", { conversationId: otherConversationId, clientId, ...encrypted("there") });
+        expect(reused.success).toBe(false);
+        expect(reused.message).toMatch(/already used/);
+        expect(await Message.countDocuments({ clientId })).toBe(1);
+    });
+
+    it.each([
+        ["a clientId that is not a UUID", "123"],
+        ["an object as clientId", { $ne: null }],
+    ])("rejects %s", async (_name, clientId) => {
+        const a = await connectAs(alice);
+        const res = await emitWithAck(a, "sendMessage", { conversationId, clientId, ...encrypted("x") });
+        expect(res.success).toBe(false);
+        expect(res.message).toMatch(/clientId must be a UUID/);
     });
 });
 

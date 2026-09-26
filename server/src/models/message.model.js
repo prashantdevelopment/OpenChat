@@ -24,6 +24,12 @@ const messageSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    // Random id (UUID) the sender's browser gives the message before sending.
+    // If the reply gets lost and the browser retries, the server recognises
+    // the same message instead of saving it twice (idempotency key).
+    clientId: {
+        type: String
+    },
     messageType: {
         type: String,
         enum: ["text", "image", "video", "file"],
@@ -43,6 +49,12 @@ const messageSchema = new mongoose.Schema({
 // history (newest first, cursor on createdAt/_id) and the unread count
 // (conversationId + createdAt range) without scanning other conversations.
 messageSchema.index({ conversationId: 1, createdAt: -1, _id: -1 });
+
+// One clientId per sender. Partial: older messages have no clientId.
+messageSchema.index(
+    { sender: 1, clientId: 1 },
+    { unique: true, partialFilterExpression: { clientId: { $type: "string" } } }
+);
 
 const Message = mongoose.model("Message", messageSchema);
 

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { SendHorizontalIcon } from "lucide-react";
 import socket from "../socket/socket.js";
 import api from "../api/api.js";
 import { useConversationKey } from "../crypto/hooks.js";
@@ -6,6 +7,7 @@ import { encryptMessage, MAX_MESSAGE_LENGTH } from "../crypto/messages.js";
 import MessageBubble from "./MessageBubble.jsx";
 import { buildTimeline } from "../lib/timeline.js";
 import { formatDayLabel } from "../lib/time.js";
+import { Button } from "@/components/ui/button";
 
 // Tells the server the user has seen this conversation, which clears the
 // unread badge in all their tabs. Only while this browser tab is actually
@@ -26,6 +28,15 @@ const mergeMessages = (a, b) => {
   return [...byId.values()].sort(byTime);
 };
 
+// How long to wait for the server to confirm a message before calling it "Not sent".
+const SEND_TIMEOUT_MS = 5000;
+// Show how many characters are left once the text gets this close to the limit.
+const COUNTER_FROM = MAX_MESSAGE_LENGTH - 200;
+
+// Enter sends on a keyboard. On a touch screen there is no Shift+Enter, so
+// Enter adds a new line there and the Send button sends.
+const enterSends = () => !window.matchMedia("(pointer: coarse)").matches;
+
 // One open conversation: its messages, real-time updates and the input.
 // Chat.jsx renders it with key={conversationId}, so switching conversation
 // mounts a fresh instance and all of this state starts empty.
@@ -37,6 +48,11 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   const [history, setHistory] = useState({ messages: [], hasOlder: false });
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [messageInput, setMessageInput] = useState("");
+  // My messages that the server has not confirmed yet ("sending" or "failed"),
+  // shown at the end of the chat. Each has a clientId: sending it again after
+  // a failure can never create a second copy (the server checks the id).
+  const [outbox, setOutbox] = useState([]);
+  const inputRef = useRef(null);
   // The id comes from the URL now, so it can be wrong or belong to someone else.
   const [joinError, setJoinError] = useState(null);
   const currentUserId = currentUser._id;
@@ -48,7 +64,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     const handleNewMessage = (message) => {
       // Sirf currently selected conversation ka message add karo
       if (message.conversationId === conversationId) {
-        setHistory((prev) => ({ ...prev, messages: [...prev.messages, message] }));
+        setHistory((prev) => ({ ...prev, messages: mergeMessages(prev.messages, [message]) }));
         // Seen as it arrives (our own messages are never unread).
         if (message.sender !== currentUserId) {
           markRead(conversationId);
@@ -147,44 +163,81 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     }
   };
 
-  // Send message: encrypted in the browser; the server only gets ciphertext.
-  const handleSendMessage = async () => {
-    if (!messageInput.trim() || !conversationKey) {
-      return;
-    }
+  const setOutboxStatus = (clientId, status) =>
+    setOutbox((prev) => prev.map((item) => (item.clientId === clientId ? { ...item, status } : item)));
 
-    // While disconnected, Socket.IO would buffer the emit and send it after
-    // reconnecting — after our timeout already said "failed". Refuse instead,
-    // so a retry can't produce a duplicate message.
+  // Sends one outbox message and waits for the server's confirmation.
+  const deliver = ({ clientId, encrypted }) => {
+    // While disconnected, Socket.IO would hold the message and send it later,
+    // after it was already shown as "Not sent". Fail now; Retry sends it once
+    // the connection is back.
     if (!socket.connected) {
-      console.error("Message not sent: not connected to the server");
+      setOutboxStatus(clientId, "failed");
       return;
     }
-
-    const content = messageInput.trim();
-    setMessageInput("");
-    let encrypted;
-    try {
-      encrypted = await encryptMessage(conversationKey, content, currentUserId);
-    } catch (error) {
-      console.error("Message not sent: could not encrypt it", error);
-      setMessageInput((current) => current || content);
-      return;
-    }
-    const { ciphertext, iv } = encrypted;
-
-    // timeout(): if the server never answers (e.g. socket disconnected),
-    // the callback still runs with an error instead of waiting forever.
+    setOutboxStatus(clientId, "sending");
+    // timeout(): if the server never answers, the callback still runs with an error.
     socket
-      .timeout(5000)
-      .emit("sendMessage", { conversationId, ciphertext, iv }, (err, response) => {
+      .timeout(SEND_TIMEOUT_MS)
+      .emit("sendMessage", { conversationId, clientId, ...encrypted }, (err, response) => {
         if (err || !response.success) {
           console.error("Message not sent:", err ? "Server did not respond" : response.message);
-          // Give the text back so the user doesn't lose it.
-          setMessageInput((current) => current || content);
+          setOutboxStatus(clientId, "failed");
+          return;
         }
+        // Usually "newMessage" already added it; after a retry of a message
+        // that was saved the first time, the confirmation is the only copy.
+        setHistory((prev) => ({ ...prev, messages: mergeMessages(prev.messages, [response.message]) }));
+        setOutbox((prev) => prev.filter((item) => item.clientId !== clientId));
       });
   };
+
+  // Send message: encrypted in the browser; the server only gets ciphertext.
+  const handleSendMessage = async () => {
+    const text = messageInput.trim();
+    if (!text || !conversationKey) {
+      return;
+    }
+
+    // Cleared right away so a fast second Enter can't send the text twice.
+    setMessageInput("");
+    inputRef.current?.focus();
+    let encrypted;
+    try {
+      encrypted = await encryptMessage(conversationKey, text, currentUserId);
+    } catch (error) {
+      console.error("Message not sent: could not encrypt it", error);
+      setMessageInput((current) => current || text);
+      return;
+    }
+
+    const clientId = crypto.randomUUID();
+    const item = {
+      _id: `pending-${clientId}`,
+      clientId,
+      sender: currentUserId,
+      createdAt: new Date().toISOString(),
+      text,
+      encrypted,
+      status: "sending",
+    };
+    setOutbox((prev) => [...prev, item]);
+    deliver(item);
+  };
+
+  // The composer grows with its text (up to max-h-40, then it scrolls).
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    const borders = input.offsetHeight - input.clientHeight;
+    input.style.height = `${input.scrollHeight + borders}px`;
+  }, [messageInput]);
+
+  // A message is confirmed once the server's copy (same clientId) is in the
+  // history, even if its confirmation got lost (e.g. it came in a refetch).
+  const confirmedClientIds = new Set(history.messages.map((message) => message.clientId));
+  const pending = outbox.filter((item) => !confirmedClientIds.has(item.clientId));
 
   if (joinError) {
     return (
@@ -210,7 +263,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
           </div>
         ) : null}
 
-        {buildTimeline(history.messages).map((item) =>
+        {buildTimeline([...history.messages, ...pending]).map((item) =>
           item.type === "day" ? (
             // A heading per day, so screen-reader users can jump between days.
             <h3 key={item.key} className="my-4 flex justify-center font-sans text-xs font-medium first:mt-0">
@@ -227,29 +280,52 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
               senderName={peerName}
               isFirstInGroup={item.isFirstInGroup}
               isLastInGroup={item.isLastInGroup}
+              onRetry={item.message.status ? () => deliver(item.message) : undefined}
             />
           ),
         )}
       </div>
-      <div className="flex shrink-0 gap-2 border-t border-border p-3">
-        <input
-          type="text"
-          className="min-w-0 flex-1"
-          aria-label="Message"
-          placeholder="Type a message..."
-          maxLength={MAX_MESSAGE_LENGTH}
-          value={messageInput}
-          onChange={(e) => setMessageInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
+      <form
+        className="relative shrink-0 border-t border-border p-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSendMessage();
+        }}
+      >
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={inputRef}
+            rows={1}
+            className="max-h-40 min-w-0 flex-1 resize-none"
+            aria-label="Message"
+            aria-describedby="composer-hint"
+            placeholder="Type a message..."
+            maxLength={MAX_MESSAGE_LENGTH}
+            enterKeyHint={enterSends() ? "send" : "enter"}
+            value={messageInput}
+            onChange={(e) => setMessageInput(e.target.value)}
+            onKeyDown={(e) => {
+              // isComposing: Enter that confirms a word in an input method
+              // (e.g. Hindi transliteration) must not send the message.
+              if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing || !enterSends()) return;
+              e.preventDefault();
               handleSendMessage();
-            }
-          }}
-        />
-
-        {/* Disabled until the encryption key for this conversation is ready. */}
-        <button onClick={handleSendMessage} disabled={!conversationKey}>Send</button>
-      </div>
+            }}
+          />
+          {/* Disabled until the encryption key for this conversation is ready. */}
+          <Button type="submit" size="icon-xl" aria-label="Send" disabled={!conversationKey}>
+            <SendHorizontalIcon aria-hidden="true" />
+          </Button>
+        </div>
+        <p id="composer-hint" className="sr-only">
+          {enterSends() ? "Enter sends, Shift+Enter adds a new line." : "Use the Send button to send."}
+        </p>
+        {messageInput.length >= COUNTER_FROM ? (
+          <p className="mt-1 text-right text-xs text-muted-foreground">
+            {MAX_MESSAGE_LENGTH - messageInput.length} characters left
+          </p>
+        ) : null}
+      </form>
     </div>
   );
 };

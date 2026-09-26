@@ -11,10 +11,12 @@ const AES_GCM_TAG_BYTES = 16;
 const MAX_TEXT_LENGTH = 2000;
 const MAX_CIPHERTEXT_BYTES = MAX_TEXT_LENGTH * 4 + AES_GCM_TAG_BYTES;
 const IV_BYTES = 12;
+// crypto.randomUUID() in the browser.
+const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 
 const createMessage = async (conversationId, currentUserId, encrypted) => {
-    const { ciphertext, iv } = encrypted ?? {};
+    const { ciphertext, iv, clientId } = encrypted ?? {};
     if (!isBase64(ciphertext) || !isBase64(iv)) {
         throw new AppError("Encrypted message is missing or invalid", 400);
     }
@@ -29,14 +31,33 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
         throw new AppError(`Message cannot be longer than ${MAX_TEXT_LENGTH} characters`, 400);
     }
 
+    if (clientId !== undefined && (typeof clientId !== "string" || !CLIENT_ID_PATTERN.test(clientId))) {
+        throw new AppError("clientId must be a UUID", 400);
+    }
+
     const conversation = await getConversationForParticipant(conversationId, currentUserId);
 
-    const message = await Message.create({
-        conversationId,
-        sender: currentUserId,
-        ciphertext,
-        iv
-    });
+    let message;
+    try {
+        message = await Message.create({
+            conversationId: conversation._id,
+            sender: currentUserId,
+            ciphertext,
+            iv,
+            clientId
+        });
+    } catch (err) {
+        // A retry of a message that was already saved (its reply got lost):
+        // return the saved one. `duplicate` tells the caller not to announce it again.
+        if (err.code === 11000 && clientId !== undefined) {
+            const existing = await Message.findOne({ sender: currentUserId, clientId });
+            if (existing && existing.conversationId.equals(conversation._id)) {
+                return { message: existing, conversation, duplicate: true };
+            }
+            throw new AppError("This clientId was already used for another message", 409);
+        }
+        throw err;
+    }
 
     conversation.lastMessage = { ciphertext, iv, sender: currentUserId };
     conversation.lastMessageAt = message.createdAt;
@@ -44,7 +65,7 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
 
     // The conversation is returned too: the socket layer needs its
     // participants to notify each of them.
-    return { message, conversation };
+    return { message, conversation, duplicate: false };
 }
 
 

@@ -287,3 +287,15 @@
     }
   }
 }
+
+/* Hidden for the first half second, then shown: a fast send (the usual case)
+   never flashes "Sending...", a slow one does. visibility also hides it from
+   screen readers until then. */
+@utility reveal-late {
+  animation: reveal-late 0s 0.5s both;
+}
+@keyframes reveal-late {
+  from {
+    visibility: hidden;
+  }
+}

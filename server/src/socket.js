@@ -55,7 +55,13 @@ const createSocketServer = (httpServer) => {
 
         socket.on("sendMessage", async (data, ack) => {
             try {
-                const { message, conversation } = await createMessage(data?.conversationId, socket.userId, data);
+                const { message, conversation, duplicate } = await createMessage(data?.conversationId, socket.userId, data);
+
+                // A retry of an already delivered message: everyone has it, just confirm.
+                if (duplicate) {
+                    if (typeof ack === "function") ack({ success: true, message });
+                    return;
+                }
 
                 // Each participant has their own unread count. Count BEFORE
                 // emitting newMessage: the reader only sends "markRead" after
