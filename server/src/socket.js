@@ -6,6 +6,7 @@ import { countUnread, getContactIds, getConversationForParticipant, markAllDeliv
 import User from "./models/user.model.js";
 import { socketClosed, socketOpened } from "./presence.js";
 import { createMessage } from "./services/message.service.js";
+import registerCallHandlers from "./calls.js";
 
 const userRoom = (userId) => `user:${userId}`;
 
@@ -168,6 +169,8 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
                 replyWithError(err, ack);
             }
         });
+
+        registerCallHandlers(io, socket, { userRoom, replyWithError });
 
         socket.on("leaveConversation", (conversationId) => {
             socket.leave(conversationId);

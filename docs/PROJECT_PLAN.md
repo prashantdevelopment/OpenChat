@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 37 – Call signaling over Socket.IO + 1:1 voice call (STUN)
+**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 38 – Video call + controls (mute, camera, switch, end) + call overlay
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -369,7 +369,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 ### Phase G — Calls (WebRTC)
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
-| 37 | Call signaling over Socket.IO + 1:1 voice call (STUN) | todo | | |
+| 37 | Call signaling over Socket.IO + 1:1 voice call (STUN) | done | 2026-09-26 | `server/src/calls.js` relays `callUser` / `answerCall` / `iceCandidate` / `endCall` to the other participant's tabs (participant check, size checks, reasons). **Signals are encrypted with the conversation key** in the browser: the server can't read the SDP/IP candidates or swap the DTLS fingerprint, so the call is end-to-end encrypted (a tampered offer is refused and the call fails). `client/src/calls/`: CallProvider (WebRTC, Google STUN, one call at a time, busy reply) in the protected layout so a call survives moving to settings; overlay with ringing Accept/Decline, Calling / Connecting / timer, mute, end, and why it ended; other tabs stop ringing. 213 server tests (+9), 22/22 calls E2E (real audio both ways over WebRTC with a fake mic, no SDP in any socket frame). Note: in a direct call each side can see the other's IP address (TURN relay in step 41) |
 | 38 | Video call + controls (mute, camera, switch, end) + call overlay | todo | | |
 | 39 | Call states: ringing, busy, missed, timeout → call message in chat | todo | | |
 | 40 | Voice-call Liquid Orb (audio-reactive) | todo | | 3D/visual |

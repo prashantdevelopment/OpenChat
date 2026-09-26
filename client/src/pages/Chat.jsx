@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeftIcon, MessagesSquareIcon, SettingsIcon, WifiOffIcon } from "lucide-react";
+import { ArrowLeftIcon, MessagesSquareIcon, PhoneIcon, SettingsIcon, WifiOffIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
@@ -15,6 +15,7 @@ import { toastManager } from "@/components/ui/toast";
 import { useIsConnected } from "../socket/useIsConnected.js";
 import { formatLastSeen } from "../lib/time.js";
 import { mergeReceipts } from "../lib/receipts.js";
+import { useCall } from "../calls/CallContext.js";
 import { getNotificationPrefs, shouldNotify, titleWithUnread } from "../lib/notifications.js";
 import { getConversationKey } from "../crypto/hooks.js";
 import { decryptMessage } from "../crypto/messages.js";
@@ -36,6 +37,7 @@ const Chat = () => {
   // Bumped by "Try again" to run the loading effect once more.
   const [listAttempt, setListAttempt] = useState(0);
   const isConnected = useIsConnected();
+  const { isBusy: isInCall, startCall } = useCall();
   // The "not connected" banner waits a second: a quick reconnect shouldn't flash it.
   const [isOfflineLong, setIsOfflineLong] = useState(false);
   if (isConnected && isOfflineLong) setIsOfflineLong(false); // reset for the next drop
@@ -326,6 +328,15 @@ const Chat = () => {
                     <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={peer?.username} />
                   </div>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Voice call ${peer?.username ?? ""}`.trim()}
+                  disabled={!peer?.publicKey || !isConnected || isInCall}
+                  onClick={() => startCall({ conversationId, peer })}
+                >
+                  <PhoneIcon aria-hidden="true" />
+                </Button>
               </header>
               <ConversationView
                 key={conversationId}
