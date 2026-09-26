@@ -36,6 +36,8 @@ describe("describeMessage", () => {
     expect(describeMessage("file", content({ name: "report.pdf" }))).toBe("File: report.pdf");
     expect(describeMessage("file", content({}, { caption: "" }))).toBe("File");
     expect(describeMessage("image", "broken")).toBe("Photo");
+    expect(describeMessage("audio", content({ mime: "audio/webm", duration: 12.4 }))).toBe("Voice message (0:12)");
+    expect(describeMessage("audio", "broken")).toBe("Voice message");
   });
 });
 

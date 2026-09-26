@@ -6,6 +6,7 @@ import { parseAttachmentContent } from "../lib/messageContent.js";
 import EncryptedImage from "./EncryptedImage.jsx";
 import VideoAttachment from "./VideoAttachment.jsx";
 import FileAttachment from "./FileAttachment.jsx";
+import VoiceNote from "./VoiceNote.jsx";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +29,7 @@ const RECEIPTS = {
 const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, receipts, onRetry }) => {
   const { text, failed } = useDecryptedText(conversationKey, message, message.sender);
 
-  const kind = ["image", "video", "file"].includes(message.messageType) ? message.messageType : null;
+  const kind = ["image", "video", "audio", "file"].includes(message.messageType) ? message.messageType : null;
   const attachment = !kind
     ? null
     : message.status
@@ -127,6 +128,13 @@ const Attachment = ({ kind, fileId, file, previewUrl, label, children }) => {
       <EncryptedImage fileId={fileId} file={file} previewUrl={previewUrl} alt={label}>
         {children}
       </EncryptedImage>
+    );
+  }
+  if (kind === "audio") {
+    return (
+      <VoiceNote fileId={fileId} file={file} previewUrl={previewUrl}>
+        {children}
+      </VoiceNote>
     );
   }
   if (kind === "video") {

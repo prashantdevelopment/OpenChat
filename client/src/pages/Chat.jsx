@@ -94,7 +94,7 @@ const Chat = () => {
     const sender = conversations
       .find((conversation) => conversation._id === update._id)
       ?.participants.find((participant) => participant._id !== currentUser._id);
-    let body = { image: "Photo", video: "Video", file: "File" }[update.lastMessage.messageType] ?? "New message";
+    let body = { image: "Photo", video: "Video", audio: "Voice message", file: "File" }[update.lastMessage.messageType] ?? "New message";
     if (prefs.preview && sender?.publicKey && privateKey) {
       try {
         const key = await getConversationKey(privateKey, sender.publicKey, update._id);

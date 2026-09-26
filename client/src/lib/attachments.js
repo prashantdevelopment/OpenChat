@@ -3,6 +3,12 @@ import { IMAGE_TYPES, prepareImage } from "./images.js";
 // Videos the browser can play: MP4, WebM and MOV (QuickTime, from iPhones).
 // Other video formats are still sent, as files.
 export const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+// Voice messages (see hooks/useVoiceRecorder.js).
+export const AUDIO_TYPES = ["audio/webm", "audio/mp4", "audio/ogg", "audio/mpeg"];
+
+// "audio/webm;codecs=opus" -> "audio/webm"
+export const baseType = (mime) => String(mime).split(";")[0].trim().toLowerCase();
+
 // Every file is encrypted and uploaded in one piece of at most 10 MB (the
 // most Cloudinary's plan takes); AES-GCM adds 16 bytes.
 export const MAX_FILE_BYTES = 10 * 1024 * 1024 - 16;

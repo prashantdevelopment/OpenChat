@@ -1,5 +1,7 @@
+import { formatDuration } from "./attachments.js";
+
 // What a message holds once decrypted. Text messages: the text itself.
-// Photo, video and file messages: JSON with the caption and the file's key
+// Photo, video, voice and file messages: JSON with the caption and the file's key
 // and details ({ caption, file: { key, iv, mime, name, size, width, height, duration } }).
 export const parseAttachmentContent = (text) => {
   try {
@@ -24,14 +26,15 @@ export const parseAttachmentContent = (text) => {
   }
 };
 
-const LABELS = { image: "Photo", video: "Video", file: "File" };
+const LABELS = { image: "Photo", video: "Video", audio: "Voice message", file: "File" };
 
 // One line for the chat list and notifications: "Photo", "Video: caption",
-// "File: report.pdf".
+// "Voice message (0:12)", "File: report.pdf".
 export const describeMessage = (messageType, text) => {
   const label = LABELS[messageType];
   if (!label) return text;
   const content = parseAttachmentContent(text);
+  if (messageType === "audio") return content?.file.duration ? `${label} (${formatDuration(content.file.duration)})` : label;
   const detail = messageType === "file" ? content?.file.name || content?.caption : content?.caption;
   return detail ? `${label}: ${detail}` : label;
 };

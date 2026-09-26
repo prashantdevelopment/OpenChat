@@ -1,7 +1,7 @@
 import api from "../api/api.js";
 import { decryptFile } from "../crypto/files.js";
 import { IMAGE_TYPES } from "./images.js";
-import { VIDEO_TYPES } from "./attachments.js";
+import { AUDIO_TYPES, VIDEO_TYPES, baseType } from "./attachments.js";
 
 // fileId -> Promise<object URL>: each attachment is downloaded and decrypted
 // once per session. My own files are put here right after upload.
@@ -18,13 +18,16 @@ export const rememberFile = (fileId, url) => {
 export const getReadyUrl = (fileId) => readyUrls.get(fileId) ?? null;
 
 // The type comes from the sender (inside the encrypted message), so it is
-// only trusted for what the browser shows inline: an image or video type.
+// only trusted for what the browser plays or shows inline: an image, video or
+// audio type.
 // Anything else, and every "file", is plain bytes (application/octet-stream):
 // a blob typed text/html or SVG, opened in a tab, would run as a page of this
 // site.
 const safeType = (kind, mime) => {
-  if (kind === "image" && IMAGE_TYPES.includes(mime)) return mime;
-  if (kind === "video" && VIDEO_TYPES.includes(mime)) return mime;
+  const type = baseType(mime);
+  if (kind === "image" && IMAGE_TYPES.includes(type)) return type;
+  if (kind === "video" && VIDEO_TYPES.includes(type)) return type;
+  if (kind === "audio" && AUDIO_TYPES.includes(type)) return type;
   return "application/octet-stream";
 };
 

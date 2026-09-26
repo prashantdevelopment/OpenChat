@@ -15,7 +15,7 @@ const IV_BYTES = 12;
 // Messages with a file also carry its key and details (name, type, size) in
 // their ciphertext.
 const ATTACHMENT_DETAILS_BYTES = 2048;
-const SUPPORTED_TYPES = ["text", "image", "video", "file"];
+const SUPPORTED_TYPES = ["text", "image", "video", "audio", "file"];
 // crypto.randomUUID() in the browser.
 const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

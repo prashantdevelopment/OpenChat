@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowDownIcon, FileIcon, LockIcon, PaperclipIcon, SendHorizontalIcon, VideoIcon, XIcon } from "lucide-react";
+import { ArrowDownIcon, FileIcon, LockIcon, MicIcon, PaperclipIcon, SendHorizontalIcon, Trash2Icon, VideoIcon, XIcon } from "lucide-react";
 import socket from "../socket/socket.js";
 import api from "../api/api.js";
 import { rememberText, useConversationKey } from "../crypto/hooks.js";
@@ -7,6 +7,7 @@ import { encryptMessage, MAX_MESSAGE_LENGTH } from "../crypto/messages.js";
 import { encryptFile } from "../crypto/files.js";
 import { formatDuration, formatFileSize, prepareAttachment } from "../lib/attachments.js";
 import { rememberFile } from "../lib/encryptedFiles.js";
+import { canRecordVoice, useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
 import MessageBubble from "./MessageBubble.jsx";
 import { buildTimeline } from "../lib/timeline.js";
 import { usePeerTyping, useTypingSender } from "../socket/useTyping.js";
@@ -72,6 +73,18 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   // previewUrl), shown above the input; the text becomes its caption.
   const [attachment, setAttachment] = useState(null);
   const [attachError, setAttachError] = useState("");
+  // At the time limit the recording is sent (sendVoice is defined below).
+  const voice = useVoiceRecorder({ onLimit: () => sendVoice() });
+  const isRecording = voice.status !== "idle";
+  const voiceSendRef = useRef(null);
+  // The mic button disappears when recording starts and the recording bar when
+  // it ends: move keyboard focus along, so it is never lost (and Escape works).
+  const wasRecording = useRef(false);
+  useEffect(() => {
+    if (voice.status === "recording") voiceSendRef.current?.focus();
+    if (voice.status === "idle" && wasRecording.current) inputRef.current?.focus();
+    wasRecording.current = voice.status !== "idle";
+  }, [voice.status]);
 
   // Scrolling. While the user is at the bottom, the chat follows new content
   // (new messages, text appearing after decryption, a taller composer). Once
@@ -334,8 +347,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   // A photo, video or file with an optional caption. The file gets its own
   // key (see crypto/files.js); that key, its details and the caption travel
   // in the message, encrypted like any text.
-  const sendAttachment = async (caption) => {
-    const chosen = attachment;
+  const sendAttachment = async (caption, chosen = attachment) => {
     setAttachment(null);
     setMessageInput("");
     typing.stop();
@@ -353,7 +365,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       encrypted = await encryptMessage(conversationKey, JSON.stringify(content), currentUserId);
     } catch (error) {
       console.error("Attachment not sent: could not encrypt it", error);
-      setAttachment(chosen);
+      if (chosen.kind !== "audio") setAttachment(chosen);
       setMessageInput((current) => current || caption);
       setAttachError("This file couldn't be encrypted. Please try again.");
       return;
@@ -378,6 +390,22 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     };
     setOutbox((prev) => [...prev, item]);
     deliver(item);
+  };
+
+  // Voice message: stop recording and send it like any attachment.
+  const sendVoice = async () => {
+    const recording = await voice.stop();
+    if (!recording) return;
+    sendAttachment("", {
+      kind: "audio",
+      blob: recording.blob,
+      mime: recording.mime,
+      name: "Voice message",
+      width: 0,
+      height: 0,
+      duration: recording.duration,
+      previewUrl: URL.createObjectURL(recording.blob),
+    });
   };
 
   // Send message: encrypted in the browser; the server only gets ciphertext.
@@ -598,11 +626,45 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             </Button>
           </div>
         ) : null}
-        {attachError ? (
+        {attachError || voice.error ? (
           <p role="alert" className="mb-2 text-sm text-destructive-foreground">
-            {attachError}
+            {attachError || voice.error}
           </p>
         ) : null}
+        {/* Announced once when recording starts (the timer itself isn't read out). */}
+        <p role="status" className="sr-only">
+          {isRecording ? "Recording a voice message" : ""}
+        </p>
+        {isRecording ? (
+          // Escape = cancel.
+          <div
+            className="flex items-center gap-2"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") voice.cancel();
+            }}
+          >
+            <Button type="button" variant="ghost" size="icon-xl" aria-label="Cancel recording" onClick={voice.cancel}>
+              <Trash2Icon aria-hidden="true" />
+            </Button>
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-input px-3 py-2">
+              <span aria-hidden="true" className="size-2.5 shrink-0 animate-pulse rounded-full bg-destructive" />
+              <span aria-hidden="true" className="tabular-nums">
+                {voice.status === "starting" ? "Starting..." : formatDuration(voice.seconds)}
+              </span>
+              <span className="truncate text-sm text-muted-foreground">Recording</span>
+            </div>
+            <Button
+              type="button"
+              size="icon-xl"
+              aria-label="Send voice message"
+              ref={voiceSendRef}
+              disabled={voice.status !== "recording"}
+              onClick={sendVoice}
+            >
+              <SendHorizontalIcon aria-hidden="true" />
+            </Button>
+          </div>
+        ) : (
         <div className="flex items-end gap-2">
           <input ref={fileInputRef} type="file" hidden onChange={chooseFile} />
           <Button
@@ -637,11 +699,25 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
               handleSendMessage();
             }}
           />
+          {/* Voice message: only while nothing is typed or attached (like other chat apps). */}
+          {canRecordVoice() && !messageInput && !attachment ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xl"
+              aria-label="Record voice message"
+              disabled={!conversationKey}
+              onClick={voice.start}
+            >
+              <MicIcon aria-hidden="true" />
+            </Button>
+          ) : null}
           {/* Disabled until the encryption key for this conversation is ready. */}
           <Button type="submit" size="icon-xl" aria-label="Send" disabled={!conversationKey}>
             <SendHorizontalIcon aria-hidden="true" />
           </Button>
         </div>
+        )}
         <p id="composer-hint" className="sr-only">
           {enterSends() ? "Enter sends, Shift+Enter adds a new line." : "Use the Send button to send."}
         </p>

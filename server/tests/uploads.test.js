@@ -61,12 +61,13 @@ describe("uploading an encrypted file", () => {
     });
 
     it("needs to know what the file will be (image, video or file)", async () => {
-        for (const kind of [null, "audio", "../x"]) {
+        for (const kind of [null, "sticker", "../x"]) {
             const res = await upload(alice, chatId, encryptedFile(), kind);
             expect(res.status).toBe(400);
-            expect(res.body.message).toBe("kind must be image, video or file");
+            expect(res.body.message).toBe("kind must be image, video, audio or file");
         }
         expect((await upload(alice, chatId, encryptedFile(), "video")).status).toBe(201);
+        expect((await upload(alice, chatId, encryptedFile(), "audio")).status).toBe(201);
         expect((await upload(alice, chatId, encryptedFile(), "file")).status).toBe(201);
     });
 
@@ -167,7 +168,7 @@ describe("image messages", () => {
     it("refuses unknown types and attachments on text messages", async () => {
         const { fileId } = (await upload(alice, chatId, encryptedFile())).body;
         const a = await connectAs(alice);
-        expect((await sendImage(a, chatId, { fileId }, { messageType: "audio" })).message).toBe("Unsupported message type");
+        expect((await sendImage(a, chatId, { fileId }, { messageType: "sticker" })).message).toBe("Unsupported message type");
         expect((await sendImage(a, chatId, { fileId }, { messageType: "text" })).message).toBe("Text messages can't have an attachment");
     });
 
@@ -188,6 +189,15 @@ describe("image messages", () => {
         expect((await sendImage(a, chatId, { fileId: another.fileId }, { messageType: "image" })).message).toMatch(/can't be attached/);
         const photo = (await upload(alice, chatId, encryptedFile(), "image")).body;
         expect((await sendImage(a, chatId, { fileId: photo.fileId }, { messageType: "video" })).message).toMatch(/can't be attached/);
+    });
+
+    it("sends voice messages with an audio upload only", async () => {
+        const a = await connectAs(alice);
+        const voice = (await upload(alice, chatId, encryptedFile(2500), "audio")).body;
+        const sent = await sendImage(a, chatId, { fileId: voice.fileId }, { messageType: "audio" });
+        expect(sent.message).toMatchObject({ messageType: "audio", attachment: { fileId: voice.fileId, size: 2500 } });
+        const file = (await upload(alice, chatId, encryptedFile(), "file")).body;
+        expect((await sendImage(a, chatId, { fileId: file.fileId }, { messageType: "audio" })).message).toMatch(/can't be attached/);
     });
 
     it("lets a file message carry a long file name in its details", async () => {
