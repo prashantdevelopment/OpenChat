@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import ConversationListItem from "../components/ConversationListItem.jsx";
 import ConversationView from "../components/ConversationView.jsx";
 import SafetyNumber from "../components/SafetyNumber.jsx";
+import Avatar from "../components/Avatar.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -153,21 +154,22 @@ const Chat = () => {
       <main className={cn("min-w-0 flex-1 flex-col md:flex", conversationId ? "flex" : "hidden")}>
         {conversationId ? (
           <>
-            <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+            <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
               <Button
                 render={<Link to="/chat" />}
                 variant="ghost"
                 size="icon"
-                className="md:hidden"
+                className="-ml-2 md:hidden"
                 aria-label="Back to conversations"
               >
                 <ArrowLeftIcon aria-hidden="true" />
               </Button>
-              <h2 className="min-w-0 flex-1 truncate text-lg">{peer?.username ?? "Conversation"}</h2>
+              {peer ? <Avatar name={peer.username} /> : null}
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-base leading-tight">{peer?.username ?? "Conversation"}</h2>
+                <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={peer?.username} />
+              </div>
             </header>
-            <div className="border-b border-border px-4 py-2 text-sm">
-              <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={peer?.username} />
-            </div>
             <ConversationView
               key={conversationId}
               conversationId={conversationId}
