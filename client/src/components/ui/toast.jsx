@@ -21,7 +21,9 @@ const ToastList = () => {
   return (
     <Toast.Portal>
       {/* Top of the screen: at the bottom they would cover the composer. */}
-      <Toast.Viewport className="fixed inset-x-4 top-4 z-50 flex flex-col gap-2 sm:left-auto sm:w-96">
+      {/* "Alerts": Base UI's default name, "Notifications", would clash with
+          the Notifications settings (two landmarks with one name). */}
+      <Toast.Viewport aria-label="Alerts" className="fixed inset-x-4 top-4 z-50 flex flex-col gap-2 sm:left-auto sm:w-96">
         {toasts.map((toast) => (
           <Toast.Root
             key={toast.id}

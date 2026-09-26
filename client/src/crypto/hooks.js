@@ -7,7 +7,7 @@ import { decryptMessage, deriveConversationKey } from "./messages.js";
 // so logging in again (a new private key) starts with an empty cache.
 const keyCache = new WeakMap(); // privateKey -> Map(conversationId -> Promise<CryptoKey>)
 
-const getConversationKey = (privateKey, peerPublicKey, conversationId) => {
+export const getConversationKey = (privateKey, peerPublicKey, conversationId) => {
   if (!keyCache.has(privateKey)) keyCache.set(privateKey, new Map());
   const keys = keyCache.get(privateKey);
   if (!keys.has(conversationId)) {

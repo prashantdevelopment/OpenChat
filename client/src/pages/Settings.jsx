@@ -6,6 +6,7 @@ import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { rewrapPrivateKey } from "../crypto/keys.js";
 import { applyThemeChoice, getThemeChoice } from "../lib/theme.js";
+import { getNotificationPrefs, setNotificationPrefs } from "../lib/notifications.js";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
 import { Button } from "@/components/ui/button";
@@ -292,6 +293,74 @@ const PrivacySection = () => {
   );
 };
 
+const NotificationsSection = () => {
+  const isSupported = "Notification" in window;
+  const [prefs, setPrefs] = useState(getNotificationPrefs);
+  const [permission, setPermission] = useState(isSupported ? Notification.permission : "unsupported");
+  const isOn = prefs.enabled && permission === "granted";
+
+  const save = (changes) => {
+    setNotificationPrefs(changes);
+    setPrefs((current) => ({ ...current, ...changes }));
+  };
+
+  // The browser asks for permission only now, after the user chose this
+  // (never on page load).
+  const handleToggle = async (e) => {
+    if (!e.target.checked) {
+      save({ enabled: false });
+      return;
+    }
+    const result = permission === "granted" ? "granted" : await Notification.requestPermission();
+    setPermission(result);
+    save({ enabled: result === "granted" });
+  };
+
+  return (
+    <Section title="Notifications" description="Get a notification for new messages while OpenChat is open in a tab you aren't looking at.">
+      {!isSupported ? (
+        <p className="text-sm text-muted-foreground">This browser doesn&apos;t support notifications.</p>
+      ) : (
+        <div className="space-y-4">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={isOn}
+              disabled={permission === "denied"}
+              onChange={handleToggle}
+              className="mt-0.5 size-4 shrink-0 accent-primary"
+            />
+            <span className="text-sm font-medium">Desktop notifications</span>
+          </label>
+          {permission === "denied" ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Notifications are blocked for this site. Allow them in your browser&apos;s site settings, then reload.
+            </p>
+          ) : null}
+          <label className="flex cursor-pointer items-start gap-3 has-disabled:cursor-not-allowed has-disabled:opacity-60">
+            <input
+              type="checkbox"
+              checked={prefs.preview}
+              disabled={!isOn}
+              onChange={(e) => save({ preview: e.target.checked })}
+              aria-describedby="notification-preview-hint"
+              className="mt-0.5 size-4 shrink-0 accent-primary"
+            />
+            <span>
+              <span className="block text-sm font-medium">Show message text</span>
+              <span id="notification-preview-hint" className="mt-0.5 block text-sm text-muted-foreground">
+                Messages are decrypted on this device. Turn this off if others can see your screen: the notification
+                will only say &quot;New message&quot;.
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
+    </Section>
+  );
+};
+
 const THEMES = [
   { value: "light", label: "Light", Icon: SunIcon },
   { value: "dark", label: "Dark", Icon: MoonIcon },
@@ -363,6 +432,7 @@ const Settings = () => (
       <ProfileSection />
       <PasswordSection />
       <PrivacySection />
+      <NotificationsSection />
       <AppearanceSection />
       <AccountSection />
     </main>
