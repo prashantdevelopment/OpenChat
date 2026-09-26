@@ -83,8 +83,11 @@ const UserSearch = ({ onMessageUser }) => {
               <Avatar name={user.username} className="size-9 text-sm" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{user.username}</span>
-                {stateName(user.state) ? (
-                  <span className="block truncate text-xs text-muted-foreground">{stateName(user.state)}</span>
+                {/* "Kerala · bio" on one line, cut off with … when too long. */}
+                {stateName(user.state) || user.bio ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {[stateName(user.state), user.bio].filter(Boolean).join(" · ")}
+                  </span>
                 ) : null}
               </span>
               <Button

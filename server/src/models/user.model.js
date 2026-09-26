@@ -110,8 +110,11 @@ const userSchema =  new mongoose.Schema({
         type: String,
         default: ""
     },
+    // Public "about" line, shown next to the name in search results.
     bio: {
         type: String,
+        trim: true,
+        maxlength: [160, "Bio must be at most 160 characters long"],
         default: ""
     },
     isOnline: {
@@ -141,7 +144,7 @@ const userSchema =  new mongoose.Schema({
 // What other users may see about someone (search results, conversation
 // participants). Never email, password or anything else private. The public
 // key is public by design: others need it to encrypt messages for this user.
-export const PUBLIC_USER_FIELDS = "username avatar state publicKey";
+export const PUBLIC_USER_FIELDS = "username avatar bio state publicKey";
 
 const User = mongoose.model("User", userSchema);
 

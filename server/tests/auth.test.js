@@ -277,6 +277,51 @@ describe("profile and password change", () => {
         expectError(await request(app).patch("/api/users/me").set("Cookie", user.cookie).send({ bio: { a: 1 } }), 400);
     });
 
+    const updateProfile = (body) => request(app).patch("/api/users/me").set("Cookie", user.cookie).send(body);
+
+    it("trims the bio and limits it to 160 characters", async () => {
+        expect((await updateProfile({ bio: "  namaste  " })).body.updatedUser.bio).toBe("namaste");
+        const res = await updateProfile({ bio: "a".repeat(161) });
+        expect(res.status).toBe(400);
+        expect(res.body.errors.bio).toBe("Bio must be at most 160 characters long");
+    });
+
+    it("changes the state, but only to a real Indian state or UT", async () => {
+        expect((await updateProfile({ state: "kerala" })).body.updatedUser.state).toBe("kerala");
+        const res = await updateProfile({ state: "atlantis" });
+        expect(res.status).toBe(400);
+        expect(res.body.errors.state).toBe("Please select a valid state");
+        expect((await User.findById(user.id)).state).toBe("kerala");
+    });
+
+    it("changes the username with the same rules as registration", async () => {
+        const res = await updateProfile({ username: "  Profile.User2 " });
+        expect(res.status).toBe(200);
+        expect(res.body.updatedUser.username).toBe("profile.user2");
+        expect((await updateProfile({ username: "ab" })).body.errors.username).toBe("Username must be at least 3 characters long");
+        expect((await updateProfile({ username: "admin" })).body.errors.username).toBe("This username is reserved");
+        await updateProfile({ username: "profile_user" }); // the tests below log in with it
+    });
+
+    it("refuses a username someone else has", async () => {
+        await registerAndLogin("taken_name");
+        const res = await updateProfile({ username: "taken_name" });
+        expect(res.status).toBe(409);
+        expect(res.body.message).toBe("Username already exists");
+    });
+
+    it("ignores the avatar (free URLs would leak viewers' IP addresses)", async () => {
+        expectError(await updateProfile({ avatar: "https://tracker.example/pixel.png" }), 400);
+        await updateProfile({ bio: "still here", avatar: "https://tracker.example/pixel.png" });
+        expect((await User.findById(user.id)).avatar).toBe("");
+    });
+
+    it("never returns the password hash or the locked private key", async () => {
+        const res = await updateProfile({ bio: "safe" });
+        expect(res.body.updatedUser).not.toHaveProperty("password");
+        expect(res.body.updatedUser).not.toHaveProperty("encryptedPrivateKey");
+    });
+
     const changePassword = (body) => request(app).patch("/api/users/me/password").set("Cookie", user.cookie).send(body);
     const login = (password) => request(app).post("/api/auth/login").send({ identifier: "profile_user", password });
     // What the browser would send: the private key locked again with the new password.

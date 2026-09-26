@@ -107,6 +107,10 @@ const AuthProvider = ({ children }) => {
     });
   };
 
+  // After a profile or password change. Merged, because the server's answer
+  // to a profile update leaves out the locked private key.
+  const updateCurrentUser = (changes) => setCurrentUser((user) => ({ ...user, ...changes }));
+
   if (isCheckingSession) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background text-muted-foreground">
@@ -116,7 +120,7 @@ const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext value={{ currentUser, privateKey, login, unlock, logout }}>
+    <AuthContext value={{ currentUser, privateKey, login, unlock, logout, updateCurrentUser }}>
       {children}
     </AuthContext>
   );

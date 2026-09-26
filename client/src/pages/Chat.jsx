@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeftIcon, MessagesSquareIcon, WifiOffIcon } from "lucide-react";
+import { ArrowLeftIcon, MessagesSquareIcon, SettingsIcon, WifiOffIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
@@ -169,6 +169,9 @@ const Chat = () => {
               <p className="truncate text-sm text-muted-foreground">Logged in as {currentUser.username}</p>
             </div>
             <ThemeToggle />
+            <Button render={<Link to="/settings" />} variant="outline" size="icon" aria-label="Settings">
+              <SettingsIcon aria-hidden="true" />
+            </Button>
             <Button variant="outline" size="sm" onClick={logout}>
               Logout
             </Button>

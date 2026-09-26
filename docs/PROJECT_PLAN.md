@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 28 – Settings + profile page (avatar URL, bio, state, password, theme, logout)
+**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 29 – Presence: online/offline + last seen (multi-tab aware, in memory)
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -348,7 +348,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 25 | Auto-scroll that never interrupts reading history + "new messages" pill | done | 2026-09-26 | Chats open at the newest message. A ResizeObserver keeps the view at the bottom while you are there (new messages, decryption, taller composer); only scrolling up leaves the bottom (the browser's own scroll anchoring never counts). While reading history nothing moves and a "N new messages" pill jumps down (instant with reduced motion); sending always jumps down; "Load older" keeps the message you were reading in place. Also fixed: the server now handles one connection's messages one at a time, in order (a quick second message could be saved first); known texts are cached per conversation key, so your own sent message no longer flashes "Decrypting...". 161 server tests (+1), 24/24 scroll E2E, 36/36 composer E2E |
 | 26 | Loading / empty / error states (skeletons, Circle Loaders, toasts) | done | 2026-09-26 | Spinner while the session is checked; skeleton rows / bubbles only when loading takes over 0.5s (no flash); inline errors with "Try again" for the chat list and the history (never a misleading empty state); empty states for no chats, no chat open and an empty chat ("end-to-end encrypted, say hello"); toasts (Base UI Toast, `components/ui/toast.jsx`, aria-live, 6s, X/swipe) for background failures (load older, starting a chat); "Not connected" banner after 1s offline (`socket/useIsConnected.js`). Circle Loaders not used: the coss `Spinner` already in the design system covers the two spinners; the coss registry was unreachable, so the toast was built directly on the installed Base UI API. 34/34 states E2E |
 | 27 | Auth pages UI (login/register with state picker) | done | 2026-09-26 | `AuthCard` (brand + centred card) for login, register, unlock and 404; `FormField` (visible label, hint, error, `aria-describedby`/`aria-invalid`, red border) and `PasswordInput` (show/hide, `aria-pressed`). State picker grouped into 28 states / 8 union territories (`unionTerritory` in `shared/indian-states.js`). Server errors appear under their fields and focus moves to the first wrong one; password warning shown before choosing it; coss `Button` `loading` (spinner, same width). No client-side copy of the server's rules: the server stays the single source of messages. 31/31 auth UI E2E (360px, dark, keyboard order) |
-| 28 | Settings + profile page (avatar URL, bio, state, password, theme, logout) | todo | | |
+| 28 | Settings + profile page (avatar URL, bio, state, password, theme, logout) | done | 2026-09-26 | `/settings` (lazy-loaded, 7 kB): Profile (username, bio up to 160 chars, state; only changed fields are sent; server errors under their fields), Password (current/new/confirm; the private key is re-locked with the new password in the browser, a wrong current password is caught there before any request), Appearance (Light / Dark / Match device radios, `lib/theme.js` shared with the toggle), Account (email, log out). Bio is public (search shows "State · bio"). **Avatar URL dropped on purpose:** a free URL makes every viewer's browser load a file from any server (IP tracking); the server no longer accepts `avatar`, photos come with uploads in step 36. 167 server tests (+6), 32/32 settings E2E incl. new password on a new device still decrypting old messages. Main bundle 493 kB (limit 500): consider more code splitting later |
 
 ### Phase E — Real-time features (one at a time)
 | # | Step | Status | Done on | Notes |
@@ -364,7 +364,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 33 | Cloudinary signed upload + images encrypted in the browser before upload (preview, progress) | todo | | Needs Cloudinary account |
 | 34 | Video + file messages (size/type limits server-side) | todo | | |
 | 35 | Voice notes (MediaRecorder) + audio player bubble | todo | | |
-| 36 | Avatar upload (public, not encrypted) | todo | | |
+| 36 | Avatar upload (public, not encrypted) | todo | | Replaces the avatar URL left out of step 28: only images from our own storage, never arbitrary URLs |
 
 ### Phase G — Calls (WebRTC)
 | # | Step | Status | Done on | Notes |

@@ -74,7 +74,7 @@ describe("what alice can see about bob", () => {
     it("conversation participants carry only public fields", async () => {
         const res = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
         for (const participant of res.body.conversations[0].participants) {
-            expect(Object.keys(participant).sort()).toEqual(["_id", "avatar", "publicKey", "state", "username"]);
+            expect(Object.keys(participant).sort()).toEqual(["_id", "avatar", "bio", "publicKey", "state", "username"]);
         }
     });
 

@@ -3,11 +3,11 @@ import { flushSync } from "react-dom";
 import { Link, Navigate } from "react-router";
 import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
-import { INDIAN_STATES } from "../../../shared/indian-states.js";
 import { createKeyBundle } from "../crypto/keys.js";
-import { ChevronDownIcon, KeyRoundIcon } from "lucide-react";
+import { KeyRoundIcon } from "lucide-react";
 import AuthCard from "../components/AuthCard.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
+import StateSelect from "../components/StateSelect.jsx";
 import { Button } from "@/components/ui/button";
 
 const FIELD_ORDER = ["username", "email", "password", "state"];
@@ -142,37 +142,7 @@ const Register = () => {
         </div>
 
         <FormField id="state" label="Your state" error={fieldErrors.state}>
-          {(props) => (
-            <div className="relative">
-              <select
-                {...props}
-                name="state"
-                className="w-full cursor-pointer appearance-none pr-10"
-                value={form.state}
-                onChange={handleChange}
-              >
-                <option value="">Select your state</option>
-                <optgroup label="States">
-                  {INDIAN_STATES.filter((state) => !state.unionTerritory).map((state) => (
-                    <option key={state.code} value={state.code}>
-                      {state.name}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Union territories">
-                  {INDIAN_STATES.filter((state) => state.unionTerritory).map((state) => (
-                    <option key={state.code} value={state.code}>
-                      {state.name}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-              <ChevronDownIcon
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
-              />
-            </div>
-          )}
+          {(props) => <StateSelect {...props} name="state" value={form.state} onChange={handleChange} />}
         </FormField>
 
         <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>

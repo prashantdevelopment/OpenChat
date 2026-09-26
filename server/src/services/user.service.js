@@ -69,11 +69,14 @@ const searchUsers = async (query, currentUserId) => {
         .lean();
 }
 
+// The profile fields a user may change (settings page). Not the avatar:
+// a free URL would make everyone who sees it load a file from any server
+// (leaking their IP address). Photos come with uploads (plan step 36).
 const updateUser = async (userId, updateData) => {
     const allowedUpdates = {}
     if (updateData.username !== undefined) allowedUpdates.username = updateData.username;
     if (updateData.bio !== undefined) allowedUpdates.bio = updateData.bio;
-    if (updateData.avatar !== undefined) allowedUpdates.avatar = updateData.avatar;
+    if (updateData.state !== undefined) allowedUpdates.state = updateData.state;
     if(Object.keys(allowedUpdates).length === 0) {
         throw new AppError("No valid fields provided for update", 400);
     }
