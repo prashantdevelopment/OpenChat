@@ -2,6 +2,7 @@ import { NavLink } from "react-router";
 import { useConversationKey, useDecryptedText } from "../crypto/hooks.js";
 import { formatConversationTime, formatFullDateTime } from "../lib/time.js";
 import { cn } from "@/lib/utils";
+import { describeMessage } from "../lib/messageContent.js";
 import Avatar from "./Avatar.jsx";
 
 // One conversation in the sidebar: avatar, name, time, one-line preview and
@@ -15,7 +16,7 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
 
   let preview = "No messages yet";
   if (lastMessage?.ciphertext) {
-    const body = failed ? "[could not decrypt]" : (text ?? "...");
+    const body = failed ? "[could not decrypt]" : text === undefined ? "..." : describeMessage(lastMessage.messageType, text);
     preview = lastMessage.sender === currentUserId ? `You: ${body}` : body;
   }
 

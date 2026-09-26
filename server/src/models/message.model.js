@@ -35,6 +35,15 @@ const messageSchema = new mongoose.Schema({
         enum: ["text", "image", "video", "file"],
         default: "text",
         required: true
+    },
+    // Image messages: the uploaded (encrypted) file. Its key and details
+    // (type, size in pixels, caption) are inside the ciphertext above.
+    attachment: {
+        type: new mongoose.Schema({
+            fileId: { type: String, required: true },
+            size: { type: Number, required: true }
+        }, { _id: false }),
+        default: undefined
     }
     // Read state lives on the Conversation (lastReadAt), not on each message.
 },

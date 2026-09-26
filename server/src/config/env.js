@@ -1,4 +1,6 @@
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -35,7 +37,17 @@ const JWT_SECRET = process.env.JWT_SECRET;
                 throw new Error("JWT_SECRET must be at least 32 characters long");
             }
 
+// Uploaded (encrypted) files. Default: server/uploads, which is git-ignored.
+const STORAGE_DRIVER = process.env.STORAGE_DRIVER ?? "local";
+            if (STORAGE_DRIVER !== "local") {
+                throw new Error(`STORAGE_DRIVER "${STORAGE_DRIVER}" is not supported (only "local" so far)`);
+            }
+const UPLOADS_DIR = process.env.UPLOADS_DIR
+    ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "uploads");
+
 export {
+    STORAGE_DRIVER,
+    UPLOADS_DIR,
     PORT,
     MONGO_URI,
     JWT_SECRET,

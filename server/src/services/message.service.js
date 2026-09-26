@@ -3,6 +3,7 @@ import Message from "../models/message.model.js";
 import AppError from "../utils/AppError.js";
 import { base64Length, isBase64 } from "../utils/base64.js";
 import { getConversationForParticipant } from "./conversation.service.js";
+import { getAttachableUpload } from "./upload.service.js";
 
 // Messages are end-to-end encrypted, so the server cannot see the text. It can
 // only check sizes: AES-GCM output = UTF-8 text + a 16-byte tag, and the
@@ -11,12 +12,23 @@ const AES_GCM_TAG_BYTES = 16;
 const MAX_TEXT_LENGTH = 2000;
 const MAX_CIPHERTEXT_BYTES = MAX_TEXT_LENGTH * 4 + AES_GCM_TAG_BYTES;
 const IV_BYTES = 12;
+// Image messages also carry the file's key and details in their ciphertext.
+const ATTACHMENT_DETAILS_BYTES = 1024;
+// Only these kinds exist so far (video and files come in later steps).
+const SUPPORTED_TYPES = ["text", "image"];
 // crypto.randomUUID() in the browser.
 const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 
 const createMessage = async (conversationId, currentUserId, encrypted) => {
-    const { ciphertext, iv, clientId } = encrypted ?? {};
+    const { ciphertext, iv, clientId, messageType = "text", attachment } = encrypted ?? {};
+    if (!SUPPORTED_TYPES.includes(messageType)) {
+        throw new AppError("Unsupported message type", 400);
+    }
+    const isImage = messageType === "image";
+    if (!isImage && attachment !== undefined) {
+        throw new AppError("Only image messages can have an attachment", 400);
+    }
     if (!isBase64(ciphertext) || !isBase64(iv)) {
         throw new AppError("Encrypted message is missing or invalid", 400);
     }
@@ -27,7 +39,7 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
     if (ciphertextBytes <= AES_GCM_TAG_BYTES) {
         throw new AppError("Message content cannot be empty", 400);
     }
-    if (ciphertextBytes > MAX_CIPHERTEXT_BYTES) {
+    if (ciphertextBytes > MAX_CIPHERTEXT_BYTES + (isImage ? ATTACHMENT_DETAILS_BYTES : 0)) {
         throw new AppError(`Message cannot be longer than ${MAX_TEXT_LENGTH} characters`, 400);
     }
 
@@ -36,6 +48,8 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
     }
 
     const conversation = await getConversationForParticipant(conversationId, currentUserId);
+    // The sender's own upload, made for this conversation.
+    const upload = isImage ? await getAttachableUpload(attachment?.fileId, currentUserId, conversation._id) : null;
 
     let message;
     try {
@@ -44,7 +58,9 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
             sender: currentUserId,
             ciphertext,
             iv,
-            clientId
+            clientId,
+            messageType,
+            ...(upload ? { attachment: { fileId: upload._id, size: upload.size } } : {})
         });
     } catch (err) {
         // A retry of a message that was already saved (its reply got lost):
@@ -59,7 +75,7 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
         throw err;
     }
 
-    conversation.lastMessage = { ciphertext, iv, sender: currentUserId };
+    conversation.lastMessage = { ciphertext, iv, sender: currentUserId, messageType };
     conversation.lastMessageAt = message.createdAt;
     await conversation.save();
 

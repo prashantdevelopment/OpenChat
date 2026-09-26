@@ -4,6 +4,8 @@ node_modules/
 !.env.example
 
 dist/
+# Uploaded (encrypted) files of the local storage driver
+server/uploads/
 build/
 CLAUDE.md
 AGENTS.md

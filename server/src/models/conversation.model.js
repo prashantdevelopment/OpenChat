@@ -3,7 +3,9 @@ import mongoose from "mongoose";
 const lastMessageSchema = new mongoose.Schema({
     ciphertext: { type: String, required: true },
     iv: { type: String, required: true },
-    sender: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    // "image" lets the sidebar say "Photo" (the caption is in the ciphertext).
+    messageType: { type: String, default: "text" }
 }, { _id: false });
 
 const conversationSchema = new mongoose.Schema({

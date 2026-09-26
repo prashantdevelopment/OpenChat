@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 33 – Cloudinary signed upload + images encrypted in the browser before upload (preview, progress)
+**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 34 – Video + file messages (size/type limits server-side)
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -361,7 +361,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 ### Phase F — Media sharing (encrypted)
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
-| 33 | Cloudinary signed upload + images encrypted in the browser before upload (preview, progress) | todo | | Needs Cloudinary account |
+| 33 | Cloudinary signed upload + images encrypted in the browser before upload (preview, progress) | done | 2026-09-26 | **Storage: local driver for now (user's choice, no Cloudinary account yet).** Files sit behind `server/src/storage` (save/read/remove); a Cloudinary or S3 driver can be added with the same three methods: the files are encrypted, so no image features are needed. Each photo: redrawn in the browser (drops EXIF incl. GPS, max 2048px, GIFs kept), encrypted with its own random AES-GCM key; the key, size and caption travel inside the (end-to-end encrypted) message. Server: `POST /conversations/:id/uploads` (raw bytes, 10 MB, participants only), `GET /uploads/:fileId` (participants only, octet-stream + nosniff + attachment), image messages may only attach the sender's own upload from the same conversation. Client: preview before sending, upload progress bar, Retry without uploading twice, photo placeholder with the right size, alt text, "Photo: caption" in the list and notifications; blob types limited to image types (no HTML/SVG from a peer). Build: libraries in a `vendor` chunk (app 63 kB). 192 server tests (+13), 57 client tests (+7), 30/30 photos E2E, production-build smoke test. Not yet: removing uploads that were never sent |
 | 34 | Video + file messages (size/type limits server-side) | todo | | |
 | 35 | Voice notes (MediaRecorder) + audio player bubble | todo | | |
 | 36 | Avatar upload (public, not encrypted) | todo | | Replaces the avatar URL left out of step 28: only images from our own storage, never arbitrary URLs |

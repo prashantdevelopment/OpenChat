@@ -29,6 +29,14 @@ const errorMiddleware = (err, req, res, next) => {
         });
     }
 
+    // The body is over the route's size limit (e.g. an upload over 10 MB).
+    if(err.type === "entity.too.large") {
+        return res.status(413).json({
+            success: false,
+            message: "The file is too large"
+        });
+    }
+
     // express.json() could not parse the request body.
     if(err.type === "entity.parse.failed") {
         return res.status(400).json({

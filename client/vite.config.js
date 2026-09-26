@@ -12,4 +12,15 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Libraries in their own file: they change far less often than the
+        // app, so browsers keep them cached across deploys.
+        codeSplitting: {
+          groups: [{ name: 'vendor', test: /node_modules/ }],
+        },
+      },
+    },
+  },
 })

@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowDownIcon, LockIcon, SendHorizontalIcon } from "lucide-react";
+import { ArrowDownIcon, ImagePlusIcon, LockIcon, SendHorizontalIcon, XIcon } from "lucide-react";
 import socket from "../socket/socket.js";
 import api from "../api/api.js";
 import { rememberText, useConversationKey } from "../crypto/hooks.js";
 import { encryptMessage, MAX_MESSAGE_LENGTH } from "../crypto/messages.js";
+import { encryptFile } from "../crypto/files.js";
+import { IMAGE_TYPES, prepareImage } from "../lib/images.js";
+import { rememberImage } from "../lib/encryptedImages.js";
 import MessageBubble from "./MessageBubble.jsx";
 import { buildTimeline } from "../lib/timeline.js";
 import { usePeerTyping, useTypingSender } from "../socket/useTyping.js";
@@ -37,6 +40,10 @@ const SEND_TIMEOUT_MS = 5000;
 // Show how many characters are left once the text gets this close to the limit.
 const COUNTER_FROM = MAX_MESSAGE_LENGTH - 200;
 
+// "850 KB" / "1.4 MB"
+const formatFileSize = (bytes) =>
+  bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
 // Closer than this to the bottom counts as "at the newest message".
 const NEAR_BOTTOM_PX = 80;
 
@@ -64,6 +71,11 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   // a failure can never create a second copy (the server checks the id).
   const [outbox, setOutbox] = useState([]);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  // A photo chosen to send ({ blob, mime, width, height, previewUrl }), shown
+  // above the input; the text becomes its caption.
+  const [attachment, setAttachment] = useState(null);
+  const [attachError, setAttachError] = useState("");
 
   // Scrolling. While the user is at the bottom, the chat follows new content
   // (new messages, text appearing after decryption, a taller composer). Once
@@ -245,11 +257,16 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     }
   };
 
-  const setOutboxStatus = (clientId, status) =>
-    setOutbox((prev) => prev.map((item) => (item.clientId === clientId ? { ...item, status } : item)));
+  const updateOutboxItem = (clientId, changes) =>
+    setOutbox((prev) => prev.map((item) => (item.clientId === clientId ? { ...item, ...changes } : item)));
+  const setOutboxStatus = (clientId, status) => updateOutboxItem(clientId, { status });
 
-  // Sends one outbox message and waits for the server's confirmation.
-  const deliver = ({ clientId, encrypted }) => {
+  // Sends one outbox message and waits for the server's confirmation. A photo
+  // is uploaded first (encrypted, with progress); a retry skips the upload if
+  // it already worked (fileId is kept on the item).
+  const deliver = async (item) => {
+    const { clientId } = item;
+    let payload = item.encrypted;
     // While disconnected, Socket.IO would hold the message and send it later,
     // after it was already shown as "Not sent". Fail now; Retry sends it once
     // the connection is back.
@@ -258,10 +275,32 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       return;
     }
     setOutboxStatus(clientId, "sending");
+
+    if (item.messageType === "image") {
+      let fileId = item.fileId;
+      if (!fileId) {
+        try {
+          const res = await api.post(`/conversations/${conversationId}/uploads`, item.fileBytes, {
+            headers: { "Content-Type": "application/octet-stream" },
+            onUploadProgress: (e) => e.total && updateOutboxItem(clientId, { progress: e.loaded / e.total }),
+          });
+          fileId = res.data.fileId;
+        } catch (error) {
+          console.error("Photo not sent:", error.response?.data?.message ?? error.message);
+          setOutboxStatus(clientId, "failed");
+          return;
+        }
+        // My own photo: shown from the local copy, never downloaded again.
+        rememberImage(fileId, item.previewUrl);
+        updateOutboxItem(clientId, { fileId, progress: 1 });
+      }
+      payload = { ...item.encrypted, messageType: "image", attachment: { fileId } };
+    }
+
     // timeout(): if the server never answers, the callback still runs with an error.
     socket
       .timeout(SEND_TIMEOUT_MS)
-      .emit("sendMessage", { conversationId, clientId, ...encrypted }, (err, response) => {
+      .emit("sendMessage", { conversationId, clientId, ...payload }, (err, response) => {
         if (err || !response.success) {
           console.error("Message not sent:", err ? "Server did not respond" : response.message);
           setOutboxStatus(clientId, "failed");
@@ -274,10 +313,84 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       });
   };
 
+  const chooseFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // choosing the same file again still triggers onChange
+    if (!file) return;
+    setAttachError("");
+    try {
+      const prepared = await prepareImage(file);
+      if (attachment) URL.revokeObjectURL(attachment.previewUrl);
+      setAttachment({ ...prepared, previewUrl: URL.createObjectURL(prepared.blob) });
+      inputRef.current?.focus();
+    } catch (error) {
+      setAttachError(error.message);
+    }
+  };
+
+  const removeAttachment = () => {
+    URL.revokeObjectURL(attachment.previewUrl);
+    setAttachment(null);
+    inputRef.current?.focus();
+  };
+
+  // A photo with an optional caption. The photo gets its own key (see
+  // crypto/files.js); that key, its details and the caption travel in the
+  // message, encrypted like any text.
+  const sendPhoto = async (caption) => {
+    const photo = attachment;
+    setAttachment(null);
+    setMessageInput("");
+    typing.stop();
+    scrollToBottom();
+    inputRef.current?.focus();
+
+    let fileEncrypted, content, encrypted;
+    try {
+      fileEncrypted = await encryptFile(await photo.blob.arrayBuffer());
+      content = {
+        caption,
+        file: { key: fileEncrypted.key, iv: fileEncrypted.iv, mime: photo.mime, width: photo.width, height: photo.height },
+      };
+      encrypted = await encryptMessage(conversationKey, JSON.stringify(content), currentUserId);
+    } catch (error) {
+      console.error("Photo not sent: could not encrypt it", error);
+      setAttachment(photo);
+      setMessageInput((current) => current || caption);
+      setAttachError("This photo couldn't be encrypted. Please try again.");
+      return;
+    }
+    rememberText(conversationKey, encrypted, currentUserId, JSON.stringify(content));
+
+    const clientId = crypto.randomUUID();
+    const item = {
+      _id: `pending-${clientId}`,
+      clientId,
+      sender: currentUserId,
+      createdAt: new Date().toISOString(),
+      messageType: "image",
+      text: caption,
+      imageContent: content,
+      previewUrl: photo.previewUrl,
+      fileBytes: fileEncrypted.ciphertext,
+      fileId: null,
+      progress: 0,
+      encrypted,
+      status: "sending",
+    };
+    setOutbox((prev) => [...prev, item]);
+    deliver(item);
+  };
+
   // Send message: encrypted in the browser; the server only gets ciphertext.
   const handleSendMessage = async () => {
     const text = messageInput.trim();
-    if (!text || !conversationKey) {
+    if (!conversationKey) return;
+    if (attachment) {
+      sendPhoto(text);
+      return;
+    }
+    if (!text) {
       return;
     }
 
@@ -451,14 +564,44 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
           handleSendMessage();
         }}
       >
+        {attachment ? (
+          <div className="mb-2 flex items-center gap-3 rounded-lg border border-border p-2">
+            <img src={attachment.previewUrl} alt="Photo to send" className="size-16 shrink-0 rounded-md object-cover" />
+            <div className="min-w-0 flex-1 text-sm">
+              <p className="font-medium">Photo ready to send</p>
+              <p className="text-muted-foreground">
+                {attachment.width} × {attachment.height} · {formatFileSize(attachment.blob.size)} · location data removed
+              </p>
+            </div>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove photo" onClick={removeAttachment}>
+              <XIcon aria-hidden="true" />
+            </Button>
+          </div>
+        ) : null}
+        {attachError ? (
+          <p role="alert" className="mb-2 text-sm text-destructive-foreground">
+            {attachError}
+          </p>
+        ) : null}
         <div className="flex items-end gap-2">
+          <input ref={fileInputRef} type="file" accept={IMAGE_TYPES.join(",")} hidden onChange={chooseFile} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xl"
+            aria-label="Attach photo"
+            disabled={!conversationKey}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <ImagePlusIcon aria-hidden="true" />
+          </Button>
           <textarea
             ref={inputRef}
             rows={1}
             className="max-h-40 min-w-0 flex-1 resize-none"
             aria-label="Message"
             aria-describedby="composer-hint"
-            placeholder="Type a message..."
+            placeholder={attachment ? "Add a caption..." : "Type a message..."}
             maxLength={MAX_MESSAGE_LENGTH}
             enterKeyHint={enterSends() ? "send" : "enter"}
             value={messageInput}

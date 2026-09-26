@@ -18,6 +18,7 @@ import { mergeReceipts } from "../lib/receipts.js";
 import { getNotificationPrefs, shouldNotify, titleWithUnread } from "../lib/notifications.js";
 import { getConversationKey } from "../crypto/hooks.js";
 import { decryptMessage } from "../crypto/messages.js";
+import { describeMessage } from "../lib/messageContent.js";
 import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 
@@ -93,11 +94,11 @@ const Chat = () => {
     const sender = conversations
       .find((conversation) => conversation._id === update._id)
       ?.participants.find((participant) => participant._id !== currentUser._id);
-    let body = "New message";
+    let body = update.lastMessage.messageType === "image" ? "Photo" : "New message";
     if (prefs.preview && sender?.publicKey && privateKey) {
       try {
         const key = await getConversationKey(privateKey, sender.publicKey, update._id);
-        body = await decryptMessage(key, update.lastMessage, update.lastMessage.sender);
+        body = describeMessage(update.lastMessage.messageType, await decryptMessage(key, update.lastMessage, update.lastMessage.sender));
       } catch {
         // Can't decrypt: keep "New message".
       }
