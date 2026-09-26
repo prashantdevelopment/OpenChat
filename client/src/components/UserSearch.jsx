@@ -80,7 +80,7 @@ const UserSearch = ({ onMessageUser }) => {
         <ul className="mt-2 flex flex-col gap-1">
           {search.users.map((user) => (
             <li key={user._id} className="flex items-center gap-3 rounded-lg px-1 py-1.5">
-              <Avatar name={user.username} className="size-9 text-sm" />
+              <Avatar name={user.username} avatarId={user.avatar} className="size-9 text-sm" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{user.username}</span>
                 {/* "Kerala · bio" on one line, cut off with … when too long. */}

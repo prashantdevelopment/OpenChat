@@ -32,7 +32,7 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
           )
         }
       >
-        <Avatar name={otherParticipant?.username} online={otherParticipant?.online} />
+        <Avatar name={otherParticipant?.username} avatarId={otherParticipant?.avatar} online={otherParticipant?.online} />
 
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">

@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link } from "react-router";
 import { ArrowLeftIcon, CircleCheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
@@ -9,6 +9,8 @@ import { applyThemeChoice, getThemeChoice } from "../lib/theme.js";
 import { getNotificationPrefs, setNotificationPrefs } from "../lib/notifications.js";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
+import Avatar from "../components/Avatar.jsx";
+import { makeAvatar } from "../lib/images.js";
 import { Button } from "@/components/ui/button";
 
 const MAX_BIO_LENGTH = 160; // same limit as the server
@@ -47,6 +49,68 @@ const showFieldErrors = (setFieldErrors, errors, order) => {
   flushSync(() => setFieldErrors(errors));
   const first = order.find((field) => errors[field]);
   if (first) document.getElementById(first)?.focus();
+};
+
+// Profile photo: cropped to a small square in the browser, then uploaded.
+// Public (everyone who finds you sees it), unlike messages.
+const ProfilePhoto = () => {
+  const { currentUser, updateCurrentUser } = useAuth();
+  const fileInput = useRef(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [savedMessage, setSavedMessage] = useState("");
+
+  const run = async (action, message) => {
+    setIsSaving(true);
+    setError("");
+    setSavedMessage("");
+    try {
+      await action();
+      setSavedMessage(message);
+    } catch (err) {
+      setError(err.response?.data?.message ?? err.message ?? "Could not save. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const choose = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    run(async () => {
+      const photo = await makeAvatar(file);
+      const res = await api.put("/users/me/avatar", photo, { headers: { "Content-Type": "image/jpeg" } });
+      updateCurrentUser({ avatar: res.data.avatar });
+    }, "Photo saved.");
+  };
+
+  const remove = () =>
+    run(async () => {
+      await api.delete("/users/me/avatar");
+      updateCurrentUser({ avatar: "" });
+    }, "Photo removed.");
+
+  return (
+    <div className="mb-5 flex items-center gap-4">
+      <Avatar name={currentUser.username} avatarId={currentUser.avatar} className="size-16 text-2xl" />
+      <div className="min-w-0 flex-1 space-y-2">
+        <p className="text-sm font-medium">Profile photo</p>
+        <div className="flex flex-wrap gap-2">
+          <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={choose} />
+          <Button type="button" variant="outline" size="sm" loading={isSaving} onClick={() => fileInput.current?.click()}>
+            {currentUser.avatar ? "Change photo" : "Add photo"}
+          </Button>
+          {currentUser.avatar ? (
+            <Button type="button" variant="ghost" size="sm" disabled={isSaving} onClick={remove}>
+              Remove photo
+            </Button>
+          ) : null}
+        </div>
+        {error ? <FormAlert>{error}</FormAlert> : <SavedStatus>{savedMessage}</SavedStatus>}
+      </div>
+    </div>
+  );
 };
 
 // Field ids match the server's field names, so its errors map straight on.
@@ -95,7 +159,8 @@ const ProfileSection = () => {
   };
 
   return (
-    <Section title="Profile" description="Your username, bio and state are visible to people who search for you.">
+    <Section title="Profile" description="Your photo, username, bio and state are visible to people who search for you.">
+      <ProfilePhoto />
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {formError ? <FormAlert>{formError}</FormAlert> : null}
 

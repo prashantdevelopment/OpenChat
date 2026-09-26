@@ -106,9 +106,12 @@ const userSchema =  new mongoose.Schema({
         required: [true, "Encryption keys are required"],
         select: false
     },
+    // Id of the profile photo (see avatar.service.js), "" = none. Only set
+    // through the avatar upload: never a URL from the client.
     avatar: {
         type: String,
-        default: ""
+        default: "",
+        match: [/^([a-f0-9]{32})?$/, "Invalid avatar"]
     },
     // Public "about" line, shown next to the name in search results.
     bio: {
@@ -148,6 +151,10 @@ const userSchema =  new mongoose.Schema({
 // What other users may see about someone (search results, conversation
 // participants). Never email, password or anything else private. The public
 // key is public by design: others need it to encrypt messages for this user.
+// Serving a profile photo checks that its id belongs to someone: an index on
+// the users that have one (most don't).
+userSchema.index({ avatar: 1 }, { partialFilterExpression: { avatar: { $gt: "" } } });
+
 export const PUBLIC_USER_FIELDS = "username avatar bio state publicKey";
 
 const User = mongoose.model("User", userSchema);

@@ -313,7 +313,7 @@ const Chat = () => {
                 >
                   <ArrowLeftIcon aria-hidden="true" />
                 </Button>
-                {peer ? <Avatar name={peer.username} online={peer.online} /> : null}
+                {peer ? <Avatar name={peer.username} avatarId={peer.avatar} online={peer.online} /> : null}
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-base leading-tight">{peer?.username ?? "Conversation"}</h2>
                   <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
