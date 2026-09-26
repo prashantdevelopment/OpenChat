@@ -6,6 +6,7 @@ import { rememberText, useConversationKey } from "../crypto/hooks.js";
 import { encryptMessage, MAX_MESSAGE_LENGTH } from "../crypto/messages.js";
 import MessageBubble from "./MessageBubble.jsx";
 import { buildTimeline } from "../lib/timeline.js";
+import { usePeerTyping, useTypingSender } from "../socket/useTyping.js";
 import { formatDayLabel } from "../lib/time.js";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -79,6 +80,8 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   const currentUserId = currentUser._id;
   // AES key shared with the other participant (null while being derived).
   const conversationKey = useConversationKey(conversationId, peerPublicKey);
+  const typing = useTypingSender(conversationId);
+  const isPeerTyping = usePeerTyping(conversationId, currentUserId);
 
   // Receive real-time messages
   useEffect(() => {
@@ -280,6 +283,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
 
     // Cleared right away so a fast second Enter can't send the text twice.
     setMessageInput("");
+    typing.stop();
     // Sending means you want to see your message, even if you had scrolled up.
     scrollToBottom();
     inputRef.current?.focus();
@@ -403,8 +407,29 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
                 />
               ),
             )}
+
+            {/* Three bouncing dots while the other person types (they stand
+                still with reduced motion). Read out by the status region below. */}
+            {isPeerTyping ? (
+              <div aria-hidden="true" data-typing className="mt-3 flex">
+                <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-muted px-4 py-3.5">
+                  {[0, 150, 300].map((delay) => (
+                    <span
+                      key={delay}
+                      className="size-1.5 animate-bounce rounded-full bg-muted-foreground"
+                      style={{ animationDelay: `${delay}ms` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
+
+        {/* Always present, so screen readers announce the text when it appears. */}
+        <p role="status" className="sr-only">
+          {isPeerTyping ? `${peerName ?? "The other person"} is typing` : ""}
+        </p>
 
         {unseenCount > 0 ? (
           <Button
@@ -436,7 +461,10 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             maxLength={MAX_MESSAGE_LENGTH}
             enterKeyHint={enterSends() ? "send" : "enter"}
             value={messageInput}
-            onChange={(e) => setMessageInput(e.target.value)}
+            onChange={(e) => {
+              setMessageInput(e.target.value);
+              typing.onInput(e.target.value);
+            }}
             onKeyDown={(e) => {
               // isComposing: Enter that confirms a word in an input method
               // (e.g. Hindi transliteration) must not send the message.

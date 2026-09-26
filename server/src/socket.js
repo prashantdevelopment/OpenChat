@@ -128,6 +128,17 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000 } = {}) => {
             }
         });
 
+        // "Is typing" for the people who have the conversation open. Only
+        // relayed into a room this socket has joined, and joinConversation
+        // already checked that the user is a participant (no database query
+        // per keystroke). The client limits how often it sends this.
+        socket.on("typing", (data) => {
+            const conversationId = data?.conversationId;
+            if (typeof conversationId !== "string" || typeof data.isTyping !== "boolean") return;
+            if (!socket.rooms.has(conversationId)) return;
+            socket.to(conversationId).emit("typing", { conversationId, userId: socket.userId, isTyping: data.isTyping });
+        });
+
         socket.on("leaveConversation", (conversationId) => {
             socket.leave(conversationId);
             console.log("User left conversation:", conversationId, "User:", socket.userId);

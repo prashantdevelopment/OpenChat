@@ -509,3 +509,56 @@ describe("presence (online / last seen)", () => {
         expect(res.body.users[0]).not.toHaveProperty("online");
     });
 });
+
+describe("typing indicator", () => {
+    const collectTyping = (socket) => {
+        const received = [];
+        socket.on("typing", (event) => received.push(event));
+        return received;
+    };
+
+    it("reaches the other participant with the chat open, not the typist or outsiders", async () => {
+        const [a, b, c] = await Promise.all([connectAs(alice), connectAs(bob), connectAs(carol)]);
+        await emitWithAck(a, "joinConversation", conversationId);
+        await emitWithAck(b, "joinConversation", conversationId);
+        const [toA, toB, toC] = [collectTyping(a), collectTyping(b), collectTyping(c)];
+
+        a.emit("typing", { conversationId, isTyping: true });
+        a.emit("typing", { conversationId, isTyping: false });
+        await waitForDelivery();
+
+        expect(toB).toEqual([
+            { conversationId, userId: alice.id, isTyping: true },
+            { conversationId, userId: alice.id, isTyping: false },
+        ]);
+        expect(toA).toEqual([]);
+        expect(toC).toEqual([]);
+    });
+
+    it("ignores a socket that has not joined the conversation (outsider or not open)", async () => {
+        const [b, c] = await Promise.all([connectAs(bob), connectAs(carol)]);
+        await emitWithAck(b, "joinConversation", conversationId);
+        const toB = collectTyping(b);
+
+        c.emit("typing", { conversationId, isTyping: true }); // carol is not a participant
+        const aNotJoined = await connectAs(alice);
+        aNotJoined.emit("typing", { conversationId, isTyping: true }); // alice never joined on this socket
+        await waitForDelivery();
+        expect(toB).toEqual([]);
+    });
+
+    it("ignores malformed events without crashing", async () => {
+        const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
+        await emitWithAck(a, "joinConversation", conversationId);
+        await emitWithAck(b, "joinConversation", conversationId);
+        const toB = collectTyping(b);
+
+        a.emit("typing", null);
+        a.emit("typing", "not an object");
+        a.emit("typing", { conversationId, isTyping: "yes" });
+        a.emit("typing", { conversationId: { $ne: null }, isTyping: true });
+        await waitForDelivery();
+        expect(toB).toEqual([]);
+        expect((await emitWithAck(a, "joinConversation", conversationId)).success).toBe(true); // still alive
+    });
+});
