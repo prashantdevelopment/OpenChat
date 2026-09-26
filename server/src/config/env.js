@@ -37,16 +37,28 @@ const JWT_SECRET = process.env.JWT_SECRET;
                 throw new Error("JWT_SECRET must be at least 32 characters long");
             }
 
-// Uploaded (encrypted) files. Default: server/uploads, which is git-ignored.
+// Where uploaded (encrypted) files are kept: "local" (server/uploads by
+// default, git-ignored) or "cloudinary" (needs the three CLOUDINARY_* values).
 const STORAGE_DRIVER = process.env.STORAGE_DRIVER ?? "local";
-            if (STORAGE_DRIVER !== "local") {
-                throw new Error(`STORAGE_DRIVER "${STORAGE_DRIVER}" is not supported (only "local" so far)`);
+            if (!["local", "cloudinary"].includes(STORAGE_DRIVER)) {
+                throw new Error(`STORAGE_DRIVER must be "local" or "cloudinary", not "${STORAGE_DRIVER}"`);
             }
 const UPLOADS_DIR = process.env.UPLOADS_DIR
     ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "uploads");
 
+const CLOUDINARY = {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+    folder: process.env.CLOUDINARY_FOLDER ?? "openchat",
+};
+            if (STORAGE_DRIVER === "cloudinary" && (!CLOUDINARY.cloudName || !CLOUDINARY.apiKey || !CLOUDINARY.apiSecret)) {
+                throw new Error("STORAGE_DRIVER=cloudinary needs CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET");
+            }
+
 export {
     STORAGE_DRIVER,
+    CLOUDINARY,
     UPLOADS_DIR,
     PORT,
     MONGO_URI,

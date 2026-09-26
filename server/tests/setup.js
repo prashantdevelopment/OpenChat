@@ -16,5 +16,7 @@ if (!new URL(process.env.MONGO_URI).pathname.endsWith("_test")) {
     throw new Error("Refusing to run tests against a non-test database");
 }
 
-// Uploaded files go to a temporary folder, never into server/uploads.
+// Uploaded files go to a temporary folder on disk: never into server/uploads,
+// never to Cloudinary (even if server/.env says STORAGE_DRIVER=cloudinary).
+process.env.STORAGE_DRIVER = "local";
 process.env.UPLOADS_DIR = path.join(os.tmpdir(), `openchat-test-uploads-${process.pid}`);
