@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MicIcon, MicOffIcon, PhoneIcon, PhoneOffIcon, SwitchCameraIcon, VideoIcon, VideoOffIcon } from "lucide-react";
 import { useCall } from "./CallContext.js";
 import Avatar from "../components/Avatar.jsx";
+import VoiceOrb from "./VoiceOrb.jsx";
 import { formatDuration } from "../lib/attachments.js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -159,6 +160,12 @@ const CallOverlay = () => {
       aria-label={`${call.media === "video" ? "Video" : "Voice"} call with ${name}`}
       className="fixed inset-x-4 bottom-24 z-40 rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-xl sm:right-6 sm:left-auto sm:w-80"
     >
+      {/* Voice call in progress: the orb moves with the other person's voice. */}
+      {call.media === "audio" && (status === "connecting" || status === "connected") ? (
+        <div className="-mt-1 mb-2 flex justify-center">
+          <VoiceOrb stream={call.remoteStream} />
+        </div>
+      ) : null}
       <div className="flex items-center gap-3">
         <Avatar name={name} avatarId={call.peer.avatar} className="size-12 text-lg" />
         <div className="min-w-0 flex-1">
