@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ImageOffIcon } from "lucide-react";
-import { loadImage } from "../lib/encryptedImages.js";
+import { loadDecrypted } from "../lib/encryptedFiles.js";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -21,7 +21,7 @@ const EncryptedImage = ({ fileId, file, alt, previewUrl, children }) => {
   useEffect(() => {
     if (previewUrl || !fileId) return;
     let ignore = false;
-    loadImage(fileId, file)
+    loadDecrypted(fileId, file, "image")
       .then((url) => !ignore && setResult({ fileId, url, failed: false }))
       .catch(() => !ignore && setResult({ fileId, url: null, failed: true }));
     return () => {

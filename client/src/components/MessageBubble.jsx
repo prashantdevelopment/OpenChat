@@ -2,8 +2,10 @@ import { AlertCircleIcon, CheckCheckIcon, CheckIcon, RotateCwIcon } from "lucide
 import { useDecryptedText } from "../crypto/hooks.js";
 import { formatFullDateTime, formatTimeOfDay } from "../lib/time.js";
 import { receiptStatus } from "../lib/receipts.js";
-import { parseImageContent } from "../lib/messageContent.js";
+import { parseAttachmentContent } from "../lib/messageContent.js";
 import EncryptedImage from "./EncryptedImage.jsx";
+import VideoAttachment from "./VideoAttachment.jsx";
+import FileAttachment from "./FileAttachment.jsx";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -12,9 +14,9 @@ import { cn } from "@/lib/utils";
 // bubbles sit close together and only the last one shows the time.
 // A message still on its way (see ConversationView) has `status` "sending" or
 // "failed" and its plain `text`; it shows that status instead of a time.
-// Photos: the decrypted text is JSON with the caption and the photo's key
-// (see lib/messageContent.js); a photo still being sent has `imageContent`,
-// `previewUrl` and upload `progress` (0 to 1).
+// Photos, videos and files: the decrypted text is JSON with the caption and
+// the file's key (see lib/messageContent.js); one still being sent has
+// `attachmentContent`, `previewUrl` and upload `progress` (0 to 1).
 // Ticks on my messages: one = on the server, two = reached their app, two in
 // blue = read. The word is there too (tooltip and screen readers).
 const RECEIPTS = {
@@ -26,8 +28,14 @@ const RECEIPTS = {
 const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, receipts, onRetry }) => {
   const { text, failed } = useDecryptedText(conversationKey, message, message.sender);
 
-  const isImage = message.messageType === "image";
-  const image = !isImage ? null : message.status ? message.imageContent : text !== undefined ? parseImageContent(text) : null;
+  const kind = ["image", "video", "file"].includes(message.messageType) ? message.messageType : null;
+  const attachment = !kind
+    ? null
+    : message.status
+      ? message.attachmentContent
+      : text !== undefined
+        ? parseAttachmentContent(text)
+        : null;
 
   let content = message.status ? message.text : text;
   let isStatus = true; // a note about the message rather than its text
@@ -35,9 +43,9 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
   else if (!message.ciphertext) content = "[Sent before encryption; can't be shown]";
   else if (failed) content = "[This message could not be decrypted]";
   else if (text === undefined) content = "Decrypting...";
-  else if (isImage && !image) content = "[This photo could not be opened]";
+  else if (kind && !attachment) content = "[This attachment could not be opened]";
   else isStatus = false;
-  if (image) content = image.caption;
+  if (attachment) content = attachment.caption;
   const progress = message.status === "sending" && message.progress < 1 ? message.progress : null;
 
   return (
@@ -47,7 +55,7 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
           // relative: keeps the sr-only label (position: absolute) inside the
           // scrolling log, otherwise it stretches the whole page.
           "relative max-w-[85%] rounded-2xl sm:max-w-[70%]",
-          image ? "p-1" : "px-3.5 py-2",
+          attachment ? "p-1" : "px-3.5 py-2",
           isOwnMessage ? "bg-bubble-own text-bubble-own-foreground" : "bg-muted text-foreground",
           // The last bubble of a group gets a smaller corner on its side, like a tail.
           isLastInGroup && (isOwnMessage ? "rounded-br-md" : "rounded-bl-md"),
@@ -57,12 +65,13 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
         <span className="sr-only">{isOwnMessage ? "You" : senderName}: </span>
         {/* dir="auto": each message picks its own direction (e.g. Urdu is right-to-left).
             wrap-anywhere keeps long links and words inside the bubble. */}
-        {image ? (
-          <EncryptedImage
+        {attachment ? (
+          <Attachment
+            kind={kind}
             fileId={message.attachment?.fileId}
-            file={image.file}
+            file={attachment.file}
             previewUrl={message.previewUrl}
-            alt={image.caption || `Photo from ${isOwnMessage ? "you" : senderName}`}
+            label={attachment.caption || `${kind === "video" ? "Video" : "Photo"} from ${isOwnMessage ? "you" : senderName}`}
           >
             {progress !== null ? (
               <div
@@ -76,10 +85,10 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
                 <div className="h-full bg-white transition-[width] duration-150" style={{ width: `${progress * 100}%` }} />
               </div>
             ) : null}
-          </EncryptedImage>
+          </Attachment>
         ) : null}
-        {!image || content ? (
-          <p dir="auto" className={cn("whitespace-pre-wrap wrap-anywhere", image && "px-2.5 pt-1.5 pb-1", isStatus && "italic opacity-80")}>
+        {!attachment || content ? (
+          <p dir="auto" className={cn("whitespace-pre-wrap wrap-anywhere", attachment && "px-2.5 pt-1.5 pb-1", isStatus && "italic opacity-80")}>
             {content}
           </p>
         ) : null}
@@ -107,6 +116,30 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
         </div>
       ) : null}
     </div>
+  );
+};
+
+// The file part of a photo, video or file message; `children` (the upload
+// progress bar) is drawn on top of it.
+const Attachment = ({ kind, fileId, file, previewUrl, label, children }) => {
+  if (kind === "image") {
+    return (
+      <EncryptedImage fileId={fileId} file={file} previewUrl={previewUrl} alt={label}>
+        {children}
+      </EncryptedImage>
+    );
+  }
+  if (kind === "video") {
+    return (
+      <VideoAttachment fileId={fileId} file={file} previewUrl={previewUrl} label={label}>
+        {children}
+      </VideoAttachment>
+    );
+  }
+  return (
+    <FileAttachment fileId={fileId} file={file} previewUrl={previewUrl}>
+      {children}
+    </FileAttachment>
   );
 };
 

@@ -36,8 +36,8 @@ afterAll(async () => {
 
 // Stand-in for a file encrypted in the browser: random bytes.
 const encryptedFile = (size = 1000) => randomBytes(size);
-const upload = (user, conversationId, bytes, type = "application/octet-stream") =>
-    request(app).post(`/api/conversations/${conversationId}/uploads`).set("Cookie", user.cookie).set("Content-Type", type).send(bytes);
+const upload = (user, conversationId, bytes, kind = "image", type = "application/octet-stream") =>
+    request(app).post(`/api/conversations/${conversationId}/uploads`).query(kind ? { kind } : {}).set("Cookie", user.cookie).set("Content-Type", type).send(bytes);
 const download = (user, fileId) =>
     request(app).get(`/api/uploads/${fileId}`).set("Cookie", user.cookie).buffer(true).parse((res, done) => {
         const chunks = [];
@@ -60,8 +60,18 @@ describe("uploading an encrypted file", () => {
         expect((await request(app).post(`/api/conversations/${chatId}/uploads`).set("Content-Type", "application/octet-stream").send(encryptedFile())).status).toBe(401);
     });
 
+    it("needs to know what the file will be (image, video or file)", async () => {
+        for (const kind of [null, "audio", "../x"]) {
+            const res = await upload(alice, chatId, encryptedFile(), kind);
+            expect(res.status).toBe(400);
+            expect(res.body.message).toBe("kind must be image, video or file");
+        }
+        expect((await upload(alice, chatId, encryptedFile(), "video")).status).toBe(201);
+        expect((await upload(alice, chatId, encryptedFile(), "file")).status).toBe(201);
+    });
+
     it("accepts only raw bytes: not JSON, not an empty file", async () => {
-        const json = await request(app).post(`/api/conversations/${chatId}/uploads`).set("Cookie", alice.cookie).send({ data: "abc" });
+        const json = await request(app).post(`/api/conversations/${chatId}/uploads`).query({ kind: "file" }).set("Cookie", alice.cookie).send({ data: "abc" });
         expect(json.status).toBe(400);
         expect(json.body.message).toMatch(/application\/octet-stream/);
         expect((await upload(alice, chatId, Buffer.alloc(0))).status).toBe(400);
@@ -157,8 +167,36 @@ describe("image messages", () => {
     it("refuses unknown types and attachments on text messages", async () => {
         const { fileId } = (await upload(alice, chatId, encryptedFile())).body;
         const a = await connectAs(alice);
-        expect((await sendImage(a, chatId, { fileId }, { messageType: "video" })).message).toBe("Unsupported message type");
-        expect((await sendImage(a, chatId, { fileId }, { messageType: "text" })).message).toBe("Only image messages can have an attachment");
+        expect((await sendImage(a, chatId, { fileId }, { messageType: "audio" })).message).toBe("Unsupported message type");
+        expect((await sendImage(a, chatId, { fileId }, { messageType: "text" })).message).toBe("Text messages can't have an attachment");
+    });
+
+    it("sends videos and files, each only with an upload of its own kind", async () => {
+        const a = await connectAs(alice);
+        const video = (await upload(alice, chatId, encryptedFile(7000), "video")).body;
+        const file = (await upload(alice, chatId, encryptedFile(900), "file")).body;
+
+        const sentVideo = await sendImage(a, chatId, { fileId: video.fileId }, { messageType: "video" });
+        expect(sentVideo.success).toBe(true);
+        expect(sentVideo.message).toMatchObject({ messageType: "video", attachment: { fileId: video.fileId, size: 7000 } });
+        const sentFile = await sendImage(a, chatId, { fileId: file.fileId }, { messageType: "file" });
+        expect(sentFile.message).toMatchObject({ messageType: "file", attachment: { fileId: file.fileId, size: 900 } });
+        expect((await Conversation.findById(chatId)).lastMessage.messageType).toBe("file");
+
+        // A "file" upload can't be passed off as a photo (or the other way round).
+        const another = (await upload(alice, chatId, encryptedFile(), "file")).body;
+        expect((await sendImage(a, chatId, { fileId: another.fileId }, { messageType: "image" })).message).toMatch(/can't be attached/);
+        const photo = (await upload(alice, chatId, encryptedFile(), "image")).body;
+        expect((await sendImage(a, chatId, { fileId: photo.fileId }, { messageType: "video" })).message).toMatch(/can't be attached/);
+    });
+
+    it("lets a file message carry a long file name in its details", async () => {
+        const { fileId } = (await upload(alice, chatId, encryptedFile(), "file")).body;
+        const details = JSON.stringify({ caption: "", file: { key: "k".repeat(44), iv: "i".repeat(16), mime: "application/pdf", name: "न".repeat(255), size: 1 } });
+        const res = await (await connectAs(alice)).timeout(2000).emitWithAck("sendMessage", {
+            conversationId: chatId, ...encrypted(details), messageType: "file", attachment: { fileId }
+        });
+        expect(res.success).toBe(true);
     });
 
     it("text messages still work as before", async () => {

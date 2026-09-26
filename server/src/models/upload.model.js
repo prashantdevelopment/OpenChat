@@ -19,6 +19,12 @@ const uploadSchema = new mongoose.Schema({
         ref: "Conversation",
         required: true
     },
+    // What it will be attached as: the message type must match.
+    kind: {
+        type: String,
+        enum: ["image", "video", "file"],
+        required: true
+    },
     // Size of the encrypted file in bytes (the only thing the server knows about it).
     size: {
         type: Number,

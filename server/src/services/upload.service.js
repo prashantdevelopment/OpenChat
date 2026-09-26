@@ -4,14 +4,19 @@ import storage from "../storage/index.js";
 import AppError from "../utils/AppError.js";
 import { getConversationForParticipant } from "./conversation.service.js";
 
-// The browser shrinks photos to 2048px before encrypting them, so 10 MB is
-// plenty. AES-GCM adds a 16-byte tag, so anything smaller can't be a file.
+// 10 MB per encrypted file, for every kind: the most Cloudinary's plan takes
+// for one raw file. (Photos are shrunk to 2048px first, so they stay far
+// below.) AES-GCM adds a 16-byte tag, so anything smaller can't be a file.
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const KINDS = ["image", "video", "file"];
 const MIN_UPLOAD_BYTES = 17;
 const FILE_ID_PATTERN = /^[a-f0-9]{32}$/;
 
 // Saves an encrypted file for a conversation the user is part of.
-const createUpload = async (conversationId, userId, bytes) => {
+const createUpload = async (conversationId, userId, bytes, kind) => {
+    if (!KINDS.includes(kind)) {
+        throw new AppError("kind must be image, video or file", 400);
+    }
     if (!Buffer.isBuffer(bytes)) {
         throw new AppError("Send the encrypted file as application/octet-stream", 400);
     }
@@ -23,7 +28,7 @@ const createUpload = async (conversationId, userId, bytes) => {
     const fileId = randomBytes(16).toString("hex");
     await storage.save(fileId, bytes);
     try {
-        await Upload.create({ _id: fileId, owner: userId, conversationId: conversation._id, size: bytes.length });
+        await Upload.create({ _id: fileId, owner: userId, conversationId: conversation._id, kind, size: bytes.length });
     } catch (err) {
         await storage.remove(fileId); // no file without its record
         throw err;
@@ -47,11 +52,11 @@ const readUpload = async (fileId, userId) => {
     return storage.read(upload._id);
 };
 
-// Checks that userId may attach this file to a message in conversationId:
-// their own upload, made for this very conversation.
-const getAttachableUpload = async (fileId, userId, conversationId) => {
+// Checks that userId may attach this file to a message of type `kind` in
+// conversationId: their own upload, made for this very conversation, as that kind.
+const getAttachableUpload = async (fileId, userId, conversationId, kind) => {
     const upload = await findUpload(fileId);
-    if (upload.owner.toString() !== userId.toString() || !upload.conversationId.equals(conversationId)) {
+    if (upload.owner.toString() !== userId.toString() || !upload.conversationId.equals(conversationId) || upload.kind !== kind) {
         throw new AppError("This file can't be attached here", 403);
     }
     return upload;

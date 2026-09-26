@@ -12,10 +12,10 @@ const AES_GCM_TAG_BYTES = 16;
 const MAX_TEXT_LENGTH = 2000;
 const MAX_CIPHERTEXT_BYTES = MAX_TEXT_LENGTH * 4 + AES_GCM_TAG_BYTES;
 const IV_BYTES = 12;
-// Image messages also carry the file's key and details in their ciphertext.
-const ATTACHMENT_DETAILS_BYTES = 1024;
-// Only these kinds exist so far (video and files come in later steps).
-const SUPPORTED_TYPES = ["text", "image"];
+// Messages with a file also carry its key and details (name, type, size) in
+// their ciphertext.
+const ATTACHMENT_DETAILS_BYTES = 2048;
+const SUPPORTED_TYPES = ["text", "image", "video", "file"];
 // crypto.randomUUID() in the browser.
 const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -25,9 +25,9 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
     if (!SUPPORTED_TYPES.includes(messageType)) {
         throw new AppError("Unsupported message type", 400);
     }
-    const isImage = messageType === "image";
-    if (!isImage && attachment !== undefined) {
-        throw new AppError("Only image messages can have an attachment", 400);
+    const hasFile = messageType !== "text";
+    if (!hasFile && attachment !== undefined) {
+        throw new AppError("Text messages can't have an attachment", 400);
     }
     if (!isBase64(ciphertext) || !isBase64(iv)) {
         throw new AppError("Encrypted message is missing or invalid", 400);
@@ -39,7 +39,7 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
     if (ciphertextBytes <= AES_GCM_TAG_BYTES) {
         throw new AppError("Message content cannot be empty", 400);
     }
-    if (ciphertextBytes > MAX_CIPHERTEXT_BYTES + (isImage ? ATTACHMENT_DETAILS_BYTES : 0)) {
+    if (ciphertextBytes > MAX_CIPHERTEXT_BYTES + (hasFile ? ATTACHMENT_DETAILS_BYTES : 0)) {
         throw new AppError(`Message cannot be longer than ${MAX_TEXT_LENGTH} characters`, 400);
     }
 
@@ -48,8 +48,8 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
     }
 
     const conversation = await getConversationForParticipant(conversationId, currentUserId);
-    // The sender's own upload, made for this conversation.
-    const upload = isImage ? await getAttachableUpload(attachment?.fileId, currentUserId, conversation._id) : null;
+    // The sender's own upload, made for this conversation as this kind.
+    const upload = hasFile ? await getAttachableUpload(attachment?.fileId, currentUserId, conversation._id, messageType) : null;
 
     let message;
     try {

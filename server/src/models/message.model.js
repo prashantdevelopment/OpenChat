@@ -36,8 +36,8 @@ const messageSchema = new mongoose.Schema({
         default: "text",
         required: true
     },
-    // Image messages: the uploaded (encrypted) file. Its key and details
-    // (type, size in pixels, caption) are inside the ciphertext above.
+    // Image, video and file messages: the uploaded (encrypted) file. Its key
+    // and details (type, name, size, caption) are inside the ciphertext above.
     attachment: {
         type: new mongoose.Schema({
             fileId: { type: String, required: true },

@@ -1,7 +1,7 @@
 import { createUpload, readUpload } from "../services/upload.service.js";
 
 const createUploadController = async (req, res) => {
-    const upload = await createUpload(req.params.conversationId, req.user.userId, req.body);
+    const upload = await createUpload(req.params.conversationId, req.user.userId, req.body, req.query.kind);
     res.status(201).json({ success: true, ...upload });
 };
 

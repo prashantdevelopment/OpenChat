@@ -4,7 +4,8 @@ const lastMessageSchema = new mongoose.Schema({
     ciphertext: { type: String, required: true },
     iv: { type: String, required: true },
     sender: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    // "image" lets the sidebar say "Photo" (the caption is in the ciphertext).
+    // "image" / "video" / "file" lets the sidebar say "Photo" etc. (the caption
+    // and file name are in the ciphertext).
     messageType: { type: String, default: "text" }
 }, { _id: false });
 
