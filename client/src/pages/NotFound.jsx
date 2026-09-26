@@ -1,13 +1,11 @@
 import { Link } from "react-router";
+import AuthCard from "../components/AuthCard.jsx";
 
 const NotFound = () => {
   return (
-    <div>
-      <h1>Page not found</h1>
-      <p>
-        <Link to="/chat">Go to your chats</Link>
-      </p>
-    </div>
+    <AuthCard title="Page not found" description="This page doesn't exist or was moved.">
+      <Link to="/chat">Go to your chats</Link>
+    </AuthCard>
   );
 };
 

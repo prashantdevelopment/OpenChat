@@ -1,6 +1,7 @@
 // The 28 states and 8 union territories of India.
 // Shared by the server (validation) and the client (dropdown), so both
-// always use the same list. `code` is what gets stored in the database.
+// always use the same list. `code` is what gets stored in the database;
+// `unionTerritory` only groups the dropdown.
 export const INDIAN_STATES = [
     // States
     { code: "andhra-pradesh", name: "Andhra Pradesh" },
@@ -32,14 +33,14 @@ export const INDIAN_STATES = [
     { code: "uttarakhand", name: "Uttarakhand" },
     { code: "west-bengal", name: "West Bengal" },
     // Union territories
-    { code: "andaman-and-nicobar-islands", name: "Andaman and Nicobar Islands" },
-    { code: "chandigarh", name: "Chandigarh" },
-    { code: "dadra-nagar-haveli-daman-diu", name: "Dadra and Nagar Haveli and Daman and Diu" },
-    { code: "delhi", name: "Delhi" },
-    { code: "jammu-and-kashmir", name: "Jammu and Kashmir" },
-    { code: "ladakh", name: "Ladakh" },
-    { code: "lakshadweep", name: "Lakshadweep" },
-    { code: "puducherry", name: "Puducherry" },
+    { code: "andaman-and-nicobar-islands", name: "Andaman and Nicobar Islands", unionTerritory: true },
+    { code: "chandigarh", name: "Chandigarh", unionTerritory: true },
+    { code: "dadra-nagar-haveli-daman-diu", name: "Dadra and Nagar Haveli and Daman and Diu", unionTerritory: true },
+    { code: "delhi", name: "Delhi", unionTerritory: true },
+    { code: "jammu-and-kashmir", name: "Jammu and Kashmir", unionTerritory: true },
+    { code: "ladakh", name: "Ladakh", unionTerritory: true },
+    { code: "lakshadweep", name: "Lakshadweep", unionTerritory: true },
+    { code: "puducherry", name: "Puducherry", unionTerritory: true },
 ];
 
 export const INDIAN_STATE_CODES = INDIAN_STATES.map((state) => state.code);

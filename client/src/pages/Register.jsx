@@ -1,9 +1,16 @@
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import { Link, Navigate } from "react-router";
 import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
 import { createKeyBundle } from "../crypto/keys.js";
+import { ChevronDownIcon, KeyRoundIcon } from "lucide-react";
+import AuthCard from "../components/AuthCard.jsx";
+import FormField, { PasswordInput } from "../components/FormField.jsx";
+import { Button } from "@/components/ui/button";
+
+const FIELD_ORDER = ["username", "email", "password", "state"];
 
 const Register = () => {
   const [form, setForm] = useState({ username: "", email: "", password: "", state: "" });
@@ -45,7 +52,11 @@ const Register = () => {
     } catch (error) {
       const data = error.response?.data;
       if (data?.errors) {
-        setFieldErrors(data.errors);
+        // flushSync: render the messages now, then move focus to the first
+        // wrong field, so a screen reader reads its label and its error.
+        flushSync(() => setFieldErrors(data.errors));
+        const firstInvalid = FIELD_ORDER.find((field) => data.errors[field]);
+        if (firstInvalid) document.getElementById(firstInvalid)?.focus();
       } else {
         setFormError(data?.message ?? "Could not reach the server. Please try again.");
       }
@@ -59,88 +70,116 @@ const Register = () => {
   }
 
   return (
-    <div>
-      <h1>Create your account</h1>
+    <AuthCard
+      title="Create your account"
+      description="Your messages are end-to-end encrypted: only you and the people you talk to can read them."
+      footer={
+        <>
+          Already have an account? <Link to="/login">Log in</Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        {formError ? (
+          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+            {formError}
+          </p>
+        ) : null}
 
-      <form onSubmit={handleSubmit} noValidate>
-        {formError ? <p role="alert">{formError}</p> : null}
+        <FormField
+          id="username"
+          label="Username"
+          hint="3–30 characters: letters, numbers, dots and underscores. Must start with a letter or number."
+          error={fieldErrors.username}
+        >
+          {(props) => (
+            <input
+              {...props}
+              name="username"
+              type="text"
+              className="w-full"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={form.username}
+              onChange={handleChange}
+            />
+          )}
+        </FormField>
 
-        <p>
-          <label htmlFor="username">Username</label>
-          <br />
-          <input
-            id="username"
-            name="username"
-            type="text"
-            autoComplete="username"
-            value={form.username}
-            onChange={handleChange}
-            aria-describedby="username-hint username-error"
-          />
-          <br />
-          <small id="username-hint">3–30 characters: letters, numbers, dots and underscores. Must start with a letter or number.</small>
-          {fieldErrors.username ? <><br /><small id="username-error" role="alert">{fieldErrors.username}</small></> : null}
-        </p>
+        <FormField id="email" label="Email" error={fieldErrors.email}>
+          {(props) => (
+            <input
+              {...props}
+              name="email"
+              type="email"
+              className="w-full"
+              autoComplete="email"
+              value={form.email}
+              onChange={handleChange}
+            />
+          )}
+        </FormField>
 
-        <p>
-          <label htmlFor="email">Email</label>
-          <br />
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={form.email}
-            onChange={handleChange}
-            aria-describedby="email-error"
-          />
-          {fieldErrors.email ? <><br /><small id="email-error" role="alert">{fieldErrors.email}</small></> : null}
-        </p>
+        <FormField
+          id="password"
+          label="Password"
+          hint="At least 8 characters. A short phrase is easy to remember and hard to guess."
+          error={fieldErrors.password}
+        >
+          {(props) => (
+            <PasswordInput {...props} name="password" autoComplete="new-password" value={form.password} onChange={handleChange} />
+          )}
+        </FormField>
 
-        <p>
-          <label htmlFor="password">Password</label>
-          <br />
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            value={form.password}
-            onChange={handleChange}
-            aria-describedby="password-hint"
-          />
-          <br />
-          <small id="password-hint">
-            At least 8 characters. A short phrase is easy to remember and hard to guess.
-            <br />
-            <strong>Don&apos;t lose it:</strong> your password also unlocks your end-to-end encrypted
-            messages. If you forget it, they can&apos;t be recovered, not even by OpenChat.
-          </small>
-        </p>
+        {/* The password is also the key to the messages: say so before it is chosen. */}
+        <div className="flex gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+          <KeyRoundIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-foreground" />
+          <p>
+            <strong className="font-semibold">Don&apos;t lose your password.</strong> It also unlocks your
+            encrypted messages. If you forget it, they can&apos;t be recovered, not even by OpenChat.
+          </p>
+        </div>
 
-        <p>
-          <label htmlFor="state">Your state</label>
-          <br />
-          <select id="state" name="state" value={form.state} onChange={handleChange} aria-describedby="state-error">
-            <option value="">Select your state</option>
-            {INDIAN_STATES.map((state) => (
-              <option key={state.code} value={state.code}>
-                {state.name}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.state ? <><br /><small id="state-error" role="alert">{fieldErrors.state}</small></> : null}
-        </p>
+        <FormField id="state" label="Your state" error={fieldErrors.state}>
+          {(props) => (
+            <div className="relative">
+              <select
+                {...props}
+                name="state"
+                className="w-full cursor-pointer appearance-none pr-10"
+                value={form.state}
+                onChange={handleChange}
+              >
+                <option value="">Select your state</option>
+                <optgroup label="States">
+                  {INDIAN_STATES.filter((state) => !state.unionTerritory).map((state) => (
+                    <option key={state.code} value={state.code}>
+                      {state.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Union territories">
+                  {INDIAN_STATES.filter((state) => state.unionTerritory).map((state) => (
+                    <option key={state.code} value={state.code}>
+                      {state.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+              <ChevronDownIcon
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+            </div>
+          )}
+        </FormField>
 
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating account..." : "Create account"}
-        </button>
+        <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
+          Create account
+        </Button>
       </form>
-
-      <p>
-        Already have an account? <Link to="/login">Log in</Link>
-      </p>
-    </div>
+    </AuthCard>
   );
 };
 

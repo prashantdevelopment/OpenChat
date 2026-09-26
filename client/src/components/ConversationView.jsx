@@ -9,7 +9,6 @@ import { buildTimeline } from "../lib/timeline.js";
 import { formatDayLabel } from "../lib/time.js";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -349,15 +348,8 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
 
             {history.hasOlder ? (
               <div className="mb-3 flex justify-center">
-                <Button variant="outline" size="sm" onClick={loadOlderMessages} disabled={isLoadingOlder}>
-                  {isLoadingOlder ? (
-                    <>
-                      <Spinner aria-hidden="true" role={undefined} aria-label={undefined} />
-                      Loading...
-                    </>
-                  ) : (
-                    "Load older messages"
-                  )}
+                <Button variant="outline" size="sm" onClick={loadOlderMessages} loading={isLoadingOlder}>
+                  Load older messages
                 </Button>
               </div>
             ) : null}

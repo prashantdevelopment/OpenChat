@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
+import AuthCard from "../components/AuthCard.jsx";
+import FormField, { PasswordInput } from "../components/FormField.jsx";
+import { Button } from "@/components/ui/button";
 
 // Shown instead of the app when the user is logged in (valid cookie) but the
 // private key is not available on this device, e.g. after clearing site data.
@@ -13,14 +16,15 @@ const Unlock = () => {
   // Accounts created before end-to-end encryption existed have no keys.
   if (!currentUser.encryptedPrivateKey) {
     return (
-      <div>
-        <h1>Encryption is not set up</h1>
-        <p role="alert">
+      <AuthCard title="Encryption is not set up">
+        <p role="alert" className="text-sm">
           This account was created before OpenChat had end-to-end encryption, so it has no keys.
           Please log out and create a new account.
         </p>
-        <button type="button" onClick={logout}>Log out</button>
-      </div>
+        <Button variant="outline" className="mt-4 w-full" onClick={logout}>
+          Log out
+        </Button>
+      </AuthCard>
     );
   }
 
@@ -38,39 +42,47 @@ const Unlock = () => {
   };
 
   return (
-    <div>
-      <h1>Unlock your messages</h1>
-      <p>
-        Hi {currentUser.username}, your messages are end-to-end encrypted. Enter your password to
-        unlock them on this device.
-      </p>
+    <AuthCard
+      title="Unlock your messages"
+      description={`Hi ${currentUser.username}, your messages are end-to-end encrypted. Enter your password to unlock them on this device.`}
+      footer={
+        <>
+          Not you?{" "}
+          <Button variant="link" className="h-auto p-0 text-primary underline" onClick={logout}>
+            Log out
+          </Button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error ? (
+          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+            {error}
+          </p>
+        ) : null}
 
-      <form onSubmit={handleSubmit}>
-        {error ? <p role="alert">{error}</p> : null}
-        <label htmlFor="unlock-password">Password</label>
-        <br />
-        <input
-          id="unlock-password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button type="submit" disabled={isUnlocking}>
-          {isUnlocking ? "Unlocking..." : "Unlock"}
-        </button>
+        <FormField id="unlock-password" label="Password">
+          {(props) => (
+            <PasswordInput
+              {...props}
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          )}
+        </FormField>
+
+        <Button type="submit" size="lg" className="w-full" loading={isUnlocking}>
+          Unlock
+        </Button>
       </form>
 
-      <p>
-        Forgot your password? Your messages are end-to-end encrypted, so nobody, not even OpenChat,
-        can recover them without it. You can log out and create a new account, but the old messages
-        will stay locked.
+      <p className="mt-6 text-sm text-muted-foreground">
+        <strong className="font-semibold text-foreground">Forgot your password?</strong> Your messages are
+        end-to-end encrypted, so nobody, not even OpenChat, can recover them without it. You can log out and
+        create a new account, but the old messages will stay locked.
       </p>
-
-      <p>
-        Not you? <button type="button" onClick={logout}>Log out</button>
-      </p>
-    </div>
+    </AuthCard>
   );
 };
 

@@ -299,3 +299,11 @@
     visibility: hidden;
   }
 }
+
+/* Form controls with an error (FormField sets aria-invalid). Red border
+   (destructive text colour: 4.5:1 or more, above the 3:1 needed). */
+@layer base {
+  input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] {
+    @apply border-destructive-foreground;
+  }
+}
