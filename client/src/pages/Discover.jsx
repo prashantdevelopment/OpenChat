@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ArrowLeftIcon, UsersIcon } from "lucide-react";
 import api from "../api/api.js";
@@ -8,6 +8,9 @@ import Avatar from "../components/Avatar.jsx";
 import { Button } from "@/components/ui/button";
 import { toastManager } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+
+// three.js is big: loaded only here, after the page itself.
+const IndiaTileMap = lazy(() => import("../components/IndiaTileMap.jsx"));
 
 const SEARCH_DELAY_MS = 300;
 const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name ?? code;
@@ -172,6 +175,16 @@ const Discover = () => {
             `${snapshot.total} people online right now`
           )}
         </p>
+
+        <div className="mt-4 h-64 overflow-hidden rounded-2xl border border-border bg-muted/40 sm:h-80 lg:h-96">
+          <Suspense fallback={null}>
+            <IndiaTileMap
+              counts={Object.fromEntries((snapshot?.states ?? []).map((state) => [state.code, state.online]))}
+              selected={selected}
+              onSelect={(code) => setParams({ state: code })}
+            />
+          </Suspense>
+        </div>
 
         <div className="mt-6 grid gap-8 md:grid-cols-[18rem_1fr]">
           <section aria-labelledby="states-heading" className="min-w-0">
