@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
+import mongoose from "mongoose";
 import app from "../src/app.js";
+import Conversation from "../src/models/conversation.model.js";
 import { connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
 
 let alice, bob, carol;
@@ -94,5 +96,24 @@ describe("GET /api/conversations/:id/messages", () => {
 
     it("returns 404 for an unknown conversation", async () => {
         expect((await getMessages(alice, "64b000000000000000000000")).status).toBe(404);
+    });
+});
+
+describe("data from before end-to-end encryption", () => {
+    it("does not crash, and old plain text is never sent as a preview", async () => {
+        const dave = await registerAndLogin("dave_legacy");
+        const res = await createConversation(dave, alice.id);
+        const legacyId = res.body.conversation._id;
+        // Written straight to MongoDB, the way the old code stored things.
+        await Conversation.collection.updateOne(
+            { _id: new mongoose.Types.ObjectId(legacyId) },
+            { $set: { lastMessage: "old plain text", lastMessageAt: new Date() } },
+        );
+
+        const list = await request(app).get("/api/conversations").set("Cookie", dave.cookie);
+        expect(list.status).toBe(200);
+        const legacy = list.body.conversations.find((c) => c._id === legacyId);
+        expect(legacy.lastMessage ?? null).toBeNull(); // dropped (null or missing), never the text
+        expect(JSON.stringify(list.body)).not.toContain("old plain text");
     });
 });

@@ -19,6 +19,18 @@ export const TEST_KEYS = {
     },
 };
 
+// Stand-in for an end-to-end encrypted message. The server can't read real
+// ciphertext either, so in server tests the "ciphertext" is the text's bytes
+// followed by a fake 16-byte AES-GCM tag; readText() turns it back for asserts.
+export const encrypted = (text) => ({
+    ciphertext: Buffer.concat([Buffer.from(text), Buffer.alloc(16)]).toString("base64"),
+    iv: randomBytes(12).toString("base64"),
+});
+export const readText = ({ ciphertext }) => {
+    const bytes = Buffer.from(ciphertext, "base64");
+    return bytes.subarray(0, bytes.length - 16).toString();
+};
+
 // Fresh, empty test database for each test file.
 export const connectTestDb = async () => {
     await mongoose.connect(process.env.MONGO_URI);

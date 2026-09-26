@@ -1,19 +1,32 @@
 import mongoose from "mongoose";
 import Message from "../models/message.model.js";
 import AppError from "../utils/AppError.js";
+import { base64Length, isBase64 } from "../utils/base64.js";
 import { getConversationForParticipant } from "./conversation.service.js";
 
-const MAX_MESSAGE_LENGTH = 2000;
+// Messages are end-to-end encrypted, so the server cannot see the text. It can
+// only check sizes: AES-GCM output = UTF-8 text + a 16-byte tag, and the
+// client allows at most 2000 characters (up to 4 bytes each in UTF-8).
+const AES_GCM_TAG_BYTES = 16;
+const MAX_TEXT_LENGTH = 2000;
+const MAX_CIPHERTEXT_BYTES = MAX_TEXT_LENGTH * 4 + AES_GCM_TAG_BYTES;
+const IV_BYTES = 12;
 
 
-const createMessage = async (conversationId, currentUserId, content) => {
-    if (typeof content !== "string" || content.trim() === "") {
+const createMessage = async (conversationId, currentUserId, encrypted) => {
+    const { ciphertext, iv } = encrypted ?? {};
+    if (!isBase64(ciphertext) || !isBase64(iv)) {
+        throw new AppError("Encrypted message is missing or invalid", 400);
+    }
+    if (base64Length(iv) !== IV_BYTES) {
+        throw new AppError(`Message IV must be ${IV_BYTES} bytes`, 400);
+    }
+    const ciphertextBytes = base64Length(ciphertext);
+    if (ciphertextBytes <= AES_GCM_TAG_BYTES) {
         throw new AppError("Message content cannot be empty", 400);
     }
-
-    const trimmedContent = content.trim();
-    if (trimmedContent.length > MAX_MESSAGE_LENGTH) {
-        throw new AppError(`Message cannot be longer than ${MAX_MESSAGE_LENGTH} characters`, 400);
+    if (ciphertextBytes > MAX_CIPHERTEXT_BYTES) {
+        throw new AppError(`Message cannot be longer than ${MAX_TEXT_LENGTH} characters`, 400);
     }
 
     const conversation = await getConversationForParticipant(conversationId, currentUserId);
@@ -21,10 +34,11 @@ const createMessage = async (conversationId, currentUserId, content) => {
     const message = await Message.create({
         conversationId,
         sender: currentUserId,
-        content: trimmedContent
+        ciphertext,
+        iv
     });
 
-    conversation.lastMessage = trimmedContent;
+    conversation.lastMessage = { ciphertext, iv, sender: currentUserId };
     conversation.lastMessageAt = message.createdAt;
     await conversation.save();
 

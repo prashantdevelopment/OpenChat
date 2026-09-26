@@ -7,12 +7,15 @@
 //   from the user's password (PBKDF2). The server stores only that locked
 //   blob, so it can never read the private key.
 
+import { fromBase64, toBase64 } from "./base64.js";
+
 // OWASP's current recommendation for PBKDF2-HMAC-SHA256. It makes each password
 // guess slow for anyone who steals the locked blob.
 export const PBKDF2_ITERATIONS = 600_000;
 
-const toBase64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
-const fromBase64 = (text) => Uint8Array.from(atob(text), (char) => char.charCodeAt(0));
+// What an unlocked private key may be used for: ECDH shared secrets, which
+// messages.js turns into per-conversation keys with HKDF.
+export const PRIVATE_KEY_USAGES = ["deriveBits"];
 
 // Turns the password into an AES key that can only lock/unlock other keys.
 // NFC normalization: the same password typed on different keyboards (e.g.
@@ -56,7 +59,7 @@ const openPrivateKey = async (encryptedPrivateKey, password, extractable) => {
     { name: "AES-GCM", iv: fromBase64(iv) },
     { name: "ECDH", namedCurve: "P-256" },
     extractable,
-    ["deriveKey"],
+    PRIVATE_KEY_USAGES,
   );
 };
 
@@ -64,7 +67,7 @@ const openPrivateKey = async (encryptedPrivateKey, password, extractable) => {
 export const createKeyBundle = async (password) => {
   // extractable: true only so the private key can be locked right now; the
   // unlocked key used later is non-extractable.
-  const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey"]);
+  const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, PRIVATE_KEY_USAGES);
   const publicKey = await crypto.subtle.exportKey("spki", keyPair.publicKey);
 
   return {

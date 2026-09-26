@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import app from "../src/app.js";
 import Message from "../src/models/message.model.js";
 import Conversation from "../src/models/conversation.model.js";
-import { connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
+import { connectTestDb, disconnectTestDb, encrypted, readText, registerAndLogin } from "./helpers.js";
 
 let alice, bob, carol, conversationId, tiesConversationId;
 const TOTAL = 120;
@@ -29,7 +29,7 @@ beforeAll(async () => {
         Array.from({ length: TOTAL }, (_, i) => ({
             conversationId,
             sender: i % 2 ? alice.id : bob.id,
-            content: `m${i + 1}`,
+            ...encrypted(`m${i + 1}`),
             createdAt: new Date(start + i * 1000),
         })),
     );
@@ -39,7 +39,7 @@ beforeAll(async () => {
         Array.from({ length: 7 }, (_, i) => ({
             conversationId: tiesConversationId,
             sender: carol.id,
-            content: `tie${i + 1}`,
+            ...encrypted(`tie${i + 1}`),
             createdAt: sameTime,
         })),
     );
@@ -48,7 +48,7 @@ afterAll(disconnectTestDb);
 
 const getPage = (id, query = {}, user = alice) =>
     request(app).get(`/api/conversations/${id}/messages`).query(query).set("Cookie", user.cookie);
-const contents = (res) => res.body.messages.map((m) => m.content);
+const contents = (res) => res.body.messages.map(readText);
 
 describe("GET /api/conversations/:id/messages (pagination)", () => {
     it("returns the newest 50, oldest first, and says there is more", async () => {

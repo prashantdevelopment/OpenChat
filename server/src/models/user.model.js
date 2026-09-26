@@ -1,14 +1,12 @@
 import mongoose from "mongoose";
 import { createPublicKey } from "crypto";
 import { INDIAN_STATE_CODES } from "../../../shared/indian-states.js";
+import { base64Length, isBase64 } from "../utils/base64.js";
 
 // --- End-to-end encryption keys ---------------------------------------------
 // Created in the browser at registration (client/src/crypto/keys.js). The
 // server cannot use them; it only checks that they have the right shape so no
 // garbage is stored.
-
-const isBase64 = (value) => typeof value === "string" && /^[A-Za-z0-9+/]+={0,2}$/.test(value);
-const base64Length = (value) => Buffer.from(value, "base64").length;
 
 // The public key must really be an ECDH P-256 key in SPKI format.
 const isP256PublicKey = (value) => {
@@ -141,8 +139,9 @@ const userSchema =  new mongoose.Schema({
 );
 
 // What other users may see about someone (search results, conversation
-// participants). Never email, password or anything else private.
-export const PUBLIC_USER_FIELDS = "username avatar state";
+// participants). Never email, password or anything else private. The public
+// key is public by design: others need it to encrypt messages for this user.
+export const PUBLIC_USER_FIELDS = "username avatar state publicKey";
 
 const User = mongoose.model("User", userSchema);
 

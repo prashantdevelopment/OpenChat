@@ -1,5 +1,11 @@
 import mongoose from "mongoose";
 
+const lastMessageSchema = new mongoose.Schema({
+    ciphertext: { type: String, required: true },
+    iv: { type: String, required: true },
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+}, { _id: false });
+
 const conversationSchema = new mongoose.Schema({
 
     participants:[
@@ -17,8 +23,11 @@ const conversationSchema = new mongoose.Schema({
         index: true
     },
     
+    // Sidebar preview: the newest message, still encrypted (the browser
+    // decrypts it). The sender is needed to decrypt it (authenticated data).
+    // Old documents that still hold a plain-text string read as null.
     lastMessage: {
-        type: String,
+        type: lastMessageSchema,
         default: null
     },
 

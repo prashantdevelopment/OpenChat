@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 17 – E2EE: encrypt/decrypt messages
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 18 – Key fingerprint + forgot-password handling
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -271,7 +271,7 @@ Rooms: `conversationId` (existing) and `user:<userId>` (planned, joined automati
 |---|---|---|---|
 | `joinConversation(id, ack)` | – | conversation | exists (ack added in step 2) |
 | `leaveConversation(id)` | – | conversation | exists |
-| `sendMessage({conversationId, content}, ack)` | `newMessage` | conversation | exists (hardened in step 2; `content` → `ciphertext, iv` in step 17) |
+| `sendMessage({conversationId, ciphertext, iv}, ack)` | `newMessage` | conversation | exists (end-to-end encrypted since step 17) |
 | – | `conversationUpdated` `{_id, lastMessage, lastMessageAt}` | user rooms of both participants | exists (step 11) |
 | `typing({conversationId, isTyping})` | `typing` | conversation (except sender) | planned |
 | `markRead(conversationId, ack)` | `conversationRead` `{_id}` | own user room (step 12) | exists |
@@ -333,7 +333,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 |---|---|---|---|---|
 | 15 | Key pair at registration: ECDH P-256 in the browser, public key + password-wrapped private key stored on server | done | 2026-09-25 | `client/src/crypto/keys.js` (Web Crypto: ECDH P-256, PBKDF2-SHA-256 600k, AES-GCM wrap, NFC passwords); server validates the SPKI curve and blob shape, `encryptedPrivateKey` is `select: false` and never in others' responses. Client unit tests (7) + 147 server tests; register E2E unlocks the browser-made key. Dev data NOT cleared (user did not confirm): legacy users have no keys, handled in step 16. Also fixed: Vitest failing on Windows lowercase drive paths (`scripts/vitest.mjs`) |
 | 16 | Unlock at login, keep a non-extractable key in IndexedDB for refresh, wipe on logout, re-wrap on password change | done | 2026-09-25 | Login and `/me` return the owner's locked key; `AuthProvider.login()/unlock()`; `crypto/keyStore.js` (IndexedDB, one key, cleared on logout); unlock screen when the device has no key (URL kept) and a clear message for legacy accounts; password change requires a re-locked key (`rewrapPrivateKey`), saved atomically. Password-change UI comes in step 28. 151 server + 9 client tests, 20/20 unlock E2E |
-| 17 | Encrypt/decrypt messages (ECDH → HKDF → AES-GCM); server stores only `ciphertext + iv`; sidebar preview decrypted in the browser | todo | | Existing plaintext dev messages get cleared |
+| 17 | Encrypt/decrypt messages (ECDH → HKDF → AES-GCM); server stores only `ciphertext + iv`; sidebar preview decrypted in the browser | done | 2026-09-26 | `crypto/messages.js` (ECDH deriveBits → HKDF-SHA-256 with conversation id → AES-256-GCM, random 12-byte IV, sender id as AAD); `crypto/hooks.js` caches conversation keys; `MessageBubble` / `ConversationListItem` decrypt in the browser; server validates sizes only; `lastMessage` is `{ciphertext, iv, sender}`; public key in public fields. Legacy plain-text data is never shown or sent. 20 client + 154 server tests, 16/16 encryption E2E (DB + network have no plaintext, forged sender and tampering refused) |
 | 18 | Key fingerprint ("safety number") on profile + "forgot password = old messages unreadable" handling | todo | | |
 
 ### Phase D — Design foundation + app UI (one piece at a time)

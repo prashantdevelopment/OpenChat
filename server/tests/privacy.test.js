@@ -6,7 +6,7 @@ import app from "../src/app.js";
 import createSocketServer from "../src/socket.js";
 import User from "../src/models/user.model.js";
 import Conversation from "../src/models/conversation.model.js";
-import { PASSWORD, TEST_KEYS, connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
+import { PASSWORD, TEST_KEYS, connectTestDb, disconnectTestDb, encrypted, registerAndLogin } from "./helpers.js";
 
 // Everything that must never reach another user.
 const BOB_EMAIL = "bobby_test@test.dev";
@@ -54,7 +54,7 @@ const connectAs = (user) =>
 describe("what alice can see about bob", () => {
     it("REST responses never contain bob's email, password hash or read times", async () => {
         const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
-        await b.timeout(2000).emitWithAck("sendMessage", { conversationId, content: "hi alice" });
+        await b.timeout(2000).emitWithAck("sendMessage", { conversationId, ...encrypted("hi alice") });
         // Bob reads, so the conversation now stores his lastReadAt.
         await b.timeout(2000).emitWithAck("markRead", conversationId);
         a.disconnect();
@@ -74,7 +74,7 @@ describe("what alice can see about bob", () => {
     it("conversation participants carry only public fields", async () => {
         const res = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
         for (const participant of res.body.conversations[0].participants) {
-            expect(Object.keys(participant).sort()).toEqual(["_id", "avatar", "state", "username"]);
+            expect(Object.keys(participant).sort()).toEqual(["_id", "avatar", "publicKey", "state", "username"]);
         }
     });
 
@@ -86,7 +86,7 @@ describe("what alice can see about bob", () => {
             a.on(event, (payload) => received.push(payload));
         }
 
-        const ack = await b.timeout(2000).emitWithAck("sendMessage", { conversationId, content: "socket check" });
+        const ack = await b.timeout(2000).emitWithAck("sendMessage", { conversationId, ...encrypted("socket check") });
         await a.timeout(2000).emitWithAck("markRead", conversationId);
         await new Promise((resolve) => setTimeout(resolve, 200));
 

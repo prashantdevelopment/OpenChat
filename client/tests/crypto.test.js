@@ -6,16 +6,13 @@ import { createKeyBundle, unlockPrivateKey, rewrapPrivateKey, PBKDF2_ITERATIONS 
 const TIMEOUT = 30_000;
 const fromBase64 = (text) => Buffer.from(text, "base64");
 
-// Both sides of ECDH should derive the same AES key. Exported as raw bytes
-// here only to compare them in the test.
+// Both sides of ECDH should get the same shared secret (as hex, to compare).
 const sharedKeyBytes = async (myPrivateKey, theirPublicKeyBase64) => {
   const theirPublicKey = await crypto.subtle.importKey(
     "spki", fromBase64(theirPublicKeyBase64), { name: "ECDH", namedCurve: "P-256" }, false, [],
   );
-  const aesKey = await crypto.subtle.deriveKey(
-    { name: "ECDH", public: theirPublicKey }, myPrivateKey, { name: "AES-GCM", length: 256 }, true, ["encrypt"],
-  );
-  return Buffer.from(await crypto.subtle.exportKey("raw", aesKey)).toString("hex");
+  const secret = await crypto.subtle.deriveBits({ name: "ECDH", public: theirPublicKey }, myPrivateKey, 256);
+  return Buffer.from(secret).toString("hex");
 };
 
 describe("createKeyBundle / unlockPrivateKey", () => {
@@ -42,7 +39,7 @@ describe("createKeyBundle / unlockPrivateKey", () => {
     const privateKey = await unlockPrivateKey(alice.encryptedPrivateKey, "alice passphrase");
     expect(privateKey.algorithm).toMatchObject({ name: "ECDH", namedCurve: "P-256" });
     expect(privateKey.extractable).toBe(false);
-    expect(privateKey.usages).toEqual(["deriveKey"]);
+    expect(privateKey.usages).toEqual(["deriveBits"]);
     await expect(crypto.subtle.exportKey("pkcs8", privateKey)).rejects.toThrow();
   }, TIMEOUT);
 

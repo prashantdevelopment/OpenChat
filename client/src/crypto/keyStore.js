@@ -7,6 +7,8 @@
 // Only one key is kept: saving clears any previous one, and logout clears it,
 // so on a shared computer the next person never finds someone else's key.
 
+import { PRIVATE_KEY_USAGES } from "./keys.js";
+
 const DB_NAME = "openchat";
 const STORE = "keys";
 
@@ -39,6 +41,12 @@ export const saveKey = (userId, key) =>
     return store.put(key, userId);
   });
 
-export const loadKey = async (userId) => (await withStore("readonly", (store) => store.get(userId))) ?? null;
+// A stored key is only returned if it can still do everything the app needs
+// (keys saved by an older version may lack a permission): otherwise it counts
+// as missing, and the unlock screen stores a fresh one.
+export const loadKey = async (userId) => {
+  const key = await withStore("readonly", (store) => store.get(userId));
+  return key && PRIVATE_KEY_USAGES.every((usage) => key.usages.includes(usage)) ? key : null;
+};
 
 export const clearKeys = () => withStore("readwrite", (store) => store.clear());

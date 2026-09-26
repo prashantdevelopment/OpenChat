@@ -55,7 +55,7 @@ const createSocketServer = (httpServer) => {
 
         socket.on("sendMessage", async (data, ack) => {
             try {
-                const { message, conversation } = await createMessage(data?.conversationId, socket.userId, data?.content);
+                const { message, conversation } = await createMessage(data?.conversationId, socket.userId, data);
 
                 // Each participant has their own unread count. Count BEFORE
                 // emitting newMessage: the reader only sends "markRead" after

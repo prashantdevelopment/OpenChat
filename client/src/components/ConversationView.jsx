@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import socket from "../socket/socket.js";
 import api from "../api/api.js";
+import { useConversationKey } from "../crypto/hooks.js";
+import { encryptMessage, MAX_MESSAGE_LENGTH } from "../crypto/messages.js";
+import MessageBubble from "./MessageBubble.jsx";
 
 // Tells the server the user has seen this conversation, which clears the
 // unread badge in all their tabs. Only while this browser tab is actually
@@ -24,7 +27,9 @@ const mergeMessages = (a, b) => {
 // One open conversation: its messages, real-time updates and the input.
 // Chat.jsx renders it with key={conversationId}, so switching conversation
 // mounts a fresh instance and all of this state starts empty.
-const ConversationView = ({ conversationId, currentUser }) => {
+// peerPublicKey: the other participant's public key, needed to derive the
+// conversation's encryption key (undefined until the conversation list loads).
+const ConversationView = ({ conversationId, currentUser, peerPublicKey }) => {
   // The loaded messages and whether older ones exist on the server. Kept in
   // one state object because they always change together.
   const [history, setHistory] = useState({ messages: [], hasOlder: false });
@@ -33,6 +38,8 @@ const ConversationView = ({ conversationId, currentUser }) => {
   // The id comes from the URL now, so it can be wrong or belong to someone else.
   const [joinError, setJoinError] = useState(null);
   const currentUserId = currentUser._id;
+  // AES key shared with the other participant (null while being derived).
+  const conversationKey = useConversationKey(conversationId, peerPublicKey);
 
   // Receive real-time messages
   useEffect(() => {
@@ -138,9 +145,9 @@ const ConversationView = ({ conversationId, currentUser }) => {
     }
   };
 
-  // Send message
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) {
+  // Send message: encrypted in the browser; the server only gets ciphertext.
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !conversationKey) {
       return;
     }
 
@@ -153,19 +160,28 @@ const ConversationView = ({ conversationId, currentUser }) => {
     }
 
     const content = messageInput.trim();
+    setMessageInput("");
+    let encrypted;
+    try {
+      encrypted = await encryptMessage(conversationKey, content, currentUserId);
+    } catch (error) {
+      console.error("Message not sent: could not encrypt it", error);
+      setMessageInput((current) => current || content);
+      return;
+    }
+    const { ciphertext, iv } = encrypted;
 
     // timeout(): if the server never answers (e.g. socket disconnected),
     // the callback still runs with an error instead of waiting forever.
     socket
       .timeout(5000)
-      .emit("sendMessage", { conversationId, content }, (err, response) => {
+      .emit("sendMessage", { conversationId, ciphertext, iv }, (err, response) => {
         if (err || !response.success) {
           console.error("Message not sent:", err ? "Server did not respond" : response.message);
           // Give the text back so the user doesn't lose it.
           setMessageInput((current) => current || content);
         }
       });
-    setMessageInput("");
   };
 
   if (joinError) {
@@ -185,35 +201,20 @@ const ConversationView = ({ conversationId, currentUser }) => {
       <div role="log" aria-label="Messages">
         <h2>Messages:</h2>
 
-        {history.messages.map((message) => {
-          const isOwnMessage = message.sender === currentUser._id;
-
-          return (
-            <div
-              key={message._id}
-              style={{
-                display: "flex",
-                justifyContent: isOwnMessage ? "flex-end" : "flex-start",
-                marginBottom: "10px",
-              }}
-            >
-              <div
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: "12px",
-                  maxWidth: "70%",
-                }}
-              >
-                {message.content}
-              </div>
-            </div>
-          );
-        })}
+        {history.messages.map((message) => (
+          <MessageBubble
+            key={message._id}
+            message={message}
+            conversationKey={conversationKey}
+            isOwnMessage={message.sender === currentUserId}
+          />
+        ))}
       </div>
       <div>
         <input
           type="text"
           placeholder="Type a message..."
+          maxLength={MAX_MESSAGE_LENGTH}
           value={messageInput}
           onChange={(e) => setMessageInput(e.target.value)}
           onKeyDown={(e) => {
@@ -223,7 +224,8 @@ const ConversationView = ({ conversationId, currentUser }) => {
           }}
         />
 
-        <button onClick={handleSendMessage}>Send</button>
+        {/* Disabled until the encryption key for this conversation is ready. */}
+        <button onClick={handleSendMessage} disabled={!conversationKey}>Send</button>
       </div>
     </div>
   );

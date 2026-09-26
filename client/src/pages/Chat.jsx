@@ -1,8 +1,9 @@
 import { useEffect, useEffectEvent, useState } from "react";
-import { NavLink, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
+import ConversationListItem from "../components/ConversationListItem.jsx";
 import ConversationView from "../components/ConversationView.jsx";
 import UserSearch from "../components/UserSearch.jsx";
 
@@ -86,6 +87,12 @@ const Chat = () => {
     }
   };
 
+  // The other participant's public key for the open conversation (encryption).
+  // Undefined until the list has loaded, or if the conversation isn't ours.
+  const peerPublicKey = conversations
+    .find((conversation) => conversation._id === conversationId)
+    ?.participants.find((participant) => participant._id !== currentUser._id)?.publicKey;
+
   return (
     <div>
       <h1>Chat</h1>
@@ -99,34 +106,18 @@ const Chat = () => {
       <nav aria-label="Conversations">
         <h2>Conversations:</h2>
 
-        {conversations.map((conversation) => {
-          const otherParticipant = conversation.participants.find(
-            (participant) => participant._id !== currentUser._id,
-          );
-
-          return (
-            <p key={conversation._id}>
-              {/* NavLink marks the open conversation with aria-current="page". */}
-              <NavLink
-                to={`/chat/${conversation._id}`}
-                style={({ isActive }) => ({ fontWeight: isActive ? "bold" : "normal" })}
-              >
-                {otherParticipant?.username}
-                {conversation.unreadCount > 0 ? <strong> ({conversation.unreadCount} unread)</strong> : null}
-                {conversation.lastMessage ? (
-                  <>
-                    <br />
-                    <small>{conversation.lastMessage}</small>
-                  </>
-                ) : null}
-              </NavLink>
-            </p>
-          );
-        })}
+        {conversations.map((conversation) => (
+          <ConversationListItem key={conversation._id} conversation={conversation} currentUserId={currentUser._id} />
+        ))}
       </nav>
 
       {conversationId ? (
-        <ConversationView key={conversationId} conversationId={conversationId} currentUser={currentUser} />
+        <ConversationView
+          key={conversationId}
+          conversationId={conversationId}
+          currentUser={currentUser}
+          peerPublicKey={peerPublicKey}
+        />
       ) : (
         <p>Select a conversation to start chatting.</p>
       )}

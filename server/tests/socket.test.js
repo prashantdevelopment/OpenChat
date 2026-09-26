@@ -6,7 +6,7 @@ import app from "../src/app.js";
 import createSocketServer from "../src/socket.js";
 import Message from "../src/models/message.model.js";
 import Conversation from "../src/models/conversation.model.js";
-import { connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
+import { connectTestDb, disconnectTestDb, encrypted, readText, registerAndLogin } from "./helpers.js";
 
 let io, url;
 let alice, bob, carol, conversationId;
@@ -102,50 +102,53 @@ describe("sendMessage between two users", () => {
         await emitWithAck(b, "joinConversation", conversationId);
         const [toA, toB, toC] = [collectMessages(a), collectMessages(b), collectMessages(c)];
 
-        const first = await emitWithAck(a, "sendMessage", { conversationId, content: "  hello bob  " });
-        const second = await emitWithAck(b, "sendMessage", { conversationId, content: "hi alice" });
+        const first = await emitWithAck(a, "sendMessage", { conversationId, ...encrypted("hello bob") });
+        const second = await emitWithAck(b, "sendMessage", { conversationId, ...encrypted("hi alice") });
         await waitForDelivery();
 
         expect(first.success).toBe(true);
-        expect(first.message.content).toBe("hello bob"); // trimmed
+        expect(readText(first.message)).toBe("hello bob");
+        expect(first.message).not.toHaveProperty("content"); // the server never sees text
         expect(second.success).toBe(true);
-        expect(toB.map((m) => m.content)).toEqual(["hello bob", "hi alice"]);
-        expect(toA.map((m) => m.content)).toEqual(["hello bob", "hi alice"]);
+        expect(toB.map(readText)).toEqual(["hello bob", "hi alice"]);
+        expect(toA.map(readText)).toEqual(["hello bob", "hi alice"]);
         expect(toC).toEqual([]);
     });
 
     it("saves the message and updates the conversation's last message", async () => {
         const a = await connectAs(alice);
-        const res = await emitWithAck(a, "sendMessage", { conversationId, content: "saved?" });
+        const res = await emitWithAck(a, "sendMessage", { conversationId, ...encrypted("saved?") });
 
         const saved = await Message.findById(res.message._id);
-        expect(saved.content).toBe("saved?");
+        expect(readText(saved)).toBe("saved?");
         const conversation = await Conversation.findById(conversationId);
-        expect(conversation.lastMessage).toBe("saved?");
+        expect(readText(conversation.lastMessage)).toBe("saved?");
         expect(conversation.lastMessageAt.getTime()).toBe(saved.createdAt.getTime());
     });
 
     it("takes the sender from the login, never from the client", async () => {
         const a = await connectAs(alice);
-        const res = await emitWithAck(a, "sendMessage", { conversationId, content: "spoof", sender: carol.id });
+        const res = await emitWithAck(a, "sendMessage", { conversationId, ...encrypted("spoof"), sender: carol.id });
         expect(res.message.sender).toBe(alice.id);
     });
 
     it("refuses a message from an outsider", async () => {
         const c = await connectAs(carol);
-        const res = await emitWithAck(c, "sendMessage", { conversationId, content: "let me in" });
+        const res = await emitWithAck(c, "sendMessage", { conversationId, ...encrypted("let me in") });
         expect(res.success).toBe(false);
         expect(res.message).toMatch(/not a participant/);
     });
 
     it.each([
-        ["a null payload", null, /empty/],
-        ["an invalid conversation id", { conversationId: "bad-id", content: "x" }, /Invalid conversation id/],
-        ["an unknown conversation", { conversationId: "64b000000000000000000000", content: "x" }, /not found/],
-        ["non-string content", { content: 123 }, /empty/],
-        ["object content", { content: { $gt: "" } }, /empty/],
-        ["whitespace-only content", { content: "   " }, /empty/],
-        ["content over 2000 characters", { content: "a".repeat(2001) }, /longer than 2000/],
+        ["a null payload", null, /missing or invalid/],
+        ["an invalid conversation id", { conversationId: "bad-id", ...encrypted("x") }, /Invalid conversation id/],
+        ["an unknown conversation", { conversationId: "64b000000000000000000000", ...encrypted("x") }, /not found/],
+        ["plain text instead of ciphertext", { content: "hello" }, /missing or invalid/],
+        ["ciphertext that is not base64", { ciphertext: "not base64!", iv: encrypted("x").iv }, /missing or invalid/],
+        ["an object as ciphertext", { ciphertext: { $gt: "" }, iv: encrypted("x").iv }, /missing or invalid/],
+        ["an IV of the wrong size", { ciphertext: encrypted("x").ciphertext, iv: "AAAA" }, /IV must be 12 bytes/],
+        ["an empty message (tag only)", encrypted(""), /empty/],
+        ["more than 2000 characters' worth of ciphertext", encrypted("a".repeat(8001)), /longer than 2000/],
     ])("rejects %s", async (_name, data, message) => {
         const a = await connectAs(alice);
         const payload = data && !("conversationId" in data) ? { conversationId, ...data } : data;
@@ -170,7 +173,7 @@ describe("conversationUpdated (sidebar updates through personal rooms)", () => {
         const updates = [aliceTab1, aliceTab2, bobTab, carolTab].map(collectUpdates);
         const newMessages = collectMessages(aliceTab1);
 
-        const res = await emitWithAck(bobTab, "sendMessage", { conversationId, content: "sidebar ping" });
+        const res = await emitWithAck(bobTab, "sendMessage", { conversationId, ...encrypted("sidebar ping") });
         await waitForDelivery();
 
         const [toAlice1, toAlice2, toBob, toCarol] = updates;
@@ -182,15 +185,17 @@ describe("conversationUpdated (sidebar updates through personal rooms)", () => {
 
         expect(toAlice1[0]).toMatchObject({
             _id: conversationId,
-            lastMessage: "sidebar ping",
             lastMessageAt: res.message.createdAt,
         });
+        // The preview is still encrypted, with the sender needed to decrypt it.
+        expect(readText(toAlice1[0].lastMessage)).toBe("sidebar ping");
+        expect(toAlice1[0].lastMessage.sender).toBe(bob.id);
     });
 
     it("sends only the summary: no participants, no emails, no message body fields", async () => {
         const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
         const toAlice = collectUpdates(a);
-        await emitWithAck(b, "sendMessage", { conversationId, content: "just the summary" });
+        await emitWithAck(b, "sendMessage", { conversationId, ...encrypted("just the summary") });
         await waitForDelivery();
         expect(Object.keys(toAlice[0]).sort()).toEqual(["_id", "lastMessage", "lastMessageAt", "unreadCount"]);
     });
@@ -198,7 +203,7 @@ describe("conversationUpdated (sidebar updates through personal rooms)", () => {
     it("does not send an update when the message is rejected", async () => {
         const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
         const toAlice = collectUpdates(a);
-        await emitWithAck(b, "sendMessage", { conversationId, content: "   " });
+        await emitWithAck(b, "sendMessage", { conversationId, ...encrypted("") });
         await waitForDelivery();
         expect(toAlice).toEqual([]);
     });
@@ -222,7 +227,7 @@ describe("unread counts and markRead", () => {
         return res.body.conversations.find((c) => c._id === readerConversationId);
     };
     const send = (socket, content) =>
-        emitWithAck(socket, "sendMessage", { conversationId: readerConversationId, content });
+        emitWithAck(socket, "sendMessage", { conversationId: readerConversationId, ...encrypted(content) });
     const collect = (socket, event) => {
         const received = [];
         socket.on(event, (payload) => received.push(payload));
@@ -288,7 +293,7 @@ describe("unread counts and markRead", () => {
             emitWithAck(r, "markRead", readerConversationId),
         ]);
         const conversation = await Conversation.findById(readerConversationId);
-        expect(conversation.lastMessage).toBe("sent while reading");
+        expect(readText(conversation.lastMessage)).toBe("sent while reading");
         expect(conversation.lastReadAt.get(reader.id)).toBeInstanceOf(Date);
     });
 
@@ -313,8 +318,8 @@ describe("unread counts and markRead", () => {
 describe("robustness", () => {
     it("survives malformed events that used to crash the server", async () => {
         const a = await connectAs(alice);
-        a.emit("sendMessage", { conversationId: "bad-id", content: "x" });           // no ack
-        a.emit("sendMessage", { conversationId: "bad-id", content: "x" }, "notafn"); // ack is not a function
+        a.emit("sendMessage", { conversationId: "bad-id", ...encrypted("x") });           // no ack
+        a.emit("sendMessage", { conversationId: "bad-id", ...encrypted("x") }, "notafn"); // ack is not a function
         a.emit("joinConversation", Buffer.alloc(12));                                // binary id
         a.emit("leaveConversation", { weird: true });
         await waitForDelivery();
@@ -332,7 +337,7 @@ describe("robustness", () => {
 
         a.emit("leaveConversation", conversationId);
         await waitForDelivery();
-        await emitWithAck(b, "sendMessage", { conversationId, content: "after leave" });
+        await emitWithAck(b, "sendMessage", { conversationId, ...encrypted("after leave") });
         await waitForDelivery();
         expect(toA).toEqual([]);
     });

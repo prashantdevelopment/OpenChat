@@ -13,7 +13,14 @@ const messageSchema = new mongoose.Schema({
         ref: "User",
         required: true
     },
-    content: {
+    // End-to-end encrypted text (AES-GCM, see client/src/crypto/messages.js).
+    // The server stores it but can never read it. message.service.js checks
+    // the sizes before saving.
+    ciphertext: {
+        type: String,
+        required: true
+    },
+    iv: {
         type: String,
         required: true
     },
