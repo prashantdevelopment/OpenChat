@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeftIcon, MessagesSquareIcon, PhoneIcon, SettingsIcon, WifiOffIcon } from "lucide-react";
+import { ArrowLeftIcon, MessagesSquareIcon, PhoneIcon, SettingsIcon, VideoIcon, WifiOffIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
@@ -333,9 +333,18 @@ const Chat = () => {
                   size="icon"
                   aria-label={`Voice call ${peer?.username ?? ""}`.trim()}
                   disabled={!peer?.publicKey || !isConnected || isInCall}
-                  onClick={() => startCall({ conversationId, peer })}
+                  onClick={() => startCall({ conversationId, peer, media: "audio" })}
                 >
                   <PhoneIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Video call ${peer?.username ?? ""}`.trim()}
+                  disabled={!peer?.publicKey || !isConnected || isInCall}
+                  onClick={() => startCall({ conversationId, peer, media: "video" })}
+                >
+                  <VideoIcon aria-hidden="true" />
                 </Button>
               </header>
               <ConversationView

@@ -14,6 +14,7 @@ import { getConversationForParticipant } from "./services/conversation.service.j
 const CALL_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_SIGNAL_BYTES = 32 * 1024; // an SDP is a few KB
 const END_REASONS = ["ended", "declined", "cancelled", "busy", "failed"];
+const MEDIA = ["audio", "video"];
 
 // { ciphertext, iv } made by the browser's encryptMessage().
 const checkSignal = (signal) => {
@@ -51,8 +52,11 @@ const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
         });
     };
 
-    on("callUser", async ({ conversationId, callId, offer }) => {
+    on("callUser", async ({ conversationId, callId, media, offer }) => {
         checkCallId(callId);
+        if (!MEDIA.includes(media)) {
+            throw new AppError("media must be audio or video", 400);
+        }
         const encryptedOffer = checkSignal(offer);
         const { conversation, peerId } = await callPeer(conversationId);
         // Who is calling, so the callee can show a name and derive the key.
@@ -60,7 +64,7 @@ const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
         io.to(userRoom(peerId)).emit("incomingCall", {
             callId,
             conversationId: conversation._id,
-            media: "audio",
+            media,
             from: caller,
             offer: encryptedOffer,
         });

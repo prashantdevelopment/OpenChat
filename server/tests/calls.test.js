@@ -53,7 +53,7 @@ describe("call signaling", () => {
         const callId = randomUUID();
         const offer = signal();
 
-        expect((await emitWithAck(a, "callUser", { conversationId, callId, offer })).success).toBe(true);
+        expect((await emitWithAck(a, "callUser", { conversationId, callId, media: "audio", offer })).success).toBe(true);
         await settle();
 
         expect(toB1).toHaveLength(1);
@@ -74,7 +74,7 @@ describe("call signaling", () => {
         const notToAnswerer = collect(b1, "callHandledElsewhere");
         const callId = randomUUID();
 
-        await emitWithAck(a, "callUser", { conversationId, callId, offer: signal() });
+        await emitWithAck(a, "callUser", { conversationId, callId, media: "audio", offer: signal() });
         await emitWithAck(b1, "answerCall", { conversationId, callId, answer: signal() });
         await emitWithAck(b1, "iceCandidate", { conversationId, callId, candidate: signal() });
         await emitWithAck(a, "iceCandidate", { conversationId, callId, candidate: signal() });
@@ -94,17 +94,25 @@ describe("call signaling", () => {
         const elsewhere = collect(b2, "callHandledElsewhere");
         const callId = randomUUID();
 
-        await emitWithAck(a, "callUser", { conversationId, callId, offer: signal() });
+        await emitWithAck(a, "callUser", { conversationId, callId, media: "audio", offer: signal() });
         expect((await emitWithAck(b1, "endCall", { conversationId, callId, reason: "declined" })).success).toBe(true);
         await settle();
         expect(endedForA).toEqual([{ callId, conversationId, reason: "declined" }]);
         expect(elsewhere).toEqual([{ callId }]);
     });
 
+    it("passes on whether it is a voice or a video call", async () => {
+        const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
+        const toB = collect(b, "incomingCall");
+        await emitWithAck(a, "callUser", { conversationId, callId: randomUUID(), media: "video", offer: signal() });
+        await settle();
+        expect(toB[0].media).toBe("video");
+    });
+
     it("refuses outsiders", async () => {
         const [c, b] = await Promise.all([connectAs(carol), connectAs(bob)]);
         const toB = collect(b, "incomingCall");
-        const res = await emitWithAck(c, "callUser", { conversationId, callId: randomUUID(), offer: signal() });
+        const res = await emitWithAck(c, "callUser", { conversationId, callId: randomUUID(), media: "audio", offer: signal() });
         expect(res.success).toBe(false);
         expect(res.message).toMatch(/not a participant/);
         for (const event of ["answerCall", "iceCandidate", "endCall"]) {
@@ -120,9 +128,11 @@ describe("call signaling", () => {
         ["an IV of the wrong size", { offer: { ...signal(), iv: "AAAA" } }, /Invalid call signal/],
         ["an oversized signal", { offer: { ciphertext: Buffer.alloc(40 * 1024).toString("base64"), iv: signal().iv } }, /Invalid call signal/],
         ["a bad call id", { callId: "../x" }, /Invalid call id/],
+        ["an unknown media type", { media: "screen" }, /media must be audio or video/],
+        ["no media type", { media: undefined }, /media must be audio or video/],
     ])("rejects %s", async (_name, change, message) => {
         const a = await connectAs(alice);
-        const res = await emitWithAck(a, "callUser", { conversationId, callId: randomUUID(), offer: signal(), ...change });
+        const res = await emitWithAck(a, "callUser", { conversationId, callId: randomUUID(), media: "audio", offer: signal(), ...change });
         expect(res.success).toBe(false);
         expect(res.message).toMatch(message);
     });

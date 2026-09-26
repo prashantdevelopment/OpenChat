@@ -11,20 +11,25 @@ import CallOverlay from "./CallOverlay.jsx";
 // plan step 41.)
 const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 const ENDED_VISIBLE_MS = 3000;
+const CAMERA = { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } };
 
-// One voice call at a time. The media goes directly between the two browsers
-// (WebRTC, encrypted with DTLS-SRTP). The server only relays the "signals"
-// (offer, answer, network candidates), and those are encrypted here with the
-// conversation key: the server can't read them or swap in its own keys.
+// One call at a time, voice or video. The media goes directly between the two
+// browsers (WebRTC, encrypted with DTLS-SRTP). The server only relays the
+// "signals" (offer, answer, network candidates), and those are encrypted here
+// with the conversation key: the server can't read them or swap in its own
+// keys. "Muted" and "camera off" travel over a WebRTC data channel, straight
+// between the browsers too.
 //
-// call: null, or { callId, conversationId, peer, direction: "outgoing" |
-// "incoming", status: "calling" | "ringing" | "connecting" | "connected" |
-// "ended", endReason, connectedAt, muted }
+// call: null, or { callId, conversationId, peer, media: "audio" | "video",
+// direction: "outgoing" | "incoming", status: "calling" | "ringing" |
+// "connecting" | "connected" | "ended", endReason, connectedAt, muted,
+// cameraOff, peerMuted, peerCameraOff, canSwitchCamera, localStream, remoteStream }
 const CallProvider = ({ children }) => {
   const { currentUser, privateKey } = useAuth();
   const [call, setCall] = useState(null);
-  const callRef = useRef(null); // the same call, for socket handlers
+  const callRef = useRef(null); // the same call, for socket and WebRTC handlers
   const peerConnection = useRef(null);
+  const stateChannel = useRef(null);
   const localStream = useRef(null);
   const remoteAudio = useRef(null);
   const pendingCandidates = useRef([]);
@@ -41,10 +46,33 @@ const CallProvider = ({ children }) => {
   // Throws if the signal was changed on the way (AES-GCM checks it).
   const open = async (current, signal) => JSON.parse(await decryptMessage(await keyFor(current), signal, current.peer._id));
 
+  // Tell the other browser whether I'm muted / my camera is off.
+  const shareState = () => {
+    const current = callRef.current;
+    if (stateChannel.current?.readyState === "open" && current) {
+      stateChannel.current.send(JSON.stringify({ muted: current.muted, cameraOff: current.cameraOff }));
+    }
+  };
+
+  const attachStateChannel = (channel) => {
+    stateChannel.current = channel;
+    channel.onopen = shareState;
+    channel.onmessage = (event) => {
+      try {
+        const { muted, cameraOff } = JSON.parse(event.data);
+        update({ peerMuted: Boolean(muted), peerCameraOff: Boolean(cameraOff) });
+      } catch {
+        // Ignore anything that isn't our small state message.
+      }
+    };
+  };
+
   const cleanUp = () => {
+    stateChannel.current?.close();
+    stateChannel.current = null;
     peerConnection.current?.close();
     peerConnection.current = null;
-    localStream.current?.getTracks().forEach((track) => track.stop()); // mic indicator off
+    localStream.current?.getTracks().forEach((track) => track.stop()); // mic and camera lights off
     localStream.current = null;
     if (remoteAudio.current) remoteAudio.current.srcObject = null;
     pendingCandidates.current = [];
@@ -55,7 +83,7 @@ const CallProvider = ({ children }) => {
   const finish = (endReason) => {
     cleanUp();
     if (!callRef.current) return;
-    update({ status: "ended", endReason });
+    update({ status: "ended", endReason, localStream: null, remoteStream: null });
     clearTimeout(endedTimer.current);
     endedTimer.current = setTimeout(() => {
       if (callRef.current?.status === "ended") update(null);
@@ -71,8 +99,10 @@ const CallProvider = ({ children }) => {
     finish(shownReason);
   };
 
-  const openMicrophone = async () => {
-    localStream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const openMedia = async (media) => {
+    localStream.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: media === "video" ? CAMERA : false });
+    const cameras = media === "video" ? (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput") : [];
+    update({ localStream: localStream.current, canSwitchCamera: cameras.length > 1 });
     return localStream.current;
   };
 
@@ -84,8 +114,11 @@ const CallProvider = ({ children }) => {
       socket.emit("iceCandidate", { conversationId: current.conversationId, callId: current.callId, candidate });
     };
     pc.ontrack = (event) => {
-      if (remoteAudio.current) remoteAudio.current.srcObject = event.streams[0];
+      const [stream] = event.streams;
+      if (remoteAudio.current) remoteAudio.current.srcObject = stream; // the voice (video elements stay muted)
+      update({ remoteStream: stream });
     };
+    pc.ondatachannel = (event) => attachStateChannel(event.channel);
     pc.onconnectionstatechange = () => {
       if (pc !== peerConnection.current) return;
       if (pc.connectionState === "connected" && callRef.current?.status !== "connected") {
@@ -110,25 +143,38 @@ const CallProvider = ({ children }) => {
     for (const candidate of waiting) await peerConnection.current?.addIceCandidate(candidate);
   };
 
-  // A mic error or a signal that doesn't decrypt ends the call with a reason.
+  // A blocked mic/camera or a signal that doesn't decrypt ends the call with a reason.
   const failWith = (error) => {
     console.error("Call failed:", error);
-    hangUp("failed", error?.name === "NotAllowedError" ? "microphone" : "failed");
+    const blocked = error?.name === "NotAllowedError";
+    hangUp("failed", blocked ? (callRef.current?.media === "video" ? "camera" : "microphone") : "failed");
   };
 
-  const startCall = async ({ conversationId, peer }) => {
+  const startCall = async ({ conversationId, peer, media = "audio" }) => {
     if (callRef.current && callRef.current.status !== "ended") return;
     clearTimeout(endedTimer.current);
     update(null);
-    update({ callId: crypto.randomUUID(), conversationId, peer, direction: "outgoing", status: "calling", muted: false });
+    update({
+      callId: crypto.randomUUID(),
+      conversationId,
+      peer,
+      media,
+      direction: "outgoing",
+      status: "calling",
+      muted: false,
+      cameraOff: false,
+    });
     const current = callRef.current;
     try {
-      await openMicrophone();
+      await openMedia(media);
       const pc = createPeerConnection(current);
+      attachStateChannel(pc.createDataChannel("call-state"));
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       const encryptedOffer = await seal(current, { type: offer.type, sdp: offer.sdp });
-      const response = await socket.timeout(5000).emitWithAck("callUser", { conversationId, callId: current.callId, offer: encryptedOffer });
+      const response = await socket
+        .timeout(5000)
+        .emitWithAck("callUser", { conversationId, callId: current.callId, media, offer: encryptedOffer });
       if (!response.success) throw new Error(response.message);
     } catch (error) {
       if (callRef.current?.callId === current.callId) failWith(error);
@@ -140,7 +186,7 @@ const CallProvider = ({ children }) => {
     if (current?.status !== "ringing") return;
     update({ status: "connecting" });
     try {
-      await openMicrophone();
+      await openMedia(current.media);
       const pc = createPeerConnection(current);
       await pc.setRemoteDescription(await open(current, incomingOffer.current));
       await flushCandidates();
@@ -171,13 +217,47 @@ const CallProvider = ({ children }) => {
       track.enabled = !muted;
     });
     update({ muted });
+    shareState();
+  };
+
+  // Camera off: the track sends black frames; the other side shows my photo instead.
+  const toggleCamera = () => {
+    const cameraOff = !callRef.current?.cameraOff;
+    localStream.current?.getVideoTracks().forEach((track) => {
+      track.enabled = !cameraOff;
+    });
+    update({ cameraOff });
+    shareState();
+  };
+
+  // Next camera (front/back on phones). replaceTrack swaps what is sent
+  // without setting up the call again.
+  const switchCamera = async () => {
+    const stream = localStream.current;
+    const oldTrack = stream?.getVideoTracks()[0];
+    const sender = peerConnection.current?.getSenders().find((s) => s.track?.kind === "video");
+    if (!oldTrack || !sender) return;
+    try {
+      const cameras = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+      const index = cameras.findIndex((camera) => camera.deviceId === oldTrack.getSettings().deviceId);
+      const next = cameras[(index + 1) % cameras.length];
+      const [newTrack] = (await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: next.deviceId } } })).getVideoTracks();
+      newTrack.enabled = !callRef.current.cameraOff;
+      await sender.replaceTrack(newTrack);
+      stream.removeTrack(oldTrack);
+      oldTrack.stop();
+      stream.addTrack(newTrack);
+      update({ localStream: new MediaStream(stream.getTracks()) }); // new object: the preview updates
+    } catch (error) {
+      console.error("Could not switch camera:", error);
+    }
   };
 
   // Signals from the other side.
   useEffect(() => {
     const isThisCall = (callId) => callRef.current?.callId === callId && callRef.current.status !== "ended";
 
-    const handleIncoming = ({ callId, conversationId, from, offer }) => {
+    const handleIncoming = ({ callId, conversationId, from, media, offer }) => {
       if (callRef.current && callRef.current.status !== "ended") {
         socket.emit("endCall", { conversationId, callId, reason: "busy" }); // already in a call
         return;
@@ -185,7 +265,7 @@ const CallProvider = ({ children }) => {
       clearTimeout(endedTimer.current);
       incomingOffer.current = offer;
       callRef.current = null;
-      update({ callId, conversationId, peer: from, direction: "incoming", status: "ringing", muted: false });
+      update({ callId, conversationId, peer: from, media, direction: "incoming", status: "ringing", muted: false, cameraOff: false });
     };
 
     const handleAnswered = async ({ callId, answer }) => {
@@ -251,9 +331,9 @@ const CallProvider = ({ children }) => {
   const isBusy = Boolean(call && call.status !== "ended");
 
   return (
-    <CallContext value={{ call, isBusy, startCall, acceptCall, declineCall, endCall, toggleMute }}>
+    <CallContext value={{ call, isBusy, startCall, acceptCall, declineCall, endCall, toggleMute, toggleCamera, switchCamera }}>
       {children}
-      {/* The other person's voice. */}
+      {/* The other person's voice (for video calls too: video elements are muted). */}
       <audio ref={remoteAudio} autoPlay hidden />
       {call ? <CallOverlay /> : null}
     </CallContext>
