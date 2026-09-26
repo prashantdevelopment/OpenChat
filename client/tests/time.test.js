@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { formatConversationTime, formatFullDateTime } from "../src/lib/time.js";
 
-// A fixed "now": Friday 26 September 2026, 3:30 pm (local time).
+// A fixed "now": Saturday 26 September 2026, 3:30 pm (local time).
 const now = new Date(2026, 8, 26, 15, 30);
 const at = (month, day, hour = 10, minute = 42, year = 2026) => new Date(year, month, day, hour, minute);
 

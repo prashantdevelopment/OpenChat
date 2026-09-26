@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 23 – Message bubbles: grouping, timestamps, date separators
+**Status:** Approved, building · **Last updated:** 2026-09-26 · **Next step:** 24 – Composer: multi-line, Shift+Enter, sending/failed state, retry
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -343,7 +343,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 20 | App layout shell: 2-pane desktop, 1-pane mobile (360 → 1440px) | done | 2026-09-26 | Full-height (`h-dvh`) shell: 320px sidebar + chat pane from 768px; below that the URL picks one pane (back link + the phone's back button). Page never scrolls; messages scroll, composer stays at the bottom. Chat header with the other person's name; theme toggle in the sidebar header; `PublicLayout` for login/register/404/unlock. 23/23 layout E2E at 1280, 768, 360px |
 | 21 | Sidebar + conversation items (avatar, name, last message, time, unread) | done | 2026-09-26 | `ConversationListItem`: initial-letter `Avatar`, name, en-IN time (`lib/time.js`: "10:42 am" / "Yesterday" / "Tue" / "12 Sept"), one-line truncated preview ("You:" / "No messages yet"), unread badge (99+, screen-reader "N unread"), bolder unread, highlighted active row; `ul > li` list; empty state; styled search results. All new colour pairs WCAG-checked. 31 client tests, 29/29 sidebar-items E2E |
 | 22 | Chat header (incl. encryption lock indicator) | done | 2026-09-26 | Header: back (mobile), avatar, name, "End-to-end encrypted" lock button opening a coss ui `Dialog` with the safety number (3×4 grid, `<label>` + `<output>`; bottom sheet on phones; focus trapped, Esc/Done close, focus returns). The separate safety-number strip is gone. Online status and call buttons come with steps 29 and 37. 15/15 safety E2E |
-| 23 | Message bubbles: grouping, timestamps, date separators | todo | | |
+| 23 | Message bubbles: grouping, timestamps, date separators | done | 2026-09-26 | `lib/timeline.js` (pure `buildTimeline`): a day heading (`<h3>`: Today / Yesterday / weekday) when the date changes; same sender within 5 min and same day = one group (tight spacing, time only on the last bubble, `<time>` with full-date title). Own bubbles right in the primary blue, theirs left in muted; sr-only "You:" / name for screen readers; `dir="auto"` (Urdu RTL), line breaks kept, long links wrap. 40 client tests, 18/18 bubbles E2E (light, dark, 360px); layout E2E caught a page-scroll bug from the sr-only label (fixed with `relative`) |
 | 24 | Composer: multi-line, Shift+Enter, sending/failed state, retry | todo | | |
 | 25 | Auto-scroll that never interrupts reading history + "new messages" pill | todo | | Also: open a chat scrolled to the newest message (it opens at the top since step 20) |
 | 26 | Loading / empty / error states (skeletons, Circle Loaders, toasts) | todo | | |

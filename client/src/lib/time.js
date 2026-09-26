@@ -4,6 +4,28 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
+// "10:42 am"
+export const formatTimeOfDay = (value) =>
+  new Date(value).toLocaleTimeString(LOCALE, { hour: "numeric", minute: "2-digit" });
+
+// True if both dates fall on the same calendar day (local time).
+export const isSameDay = (a, b) => startOfDay(new Date(a)).getTime() === startOfDay(new Date(b)).getTime();
+
+// Date separator in a chat: "Today", "Yesterday", "Monday, 21 September",
+// or with the year for other years.
+export const formatDayLabel = (value, now = new Date()) => {
+  const date = new Date(value);
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / DAY_MS);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return date.toLocaleDateString(LOCALE, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
+};
+
 // Short label for the conversation list: "10:42 am", "Yesterday", "Mon",
 // "12 Sept" (en-IN spelling), or "12 Sept 2025" for another year.
 export const formatConversationTime = (value, now = new Date()) => {
@@ -11,7 +33,7 @@ export const formatConversationTime = (value, now = new Date()) => {
   // Calendar days between the two dates (rounded, so clock changes don't matter).
   const days = Math.round((startOfDay(now) - startOfDay(date)) / DAY_MS);
 
-  if (days <= 0) return date.toLocaleTimeString(LOCALE, { hour: "numeric", minute: "2-digit" });
+  if (days <= 0) return formatTimeOfDay(date);
   if (days === 1) return "Yesterday";
   if (days < 7) return date.toLocaleDateString(LOCALE, { weekday: "short" });
   if (date.getFullYear() === now.getFullYear()) {

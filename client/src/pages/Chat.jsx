@@ -175,6 +175,7 @@ const Chat = () => {
               conversationId={conversationId}
               currentUser={currentUser}
               peerPublicKey={peer?.publicKey}
+              peerName={peer?.username}
             />
           </>
         ) : (

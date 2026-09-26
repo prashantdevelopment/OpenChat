@@ -4,6 +4,8 @@ import api from "../api/api.js";
 import { useConversationKey } from "../crypto/hooks.js";
 import { encryptMessage, MAX_MESSAGE_LENGTH } from "../crypto/messages.js";
 import MessageBubble from "./MessageBubble.jsx";
+import { buildTimeline } from "../lib/timeline.js";
+import { formatDayLabel } from "../lib/time.js";
 
 // Tells the server the user has seen this conversation, which clears the
 // unread badge in all their tabs. Only while this browser tab is actually
@@ -29,7 +31,7 @@ const mergeMessages = (a, b) => {
 // mounts a fresh instance and all of this state starts empty.
 // peerPublicKey: the other participant's public key, needed to derive the
 // conversation's encryption key (undefined until the conversation list loads).
-const ConversationView = ({ conversationId, currentUser, peerPublicKey }) => {
+const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName }) => {
   // The loaded messages and whether older ones exist on the server. Kept in
   // one state object because they always change together.
   const [history, setHistory] = useState({ messages: [], hasOlder: false });
@@ -208,14 +210,26 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey }) => {
           </div>
         ) : null}
 
-        {history.messages.map((message) => (
-          <MessageBubble
-            key={message._id}
-            message={message}
-            conversationKey={conversationKey}
-            isOwnMessage={message.sender === currentUserId}
-          />
-        ))}
+        {buildTimeline(history.messages).map((item) =>
+          item.type === "day" ? (
+            // A heading per day, so screen-reader users can jump between days.
+            <h3 key={item.key} className="my-4 flex justify-center font-sans text-xs font-medium first:mt-0">
+              <time dateTime={item.date} className="rounded-full bg-muted px-3 py-1 text-muted-foreground">
+                {formatDayLabel(item.date)}
+              </time>
+            </h3>
+          ) : (
+            <MessageBubble
+              key={item.key}
+              message={item.message}
+              conversationKey={conversationKey}
+              isOwnMessage={item.message.sender === currentUserId}
+              senderName={peerName}
+              isFirstInGroup={item.isFirstInGroup}
+              isLastInGroup={item.isLastInGroup}
+            />
+          ),
+        )}
       </div>
       <div className="flex shrink-0 gap-2 border-t border-border p-3">
         <input
