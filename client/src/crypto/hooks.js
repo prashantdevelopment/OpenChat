@@ -38,17 +38,38 @@ export const useConversationKey = (conversationId, peerPublicKey) => {
   return result.conversationId === conversationId ? result.key : null;
 };
 
+// Text already known for a message: decrypted once, or encrypted by us before
+// sending. Seeing it again (the server's copy of what we just sent, the
+// sidebar preview, reopening a chat) then shows the text at once instead of
+// flashing "Decrypting...". Per conversation key, and the entry covers sender,
+// IV and ciphertext: the same ciphertext under another key or sender is not a
+// match and still goes through real decryption.
+const knownTexts = new WeakMap(); // conversationKey -> Map(entry -> text)
+const entryOf = (encrypted, senderId) => `${senderId}|${encrypted.iv}|${encrypted.ciphertext}`;
+
+export const rememberText = (conversationKey, encrypted, senderId, text) => {
+  if (!knownTexts.has(conversationKey)) knownTexts.set(conversationKey, new Map());
+  knownTexts.get(conversationKey).set(entryOf(encrypted, senderId), text);
+};
+
+const knownText = (conversationKey, encrypted, senderId) =>
+  conversationKey && encrypted?.ciphertext
+    ? knownTexts.get(conversationKey)?.get(entryOf(encrypted, senderId))
+    : undefined;
+
 // Decrypts { ciphertext, iv } sent by senderId.
 // Returns { text } when done, { failed: true } if it can't be decrypted
 // (tampered, wrong key), and {} while waiting.
 export const useDecryptedText = (conversationKey, encrypted, senderId) => {
   const [result, setResult] = useState({ source: null });
+  const known = knownText(conversationKey, encrypted, senderId);
 
   useEffect(() => {
-    if (!conversationKey || !encrypted?.ciphertext) return;
+    if (!conversationKey || !encrypted?.ciphertext || known !== undefined) return;
     let ignore = false;
     decryptMessage(conversationKey, encrypted, senderId)
       .then((text) => {
+        rememberText(conversationKey, encrypted, senderId, text);
         if (!ignore) setResult({ source: encrypted, text });
       })
       .catch(() => {
@@ -57,7 +78,8 @@ export const useDecryptedText = (conversationKey, encrypted, senderId) => {
     return () => {
       ignore = true;
     };
-  }, [conversationKey, encrypted, senderId]);
+  }, [conversationKey, encrypted, senderId, known]);
 
+  if (known !== undefined) return { text: known };
   return result.source === encrypted ? result : {};
 };

@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { SendHorizontalIcon } from "lucide-react";
+import { ArrowDownIcon, SendHorizontalIcon } from "lucide-react";
 import socket from "../socket/socket.js";
 import api from "../api/api.js";
-import { useConversationKey } from "../crypto/hooks.js";
+import { rememberText, useConversationKey } from "../crypto/hooks.js";
 import { encryptMessage, MAX_MESSAGE_LENGTH } from "../crypto/messages.js";
 import MessageBubble from "./MessageBubble.jsx";
 import { buildTimeline } from "../lib/timeline.js";
@@ -33,6 +33,9 @@ const SEND_TIMEOUT_MS = 5000;
 // Show how many characters are left once the text gets this close to the limit.
 const COUNTER_FROM = MAX_MESSAGE_LENGTH - 200;
 
+// Closer than this to the bottom counts as "at the newest message".
+const NEAR_BOTTOM_PX = 80;
+
 // Enter sends on a keyboard. On a touch screen there is no Shift+Enter, so
 // Enter adds a new line there and the Send button sends.
 const enterSends = () => !window.matchMedia("(pointer: coarse)").matches;
@@ -53,6 +56,17 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   // a failure can never create a second copy (the server checks the id).
   const [outbox, setOutbox] = useState([]);
   const inputRef = useRef(null);
+
+  // Scrolling. While the user is at the bottom, the chat follows new content
+  // (new messages, text appearing after decryption, a taller composer). Once
+  // they scroll up to read, it stays put and counts what arrives instead.
+  const logRef = useRef(null);
+  const contentRef = useRef(null);
+  const isAtBottom = useRef(true); // true at first: a chat opens at the newest message
+  const [unseenCount, setUnseenCount] = useState(0);
+  // Distance from the bottom saved before older messages are added on top.
+  const distanceFromBottom = useRef(null);
+  const lastScrollTop = useRef(0);
   // The id comes from the URL now, so it can be wrong or belong to someone else.
   const [joinError, setJoinError] = useState(null);
   const currentUserId = currentUser._id;
@@ -65,6 +79,9 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       // Sirf currently selected conversation ka message add karo
       if (message.conversationId === conversationId) {
         setHistory((prev) => ({ ...prev, messages: mergeMessages(prev.messages, [message]) }));
+        if (message.sender !== currentUserId && !isAtBottom.current) {
+          setUnseenCount((count) => count + 1);
+        }
         // Seen as it arrives (our own messages are never unread).
         if (message.sender !== currentUserId) {
           markRead(conversationId);
@@ -145,6 +162,49 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     };
   }, [conversationId]);
 
+  // Follow the content while at the bottom. ResizeObserver catches every size
+  // change of the messages (and of the visible area), whatever caused it.
+  useEffect(() => {
+    const log = logRef.current;
+    const observer = new ResizeObserver(() => {
+      if (isAtBottom.current) log.scrollTop = log.scrollHeight;
+    });
+    observer.observe(log);
+    observer.observe(contentRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Older messages were added above: keep the same distance from the bottom,
+  // so the message being read stays where it was instead of jumping down.
+  useLayoutEffect(() => {
+    if (distanceFromBottom.current === null) return;
+    const log = logRef.current;
+    log.scrollTop = log.scrollHeight - distanceFromBottom.current;
+    distanceFromBottom.current = null;
+  }, [history.messages]);
+
+  // Only scrolling UP leaves the bottom. The browser also scrolls on its own
+  // (scroll anchoring: when messages above grow, e.g. once decrypted, it
+  // scrolls down to keep the view steady); that must not count as leaving.
+  const handleScroll = () => {
+    const log = logRef.current;
+    if (log.scrollHeight - log.scrollTop - log.clientHeight < NEAR_BOTTOM_PX) {
+      isAtBottom.current = true;
+      setUnseenCount(0);
+    } else if (log.scrollTop < lastScrollTop.current) {
+      isAtBottom.current = false;
+    }
+    lastScrollTop.current = log.scrollTop;
+  };
+
+  const scrollToBottom = ({ smooth = false } = {}) => {
+    const log = logRef.current;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    isAtBottom.current = true;
+    setUnseenCount(0);
+    log.scrollTo({ top: log.scrollHeight, behavior: smooth && !reduceMotion ? "smooth" : "auto" });
+  };
+
   // The page right before the oldest loaded message.
   const loadOlderMessages = async () => {
     setIsLoadingOlder(true);
@@ -152,6 +212,8 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       const res = await api.get(`/conversations/${conversationId}/messages`, {
         params: { before: history.messages[0]._id },
       });
+      const log = logRef.current;
+      distanceFromBottom.current = log.scrollHeight - log.scrollTop;
       setHistory((prev) => ({
         messages: mergeMessages(res.data.messages, prev.messages),
         hasOlder: res.data.hasMore,
@@ -201,6 +263,8 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
 
     // Cleared right away so a fast second Enter can't send the text twice.
     setMessageInput("");
+    // Sending means you want to see your message, even if you had scrolled up.
+    scrollToBottom();
     inputRef.current?.focus();
     let encrypted;
     try {
@@ -210,6 +274,8 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       setMessageInput((current) => current || text);
       return;
     }
+    // The server's copy of this message then shows without decrypting again.
+    rememberText(conversationKey, encrypted, currentUserId, text);
 
     const clientId = crypto.randomUUID();
     const item = {
@@ -250,40 +316,62 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   return (
     // Fills the space under the chat header: messages scroll, the composer stays at the bottom.
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* role="log": the ARIA role for chat history; screen readers announce
-          new messages added to it. */}
-      <div role="log" aria-label="Messages" className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <h2 className="sr-only">Messages</h2>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {/* role="log": the ARIA role for chat history; screen readers announce
+            new messages added to it. */}
+        <div
+          ref={logRef}
+          role="log"
+          aria-label="Messages"
+          onScroll={handleScroll}
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
+          <div ref={contentRef} className="px-4 py-3">
+            <h2 className="sr-only">Messages</h2>
 
-        {history.hasOlder ? (
-          <div className="mb-3 flex justify-center">
-            <button type="button" onClick={loadOlderMessages} disabled={isLoadingOlder}>
-              {isLoadingOlder ? "Loading..." : "Load older messages"}
-            </button>
+            {history.hasOlder ? (
+              <div className="mb-3 flex justify-center">
+                <button type="button" onClick={loadOlderMessages} disabled={isLoadingOlder}>
+                  {isLoadingOlder ? "Loading..." : "Load older messages"}
+                </button>
+              </div>
+            ) : null}
+
+            {buildTimeline([...history.messages, ...pending]).map((item) =>
+              item.type === "day" ? (
+                // A heading per day, so screen-reader users can jump between days.
+                <h3 key={item.key} className="my-4 flex justify-center font-sans text-xs font-medium first:mt-0">
+                  <time dateTime={item.date} className="rounded-full bg-muted px-3 py-1 text-muted-foreground">
+                    {formatDayLabel(item.date)}
+                  </time>
+                </h3>
+              ) : (
+                <MessageBubble
+                  key={item.key}
+                  message={item.message}
+                  conversationKey={conversationKey}
+                  isOwnMessage={item.message.sender === currentUserId}
+                  senderName={peerName}
+                  isFirstInGroup={item.isFirstInGroup}
+                  isLastInGroup={item.isLastInGroup}
+                  onRetry={item.message.status ? () => deliver(item.message) : undefined}
+                />
+              ),
+            )}
           </div>
-        ) : null}
+        </div>
 
-        {buildTimeline([...history.messages, ...pending]).map((item) =>
-          item.type === "day" ? (
-            // A heading per day, so screen-reader users can jump between days.
-            <h3 key={item.key} className="my-4 flex justify-center font-sans text-xs font-medium first:mt-0">
-              <time dateTime={item.date} className="rounded-full bg-muted px-3 py-1 text-muted-foreground">
-                {formatDayLabel(item.date)}
-              </time>
-            </h3>
-          ) : (
-            <MessageBubble
-              key={item.key}
-              message={item.message}
-              conversationKey={conversationKey}
-              isOwnMessage={item.message.sender === currentUserId}
-              senderName={peerName}
-              isFirstInGroup={item.isFirstInGroup}
-              isLastInGroup={item.isLastInGroup}
-              onRetry={item.message.status ? () => deliver(item.message) : undefined}
-            />
-          ),
-        )}
+        {unseenCount > 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full shadow-md"
+            onClick={() => scrollToBottom({ smooth: true })}
+          >
+            <ArrowDownIcon aria-hidden="true" />
+            {unseenCount} new {unseenCount === 1 ? "message" : "messages"}
+          </Button>
+        ) : null}
       </div>
       <form
         className="relative shrink-0 border-t border-border p-3"

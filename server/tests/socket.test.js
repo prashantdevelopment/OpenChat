@@ -159,6 +159,24 @@ describe("sendMessage between two users", () => {
     });
 });
 
+describe("message order", () => {
+    it("keeps the order in which one connection sent its messages", async () => {
+        const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
+        await emitWithAck(b, "joinConversation", conversationId);
+        const toB = collectMessages(b);
+        const sent = Array.from({ length: 20 }, (_, i) => `quick ${i}`);
+
+        // All at once, without waiting for each reply (like fast typing).
+        const acks = await Promise.all(sent.map((text) => emitWithAck(a, "sendMessage", { conversationId, ...encrypted(text) })));
+        await waitForDelivery();
+
+        expect(acks.map((ack) => readText(ack.message))).toEqual(sent);
+        expect(toB.map(readText)).toEqual(sent);
+        const saved = await Message.find({ _id: { $in: acks.map((ack) => ack.message._id) } }).sort({ createdAt: 1, _id: 1 });
+        expect(saved.map(readText)).toEqual(sent);
+    });
+});
+
 describe("retries with the same clientId (no duplicate messages)", () => {
     // The unique index is what stops two copies; the test database starts empty.
     beforeAll(() => Message.createIndexes());

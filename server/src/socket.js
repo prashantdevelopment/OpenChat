@@ -53,7 +53,7 @@ const createSocketServer = (httpServer) => {
             }
         });
 
-        socket.on("sendMessage", async (data, ack) => {
+        const handleSendMessage = async (data, ack) => {
             try {
                 const { message, conversation, duplicate } = await createMessage(data?.conversationId, socket.userId, data);
 
@@ -88,6 +88,15 @@ const createSocketServer = (httpServer) => {
             } catch (err) {
                 replyWithError(err, ack);
             }
+        };
+
+        // One message at a time per connection, in the order they were sent.
+        // Handled in parallel, a quick second message could be saved or
+        // announced before the first one. handleSendMessage never throws
+        // (it catches its errors), so one failed message can't block the queue.
+        let sendQueue = Promise.resolve();
+        socket.on("sendMessage", (data, ack) => {
+            sendQueue = sendQueue.then(() => handleSendMessage(data, ack));
         });
 
         // The user has seen everything in this conversation. All of their tabs
