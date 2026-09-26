@@ -5,6 +5,7 @@ import socket from "../socket/socket.js";
 import { unlockPrivateKey } from "../crypto/keys.js";
 import { clearKeys, loadKey, saveKey } from "../crypto/keyStore.js";
 import { AuthContext } from "./AuthContext.js";
+import { Spinner } from "@/components/ui/spinner";
 
 const AuthProvider = ({ children }) => {
   // null = logged out. "Logged in" is derived from this, not stored separately.
@@ -107,7 +108,11 @@ const AuthProvider = ({ children }) => {
   };
 
   if (isCheckingSession) {
-    return <p>Loading...</p>;
+    return (
+      <div className="flex h-dvh items-center justify-center bg-background text-muted-foreground">
+        <Spinner className="size-6" aria-label="Loading OpenChat" />
+      </div>
+    );
   }
 
   return (

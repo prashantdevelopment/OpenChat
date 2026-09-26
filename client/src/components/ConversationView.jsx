@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowDownIcon, SendHorizontalIcon } from "lucide-react";
+import { ArrowDownIcon, LockIcon, SendHorizontalIcon } from "lucide-react";
 import socket from "../socket/socket.js";
 import api from "../api/api.js";
 import { rememberText, useConversationKey } from "../crypto/hooks.js";
@@ -8,6 +8,10 @@ import MessageBubble from "./MessageBubble.jsx";
 import { buildTimeline } from "../lib/timeline.js";
 import { formatDayLabel } from "../lib/time.js";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
 // Tells the server the user has seen this conversation, which clears the
 // unread badge in all their tabs. Only while this browser tab is actually
@@ -49,6 +53,10 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   // The loaded messages and whether older ones exist on the server. Kept in
   // one state object because they always change together.
   const [history, setHistory] = useState({ messages: [], hasOlder: false });
+  // First load of the history: "loading" | "ready" | "error".
+  const [historyStatus, setHistoryStatus] = useState("loading");
+  // Bumped by "Try again" to join and load once more.
+  const [historyAttempt, setHistoryAttempt] = useState(0);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [messageInput, setMessageInput] = useState("");
   // My messages that the server has not confirmed yet ("sending" or "failed"),
@@ -139,9 +147,13 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             // Overlap: keep the older pages already loaded (and hasOlder).
             return { ...prev, messages: mergeMessages(prev.messages, newest) };
           });
+          setHistoryStatus("ready");
           markRead(conversationId);
         } catch (error) {
           console.error("Error fetching messages:", error);
+          // Messages already on screen stay (a refetch after a reconnect failed);
+          // otherwise there is nothing to show but the error.
+          if (!ignore) setHistoryStatus((status) => (status === "ready" ? status : "error"));
         }
       });
     };
@@ -160,7 +172,12 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
         socket.emit("leaveConversation", conversationId);
       }
     };
-  }, [conversationId]);
+  }, [conversationId, historyAttempt]);
+
+  const retryHistory = () => {
+    setHistoryStatus("loading");
+    setHistoryAttempt((attempt) => attempt + 1);
+  };
 
   // Follow the content while at the bottom. ResizeObserver catches every size
   // change of the messages (and of the visible area), whatever caused it.
@@ -220,6 +237,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       }));
     } catch (error) {
       console.error("Error loading older messages:", error);
+      toastManager.add({ type: "error", title: "Couldn't load older messages", description: "Check your connection and try again." });
     } finally {
       setIsLoadingOlder(false);
     }
@@ -331,9 +349,44 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
 
             {history.hasOlder ? (
               <div className="mb-3 flex justify-center">
-                <button type="button" onClick={loadOlderMessages} disabled={isLoadingOlder}>
-                  {isLoadingOlder ? "Loading..." : "Load older messages"}
-                </button>
+                <Button variant="outline" size="sm" onClick={loadOlderMessages} disabled={isLoadingOlder}>
+                  {isLoadingOlder ? (
+                    <>
+                      <Spinner aria-hidden="true" role={undefined} aria-label={undefined} />
+                      Loading...
+                    </>
+                  ) : (
+                    "Load older messages"
+                  )}
+                </Button>
+              </div>
+            ) : null}
+
+            {historyStatus === "loading" ? (
+              // Skeletons only if loading takes longer than half a second.
+              <div role="status" className="reveal-late">
+                <span className="sr-only">Loading messages...</span>
+                {["w-40", "w-56", "w-32", "w-48", "w-36"].map((width, i) => (
+                  <div key={width} className={cn("mt-3 flex", i % 2 ? "justify-end" : "justify-start")}>
+                    <Skeleton className={cn("h-9 max-w-[70%] rounded-2xl", width)} />
+                  </div>
+                ))}
+              </div>
+            ) : historyStatus === "error" ? (
+              <div role="alert" className="flex flex-col items-center px-6 py-16 text-center">
+                <p className="font-medium">Couldn&apos;t load messages</p>
+                <p className="mt-1 text-sm text-muted-foreground">Check your connection and try again.</p>
+                <Button variant="outline" size="sm" className="mt-3" onClick={retryHistory}>
+                  Try again
+                </Button>
+              </div>
+            ) : history.messages.length === 0 && pending.length === 0 ? (
+              <div className="flex flex-col items-center px-6 py-16 text-center">
+                <LockIcon aria-hidden="true" className="size-8 text-muted-foreground" />
+                <p className="mt-3 font-medium">No messages yet</p>
+                <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                  Messages with {peerName ?? "this person"} are end-to-end encrypted. Say hello!
+                </p>
               </div>
             ) : null}
 
