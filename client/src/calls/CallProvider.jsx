@@ -11,6 +11,11 @@ import CallOverlay from "./CallOverlay.jsx";
 // plan step 41.)
 const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 const ENDED_VISIBLE_MS = 3000;
+// Nobody answers within 30s: the caller gives up ("No answer", a missed call
+// for the other side). The callee stops ringing a bit later by itself, in
+// case the caller's tab closed without saying so.
+const RING_TIMEOUT_MS = 30_000;
+const INCOMING_TIMEOUT_MS = 45_000;
 const CAMERA = { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } };
 
 // One call at a time, voice or video. The media goes directly between the two
@@ -35,6 +40,8 @@ const CallProvider = ({ children }) => {
   const pendingCandidates = useRef([]);
   const incomingOffer = useRef(null);
   const endedTimer = useRef(null);
+  const ringTimer = useRef(null);
+  const offerSent = useRef(false); // the other side was really called: worth a call record
 
   const update = (changes) => {
     callRef.current = changes === null ? null : { ...callRef.current, ...changes };
@@ -68,6 +75,7 @@ const CallProvider = ({ children }) => {
   };
 
   const cleanUp = () => {
+    clearTimeout(ringTimer.current);
     stateChannel.current?.close();
     stateChannel.current = null;
     peerConnection.current?.close();
@@ -79,10 +87,36 @@ const CallProvider = ({ children }) => {
     incomingOffer.current = null;
   };
 
+  // The caller saves one record of the call in the chat (encrypted like any
+  // message): voice/video, answered or not, how long. Only the caller, so
+  // there is exactly one.
+  const outcomeOf = (current, reason) =>
+    current.connectedAt
+      ? "completed"
+      : ({ "no-answer": "missed", "you-ended": "cancelled", declined: "declined", busy: "busy" }[reason] ?? "failed");
+
+  const saveCallRecord = async (current, reason) => {
+    const record = {
+      media: current.media,
+      outcome: outcomeOf(current, reason),
+      duration: current.connectedAt ? (Date.now() - current.connectedAt) / 1000 : 0,
+    };
+    try {
+      const encrypted = await seal(current, record);
+      socket.emit("sendMessage", { conversationId: current.conversationId, clientId: crypto.randomUUID(), ...encrypted, messageType: "call" });
+    } catch (error) {
+      console.error("Could not save the call record:", error);
+    }
+  };
+
   // Shows "Call ended" (or why) for a moment, then the overlay goes away.
   const finish = (endReason) => {
     cleanUp();
     if (!callRef.current) return;
+    if (callRef.current.direction === "outgoing" && offerSent.current && callRef.current.status !== "ended") {
+      saveCallRecord(callRef.current, endReason);
+    }
+    offerSent.current = false;
     update({ status: "ended", endReason, localStream: null, remoteStream: null });
     clearTimeout(endedTimer.current);
     endedTimer.current = setTimeout(() => {
@@ -122,6 +156,7 @@ const CallProvider = ({ children }) => {
     pc.onconnectionstatechange = () => {
       if (pc !== peerConnection.current) return;
       if (pc.connectionState === "connected" && callRef.current?.status !== "connected") {
+        clearTimeout(ringTimer.current);
         update({ status: "connected", connectedAt: Date.now() });
       } else if (pc.connectionState === "failed") {
         hangUp("failed");
@@ -153,6 +188,7 @@ const CallProvider = ({ children }) => {
   const startCall = async ({ conversationId, peer, media = "audio" }) => {
     if (callRef.current && callRef.current.status !== "ended") return;
     clearTimeout(endedTimer.current);
+    offerSent.current = false;
     update(null);
     update({
       callId: crypto.randomUUID(),
@@ -176,6 +212,12 @@ const CallProvider = ({ children }) => {
         .timeout(5000)
         .emitWithAck("callUser", { conversationId, callId: current.callId, media, offer: encryptedOffer });
       if (!response.success) throw new Error(response.message);
+      offerSent.current = true;
+      update({ ringing: response.ringing }); // "Ringing..." when their app is open
+      ringTimer.current = setTimeout(() => {
+        const now = callRef.current;
+        if (now?.callId === current.callId && !now.connectedAt && now.status !== "ended") hangUp("missed", "no-answer");
+      }, RING_TIMEOUT_MS);
     } catch (error) {
       if (callRef.current?.callId === current.callId) failWith(error);
     }
@@ -184,6 +226,7 @@ const CallProvider = ({ children }) => {
   const acceptCall = async () => {
     const current = callRef.current;
     if (current?.status !== "ringing") return;
+    clearTimeout(ringTimer.current);
     update({ status: "connecting" });
     try {
       await openMedia(current.media);
@@ -266,10 +309,17 @@ const CallProvider = ({ children }) => {
       incomingOffer.current = offer;
       callRef.current = null;
       update({ callId, conversationId, peer: from, media, direction: "incoming", status: "ringing", muted: false, cameraOff: false });
+      ringTimer.current = setTimeout(() => {
+        if (callRef.current?.callId === callId && callRef.current.status === "ringing") {
+          cleanUp();
+          update(null);
+        }
+      }, INCOMING_TIMEOUT_MS);
     };
 
     const handleAnswered = async ({ callId, answer }) => {
       if (!isThisCall(callId) || callRef.current.direction !== "outgoing") return;
+      clearTimeout(ringTimer.current);
       update({ status: "connecting" });
       try {
         await peerConnection.current.setRemoteDescription(await open(callRef.current, answer));

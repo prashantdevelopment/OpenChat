@@ -101,6 +101,34 @@ describe("call signaling", () => {
         expect(elsewhere).toEqual([{ callId }]);
     });
 
+    it("tells the caller whether the callee's app is open (ringing) or not", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300)); // bob's earlier tabs: past the presence grace period
+        const a = await connectAs(alice);
+        const offline = await emitWithAck(a, "callUser", { conversationId, callId: randomUUID(), media: "audio", offer: signal() });
+        expect(offline).toEqual({ success: true, ringing: false });
+        await connectAs(bob);
+        const online = await emitWithAck(a, "callUser", { conversationId, callId: randomUUID(), media: "audio", offer: signal() });
+        expect(online.ringing).toBe(true);
+    });
+
+    it("accepts 'missed' when nobody answers", async () => {
+        const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
+        const ended = collect(b, "callEnded");
+        const callId = randomUUID();
+        expect((await emitWithAck(a, "endCall", { conversationId, callId, reason: "missed" })).success).toBe(true);
+        await settle();
+        expect(ended[0].reason).toBe("missed");
+    });
+
+    it("saves a call record as an encrypted message, never with a file", async () => {
+        const a = await connectAs(alice);
+        const record = await emitWithAck(a, "sendMessage", { conversationId, ...encrypted('{"media":"audio","outcome":"missed"}'), messageType: "call" });
+        expect(record.success).toBe(true);
+        expect(record.message.messageType).toBe("call");
+        const withFile = await emitWithAck(a, "sendMessage", { conversationId, ...encrypted("x"), messageType: "call", attachment: { fileId: "0".repeat(32) } });
+        expect(withFile.success).toBe(false);
+    });
+
     it("passes on whether it is a voice or a video call", async () => {
         const [a, b] = await Promise.all([connectAs(alice), connectAs(bob)]);
         const toB = collect(b, "incomingCall");

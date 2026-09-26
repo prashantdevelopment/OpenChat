@@ -15,6 +15,8 @@ const endMessage = (reason, name) =>
     declined: `${name} declined the call`,
     cancelled: `${name} cancelled the call`,
     busy: `${name} is on another call`,
+    "no-answer": "No answer",
+    missed: `Missed call from ${name}`,
     microphone: "Microphone access is blocked. Allow it in your browser's site settings.",
     camera: "Camera or microphone access is blocked. Allow them in your browser's site settings.",
     failed: "The call couldn't connect",
@@ -35,7 +37,7 @@ const CallTimer = ({ since }) => {
 const CallStatus = ({ call, className }) => {
   const video = call.media === "video";
   const text = {
-    calling: "Calling...",
+    calling: call.ringing ? "Ringing..." : "Calling...",
     ringing: video ? "Incoming video call" : "Incoming voice call",
     connecting: "Connecting...",
     ended: endMessage(call.endReason, call.peer.username),

@@ -15,7 +15,10 @@ const IV_BYTES = 12;
 // Messages with a file also carry its key and details (name, type, size) in
 // their ciphertext.
 const ATTACHMENT_DETAILS_BYTES = 2048;
-const SUPPORTED_TYPES = ["text", "image", "video", "audio", "file"];
+const SUPPORTED_TYPES = ["text", "image", "video", "audio", "file", "call"];
+// Types that come with an uploaded file. ("call" = a call record: who called,
+// voice/video, answered or missed, how long; encrypted like a text.)
+const FILE_TYPES = ["image", "video", "audio", "file"];
 // crypto.randomUUID() in the browser.
 const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -25,7 +28,7 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
     if (!SUPPORTED_TYPES.includes(messageType)) {
         throw new AppError("Unsupported message type", 400);
     }
-    const hasFile = messageType !== "text";
+    const hasFile = FILE_TYPES.includes(messageType);
     if (!hasFile && attachment !== undefined) {
         throw new AppError("Text messages can't have an attachment", 400);
     }

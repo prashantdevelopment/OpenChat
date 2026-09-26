@@ -1,8 +1,8 @@
-import { AlertCircleIcon, CheckCheckIcon, CheckIcon, RotateCwIcon } from "lucide-react";
+import { AlertCircleIcon, CheckCheckIcon, CheckIcon, PhoneIcon, PhoneMissedIcon, RotateCwIcon, VideoIcon } from "lucide-react";
 import { useDecryptedText } from "../crypto/hooks.js";
 import { formatFullDateTime, formatTimeOfDay } from "../lib/time.js";
 import { receiptStatus } from "../lib/receipts.js";
-import { parseAttachmentContent } from "../lib/messageContent.js";
+import { describeCall, parseAttachmentContent, parseCallContent } from "../lib/messageContent.js";
 import EncryptedImage from "./EncryptedImage.jsx";
 import VideoAttachment from "./VideoAttachment.jsx";
 import FileAttachment from "./FileAttachment.jsx";
@@ -47,6 +47,10 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
   else if (kind && !attachment) content = "[This attachment could not be opened]";
   else isStatus = false;
   if (attachment) content = attachment.caption;
+  // A call record: "Outgoing voice call · 2:31", "Missed video call", ...
+  const callRecord = message.messageType === "call" && text !== undefined ? parseCallContent(text) : null;
+  const callText = callRecord ? describeCall(callRecord, isOwnMessage) : null;
+  if (message.messageType === "call" && text !== undefined && !callRecord) content = "[This call record could not be opened]";
   const progress = message.status === "sending" && message.progress < 1 ? message.progress : null;
 
   return (
@@ -88,7 +92,18 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
             ) : null}
           </Attachment>
         ) : null}
-        {!attachment || content ? (
+        {callText ? (
+          <p className={cn("flex items-center gap-2 font-medium", callText.missed && "text-destructive-foreground")}>
+            {callText.missed ? (
+              <PhoneMissedIcon aria-hidden="true" className="size-4 shrink-0" />
+            ) : callRecord.media === "video" ? (
+              <VideoIcon aria-hidden="true" className="size-4 shrink-0" />
+            ) : (
+              <PhoneIcon aria-hidden="true" className="size-4 shrink-0" />
+            )}
+            {callText.text}
+          </p>
+        ) : !attachment || content ? (
           <p dir="auto" className={cn("whitespace-pre-wrap wrap-anywhere", attachment && "px-2.5 pt-1.5 pb-1", isStatus && "italic opacity-80")}>
             {content}
           </p>

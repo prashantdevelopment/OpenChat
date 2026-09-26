@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { describeMessage, parseAttachmentContent } from "../src/lib/messageContent.js";
+import { describeCall, describeMessage, parseAttachmentContent, parseCallContent } from "../src/lib/messageContent.js";
 import { formatDuration, formatFileSize } from "../src/lib/attachments.js";
 
 const content = (file = {}, extra = {}) =>
@@ -48,5 +48,37 @@ describe("size and duration labels", () => {
     expect(formatFileSize(1.4 * 1024 * 1024)).toBe("1.4 MB");
     expect(formatDuration(42)).toBe("0:42");
     expect(formatDuration(725.4)).toBe("12:05");
+  });
+});
+
+describe("call records", () => {
+  const record = (outcome, extra = {}) => JSON.stringify({ media: "audio", outcome, duration: 151, ...extra });
+
+  it("parses only known outcomes", () => {
+    expect(parseCallContent(record("completed"))).toEqual({ media: "audio", outcome: "completed", duration: 151 });
+    expect(parseCallContent(record("exploded"))).toBeNull();
+    expect(parseCallContent("not json")).toBeNull();
+    expect(parseCallContent(record("missed", { media: "hologram" })).media).toBe("audio");
+  });
+
+  it("reads from the caller's side", () => {
+    expect(describeCall(parseCallContent(record("completed")), true)).toEqual({ text: "Outgoing voice call · 2:31", missed: false });
+    expect(describeCall(parseCallContent(record("missed")), true).text).toBe("Outgoing voice call · No answer");
+    expect(describeCall(parseCallContent(record("declined", { media: "video" })), true).text).toBe("Outgoing video call · Declined");
+    expect(describeCall(parseCallContent(record("busy")), true).text).toBe("Outgoing voice call · Busy");
+  });
+
+  it("reads from the other side: missed, cancelled and busy are all missed calls", () => {
+    expect(describeCall(parseCallContent(record("completed")), false)).toEqual({ text: "Incoming voice call · 2:31", missed: false });
+    for (const outcome of ["missed", "cancelled", "busy"]) {
+      expect(describeCall(parseCallContent(record(outcome, { media: "video" })), false)).toEqual({ text: "Missed video call", missed: true });
+    }
+    expect(describeCall(parseCallContent(record("declined")), false).text).toBe("Declined voice call");
+  });
+
+  it("chat list and notifications use the same words", () => {
+    expect(describeMessage("call", record("missed"))).toBe("Missed voice call");
+    expect(describeMessage("call", record("missed"), { isMine: true })).toBe("Outgoing voice call · No answer");
+    expect(describeMessage("call", "broken")).toBe("Call");
   });
 });

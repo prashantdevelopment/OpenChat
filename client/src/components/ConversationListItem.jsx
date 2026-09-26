@@ -16,8 +16,10 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
 
   let preview = "No messages yet";
   if (lastMessage?.ciphertext) {
-    const body = failed ? "[could not decrypt]" : text === undefined ? "..." : describeMessage(lastMessage.messageType, text);
-    preview = lastMessage.sender === currentUserId ? `You: ${body}` : body;
+    const isMine = lastMessage.sender === currentUserId;
+    const body = failed ? "[could not decrypt]" : text === undefined ? "..." : describeMessage(lastMessage.messageType, text, { isMine });
+    // Call records already say who called ("Outgoing ...", "Missed ...").
+    preview = isMine && lastMessage.messageType !== "call" ? `You: ${body}` : body;
   }
 
   return (

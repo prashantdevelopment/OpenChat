@@ -2,6 +2,7 @@ import AppError from "./utils/AppError.js";
 import { base64Length, isBase64 } from "./utils/base64.js";
 import User, { PUBLIC_USER_FIELDS } from "./models/user.model.js";
 import { getConversationForParticipant } from "./services/conversation.service.js";
+import { isOnline } from "./presence.js";
 
 // Call signaling (WebRTC). The server only relays: the offer, the answer and
 // the network candidates are encrypted in the browser with the conversation
@@ -13,7 +14,8 @@ import { getConversationForParticipant } from "./services/conversation.service.j
 
 const CALL_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_SIGNAL_BYTES = 32 * 1024; // an SDP is a few KB
-const END_REASONS = ["ended", "declined", "cancelled", "busy", "failed"];
+// "missed": nobody answered in time (the caller's browser gives up).
+const END_REASONS = ["ended", "declined", "cancelled", "busy", "failed", "missed"];
 const MEDIA = ["audio", "video"];
 
 // { ciphertext, iv } made by the browser's encryptMessage().
@@ -40,12 +42,13 @@ const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
         return { conversation, peerId };
     };
 
-    // Each handler: check, then relay to the other participant's tabs.
+    // Each handler: check, then relay to the other participant's tabs. What a
+    // handler returns is added to the ack.
     const on = (event, handle) => {
         socket.on(event, async (data, ack) => {
             try {
-                await handle(data ?? {});
-                if (typeof ack === "function") ack({ success: true });
+                const extra = await handle(data ?? {});
+                if (typeof ack === "function") ack({ success: true, ...extra });
             } catch (err) {
                 replyWithError(err, ack);
             }
@@ -68,6 +71,8 @@ const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
             from: caller,
             offer: encryptedOffer,
         });
+        // "Ringing" if the callee has the app open somewhere, else "Calling".
+        return { ringing: isOnline(peerId) };
     });
 
     on("answerCall", async ({ conversationId, callId, answer }) => {
