@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 19 – Design foundation: ui-ux-pro-max, Tailwind v4, coss ui, light + dark toggle (Phase C complete)
+**Status:** Approved, building · **Last updated:** 2026-09-25 · **Next step:** 20 – App layout shell (2-pane desktop, 1-pane mobile)
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -339,7 +339,7 @@ Each step is small enough to build, test with two users, and review in one go. *
 ### Phase D — Design foundation + app UI (one piece at a time)
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
-| 19 | Design foundation: `ui-ux-pro-max` design system → MASTER.md, Tailwind v4, shadcn/coss init, tokens, **light default + dark toggle** | todo | | |
+| 19 | Design foundation: `ui-ux-pro-max` design system → MASTER.md, Tailwind v4, shadcn/coss init, tokens, **light default + dark toggle** | done | 2026-09-26 | `design-system/openchat/MASTER.md` (generated + reviewed "OpenChat decisions": WCAG-checked light/dark tokens, fixed a failing generated button colour, Hindi-capable self-hosted fonts Poppins + Noto Sans Devanagari); Tailwind v4 (Vite plugin); shadcn with coss ui (`components.json`, only Button + Spinner kept, the rest added per step); `ThemeToggle` + no-flash inline script; interim base styles keep plain buttons/links/inputs usable. 21/21 theme E2E |
 | 20 | App layout shell: 2-pane desktop, 1-pane mobile (360 → 1440px) | todo | | |
 | 21 | Sidebar + conversation items (avatar, name, last message, time, unread) | todo | | |
 | 22 | Chat header (incl. encryption lock indicator) | todo | | |

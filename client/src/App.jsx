@@ -4,10 +4,17 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Chat from "./pages/Chat.jsx";
 import NotFound from "./pages/NotFound.jsx";
+import ThemeToggle from "./components/ThemeToggle.jsx";
 
 const App = () => {
   return (
-    <Routes>
+    <>
+      {/* On every page for now; the app layout (step 20) gives it a place in the header. */}
+      <div className="fixed top-3 right-3 z-50">
+        <ThemeToggle />
+      </div>
+
+      <Routes>
       <Route path="/" element={<Navigate to="/chat" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -19,7 +26,8 @@ const App = () => {
       </Route>
 
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+    </>
   );
 };
 

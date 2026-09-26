@@ -19,6 +19,15 @@ export default defineConfig([
     },
   },
   {
+    // shadcn/coss ui files are vendored library code: they export helpers such
+    // as `buttonVariants` next to components by design. Editing them would make
+    // future `npx shadcn add` updates diverge, so this one rule is off here.
+    files: ['src/components/ui/**/*.jsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
     // Unit tests run in Node (Vitest), not in the browser.
     files: ['tests/**/*.js'],
     languageOptions: {

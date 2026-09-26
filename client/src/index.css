@@ -1,0 +1,289 @@
+@import "tailwindcss";
+/* Fonts are self-hosted (no request to Google): see design-system/openchat/MASTER.md */
+@import "@fontsource-variable/noto-sans-devanagari";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --animate-skeleton: skeleton 2s -1s infinite linear;
+    --animate-caret-blink: 1s ease-out infinite caret-blink;
+    --animate-toast-success-odd: toast-success-odd 0.32s cubic-bezier(0.5, 1, 0.89, 1);
+    --animate-toast-success-even: toast-success-even 0.32s cubic-bezier(0.5, 1, 0.89, 1);
+    --animate-toast-error-odd: toast-error-odd 0.28s cubic-bezier(0.5, 1, 0.89, 1);
+    --animate-toast-error-even: toast-error-even 0.28s cubic-bezier(0.5, 1, 0.89, 1);
+    --font-heading: 'Poppins', 'Noto Sans Devanagari Variable', system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+    --font-sans: 'Noto Sans Devanagari Variable', system-ui, sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar: var(--sidebar);
+    --color-code-highlight: var(--code-highlight);
+    --code-foreground: var(--code-foreground);
+    --color-code: var(--code);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-ring: var(--ring);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-input: var(--input);
+    --color-foreground: var(--foreground);
+    --color-destructive: var(--destructive);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-border: var(--border);
+    --color-background: var(--background);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-warning: var(--warning);
+    --color-success-foreground: var(--success-foreground);
+    --color-success: var(--success);
+    --color-bubble-own-foreground: var(--bubble-own-foreground);
+    --color-bubble-own: var(--bubble-own);
+    --color-info-foreground: var(--info-foreground);
+    --color-info: var(--info);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+  @keyframes skeleton {
+  to {
+    background-position: -200% 0;
+        }
+    }
+  @keyframes caret-blink {
+  0%, 70%, to {
+    opacity: 1;
+        }
+  20%, 50% {
+    opacity: 0;
+        }
+    }
+  @keyframes toast-success-odd {
+  0% {
+    scale: 1;
+        }
+  30% {
+    scale: 1.025;
+        }
+  60% {
+    scale: 0.99;
+        }
+  100% {
+    scale: 1;
+        }
+    }
+  @keyframes toast-error-odd {
+  0% {
+    translate: 0 0;
+        }
+  25% {
+    translate: -3px 0;
+        }
+  50% {
+    translate: 3px 0;
+        }
+  75% {
+    translate: -3px 0;
+        }
+  100% {
+    translate: 0 0;
+        }
+    }
+  @keyframes toast-success-even {
+  0% {
+    scale: 1;
+        }
+  30% {
+    scale: 1.025;
+        }
+  60% {
+    scale: 0.99;
+        }
+  100% {
+    scale: 1;
+        }
+    }
+  @keyframes toast-error-even {
+  0% {
+    translate: 0 0;
+        }
+  25% {
+    translate: -3px 0;
+        }
+  50% {
+    translate: 3px 0;
+        }
+  75% {
+    translate: -3px 0;
+        }
+  100% {
+    translate: 0 0;
+        }
+    }
+}
+
+:root {
+    /* OpenChat light theme (default). Values and contrast: design-system/openchat/MASTER.md */
+    --background: #FFFFFF;
+    --foreground: #0F172A;
+    --card: #FFFFFF;
+    --card-foreground: #0F172A;
+    --popover: #FFFFFF;
+    --popover-foreground: #0F172A;
+    --primary: #2563EB;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F1F5FD;
+    --secondary-foreground: #0F172A;
+    --muted: #F1F5FD;
+    --muted-foreground: #475569;
+    --accent: #EEF2FB;
+    --accent-foreground: #0F172A;
+    --border: #E2E8F0;          /* decorative dividers only */
+    --input: #8391A7;           /* form-control borders: 3.2:1 */
+    --ring: #2563EB;
+    --destructive: #DC2626;     /* background, with white text: 4.8:1 */
+    --destructive-foreground: #B91C1C; /* error text: 6.5:1 */
+    --success: #047857;         /* online dot: 5.5:1 */
+    --success-foreground: #047857;
+    --info: #2563EB;
+    --info-foreground: #1D4ED8;
+    --warning: #D97706;
+    --warning-foreground: #B45309;
+    --bubble-own: #2563EB;      /* my messages: white text 5.2:1 */
+    --bubble-own-foreground: #FFFFFF;
+    --radius: 0.625rem;
+    --chart-1: var(--color-orange-600);
+    --chart-2: var(--color-teal-600);
+    --chart-3: var(--color-cyan-900);
+    --chart-4: var(--color-amber-400);
+    --chart-5: var(--color-amber-500);
+    --code: #F1F5FD;
+    --code-foreground: var(--foreground);
+    --code-highlight: #E2E8F0;
+    --sidebar: #F8FAFC;
+    --sidebar-foreground: #0F172A;
+    --sidebar-primary: #2563EB;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #EEF2FB;
+    --sidebar-accent-foreground: #0F172A;
+    --sidebar-border: #E2E8F0;
+    --sidebar-ring: #2563EB;
+}
+
+.dark {
+    /* OpenChat dark theme */
+    --background: #0B1220;
+    --foreground: #E2E8F0;
+    --card: #111A2E;
+    --card-foreground: #E2E8F0;
+    --popover: #111A2E;
+    --popover-foreground: #E2E8F0;
+    --primary: #60A5FA;         /* dark text on it: 7.4:1 */
+    --primary-foreground: #0B1220;
+    --secondary: #1E293B;
+    --secondary-foreground: #E2E8F0;
+    --muted: #1E293B;
+    --muted-foreground: #94A3B8;
+    --accent: #1A2436;
+    --accent-foreground: #E2E8F0;
+    --border: #1E293B;
+    --input: #64748B;           /* 3.9:1 */
+    --ring: #60A5FA;
+    --destructive: #DC2626;     /* white text: 4.8:1 */
+    --destructive-foreground: #F87171; /* 6.8:1 */
+    --success: #34D399;
+    --success-foreground: #34D399;
+    --info: #60A5FA;
+    --info-foreground: #60A5FA;
+    --warning: #FBBF24;
+    --warning-foreground: #FBBF24;
+    --bubble-own: #1D4ED8;      /* white text 6.7:1 */
+    --bubble-own-foreground: #FFFFFF;
+    --chart-1: var(--color-blue-700);
+    --chart-2: var(--color-emerald-500);
+    --chart-3: var(--color-amber-500);
+    --chart-4: var(--color-purple-500);
+    --chart-5: var(--color-rose-500);
+    --code: #111A2E;
+    --code-foreground: var(--foreground);
+    --code-highlight: #1E293B;
+    --sidebar: #0E1627;
+    --sidebar-foreground: #E2E8F0;
+    --sidebar-primary: #60A5FA;
+    --sidebar-primary-foreground: #0B1220;
+    --sidebar-accent: #1A2436;
+    --sidebar-accent-foreground: #E2E8F0;
+    --sidebar-border: #1E293B;
+    --sidebar-ring: #60A5FA;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    /* Lets the browser draw scrollbars and form controls in the matching theme. */
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background font-sans text-base leading-normal text-foreground antialiased;
+  }
+  h1, h2, h3 {
+    /* Poppins is loaded in 600 and 700 only (see the @imports above). */
+    @apply font-heading font-semibold;
+  }
+  code, kbd, samp, pre {
+    font-family: var(--font-mono);
+  }
+  /* Until each screen is redesigned (steps 20+), plain form controls get a
+     visible, accessible look instead of Tailwind's unstyled reset. */
+  input:not([type="checkbox"], [type="radio"]), select, textarea {
+    /* max-w-full: a <select> grows to its longest option ("Dadra and Nagar
+       Haveli and Daman and Diu"), which overflowed 360px phones. */
+    @apply max-w-full rounded-md border border-input bg-background px-3 py-2;
+  }
+  /* Tailwind's reset makes plain buttons and links look like normal text.
+     Until they are replaced by the designed components, keep them
+     recognisable. coss <Button>s carry data-slot and are not affected. */
+  button:not([data-slot]) {
+    @apply cursor-pointer rounded-md border border-input bg-background px-3 py-1.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  a {
+    @apply text-primary underline underline-offset-2;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
