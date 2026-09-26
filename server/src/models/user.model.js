@@ -126,6 +126,12 @@ const userSchema =  new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    // Privacy: listed on the Discover page (people by state). Off = only
+    // findable by someone who types your username.
+    discoverable: {
+        type: Boolean,
+        default: true
+    },
     // When the user's last tab closed. Whether they are online right now is
     // kept in memory (src/presence.js), not here.
     lastSeen: {
@@ -151,6 +157,9 @@ const userSchema =  new mongoose.Schema({
 // What other users may see about someone (search results, conversation
 // participants). Never email, password or anything else private. The public
 // key is public by design: others need it to encrypt messages for this user.
+// Discover: people of one state, in username order.
+userSchema.index({ state: 1, username: 1 });
+
 // Serving a profile photo checks that its id belongs to someone: an index on
 // the users that have one (most don't).
 userSchema.index({ avatar: 1 }, { partialFilterExpression: { avatar: { $gt: "" } } });

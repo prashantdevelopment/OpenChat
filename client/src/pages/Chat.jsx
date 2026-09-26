@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeftIcon, MessagesSquareIcon, PhoneIcon, SettingsIcon, VideoIcon, WifiOffIcon } from "lucide-react";
+import { ArrowLeftIcon, CompassIcon, MessagesSquareIcon, PhoneIcon, SettingsIcon, VideoIcon, WifiOffIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
@@ -260,6 +260,10 @@ const Chat = () => {
 
           <div className="border-b border-border px-4 py-3">
             <UserSearch onMessageUser={handleMessageUser} />
+            <Link to="/discover" className="mt-3 inline-flex items-center gap-1.5 text-sm">
+              <CompassIcon aria-hidden="true" className="size-4" />
+              Discover people by state
+            </Link>
           </div>
 
           <nav aria-label="Conversations" className="min-h-0 flex-1 overflow-y-auto p-2">

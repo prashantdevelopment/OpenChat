@@ -1,4 +1,4 @@
-import { changePassword, createUser, searchUsers } from "../services/user.service.js";
+import { changePassword, createUser, discoverUsers, searchUsers } from "../services/user.service.js";
 import { updateUser } from "../services/user.service.js";
 
 const createUserController = async (req, res) => { 
@@ -32,6 +32,12 @@ const changePasswordController = async (req, res) => {
     });
 }
 
+const discoverUsersController = async (req, res) => {
+    const { state, q, after } = req.query;
+    const page = await discoverUsers({ state, q, after }, req.user.userId);
+    res.status(200).json({ success: true, ...page });
+};
+
 const searchUsersController = async (req, res) => {
     const users = await searchUsers(req.query.q, req.user.userId);
     res.status(200).json({
@@ -44,5 +50,6 @@ export {
     createUserController,
     updateUserController,
     changePasswordController,
-    searchUsersController
+    searchUsersController,
+    discoverUsersController
 }

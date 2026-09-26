@@ -1,6 +1,12 @@
 import User, { PUBLIC_USER_FIELDS } from "../models/user.model.js"
 import bcrypt from "bcrypt";
 import AppError from "../utils/AppError.js";
+import { INDIAN_STATE_CODES } from "../../../shared/indian-states.js";
+
+// Text that goes into a regex: escape every special character, otherwise ".*"
+// would match everyone and patterns like "(a+)+$" could make the database
+// work very hard (ReDoS).
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const createUser = async (userData) => {
 
@@ -39,9 +45,41 @@ const getCurrentUser = async (userId) => {
 }
 
 const MAX_SEARCH_RESULTS = 20;
+const DISCOVER_PAGE_SIZE = 20;
+
+// Discover: people from one state who chose to be listed, in username order,
+// optionally narrowed by a username prefix. `after` is the last username of
+// the previous page (a cursor). Never says whether anyone is online.
+const discoverUsers = async ({ state, q, after }, currentUserId) => {
+    if (!INDIAN_STATE_CODES.includes(state)) {
+        throw new AppError("Choose a valid state", 400);
+    }
+    const filter = { state, discoverable: { $ne: false }, _id: { $ne: currentUserId } };
+    const prefix = typeof q === "string" ? q.trim().toLowerCase() : "";
+    if (prefix.length > 30) {
+        throw new AppError("Search query is too long", 400);
+    }
+    const conditions = [];
+    if (prefix) conditions.push({ username: { $regex: `^${escapeRegex(prefix)}` } });
+    if (after !== undefined) {
+        if (typeof after !== "string" || after.length > 30) {
+            throw new AppError("Invalid cursor", 400);
+        }
+        conditions.push({ username: { $gt: after } });
+    }
+    if (conditions.length) filter.$and = conditions;
+
+    const page = await User.find(filter)
+        .select(PUBLIC_USER_FIELDS)
+        .sort({ username: 1 })
+        .limit(DISCOVER_PAGE_SIZE + 1)
+        .lean();
+    return { users: page.slice(0, DISCOVER_PAGE_SIZE), hasMore: page.length > DISCOVER_PAGE_SIZE };
+};
 
 // Finds users whose username starts with `query` (case-insensitive).
-// Returns only public profile fields — never email or password.
+// Returns only public profile fields — never email or password. Everyone can
+// be found by username, also people who aren't listed in Discover.
 const searchUsers = async (query, currentUserId) => {
     if (typeof query !== "string" || query.trim() === "") {
         throw new AppError("Search query is required", 400);
@@ -52,10 +90,7 @@ const searchUsers = async (query, currentUserId) => {
         throw new AppError("Search query is too long", 400);
     }
 
-    // The query goes into a regex, so escape every regex special character:
-    // otherwise ".*" would match everyone and patterns like "(a+)+$" could
-    // make the database work very hard (ReDoS).
-    const escapedQuery = normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedQuery = escapeRegex(normalizedQuery);
 
     // Usernames are stored in lowercase, so an anchored "^prefix" regex can use
     // the username index.
@@ -77,12 +112,13 @@ const updateUser = async (userId, updateData) => {
     if (updateData.username !== undefined) allowedUpdates.username = updateData.username;
     if (updateData.bio !== undefined) allowedUpdates.bio = updateData.bio;
     if (updateData.state !== undefined) allowedUpdates.state = updateData.state;
-    if (updateData.readReceipts !== undefined) {
-        // Strict: Mongoose would turn "no" or 0 into false without complaint.
-        if (typeof updateData.readReceipts !== "boolean") {
-            throw new AppError("readReceipts must be true or false", 400);
+    // Strict true/false: Mongoose would turn "no" or 0 into false without complaint.
+    for (const setting of ["readReceipts", "discoverable"]) {
+        if (updateData[setting] === undefined) continue;
+        if (typeof updateData[setting] !== "boolean") {
+            throw new AppError(`${setting} must be true or false`, 400);
         }
-        allowedUpdates.readReceipts = updateData.readReceipts;
+        allowedUpdates[setting] = updateData[setting];
     }
     if(Object.keys(allowedUpdates).length === 0) {
         throw new AppError("No valid fields provided for update", 400);
@@ -128,5 +164,6 @@ export {
     getCurrentUser,
     updateUser,
     changePassword,
-    searchUsers
+    searchUsers,
+    discoverUsers
 }   

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { changePasswordController, createUserController, searchUsersController, updateUserController } from "../controllers/user.controller.js";
+import { changePasswordController, createUserController, discoverUsersController, searchUsersController, updateUserController } from "../controllers/user.controller.js";
 import { validateNewPassword, validatePassword } from "../middleware/validation.middleware.js";
 import express from "express";
 import authMiddleware from "../middleware/auth.middleware.js";
@@ -9,6 +9,7 @@ const router = Router();
 
 router.post("/users", validatePassword, createUserController);
 router.get("/users/search", authMiddleware, searchUsersController);
+router.get("/users/discover", authMiddleware, discoverUsersController);
 router.patch('/users/me', authMiddleware, updateUserController);
 router.patch('/users/me/password', authMiddleware, validateNewPassword, changePasswordController);
 // Profile photo: the body is the image itself (a small JPEG made in the browser).

@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 // Opened now and then, so it is downloaded only when needed (its own file).
 const Settings = lazy(() => import("./pages/Settings.jsx"));
+const Discover = lazy(() => import("./pages/Discover.jsx"));
 
 const PageSpinner = () => (
   <div className="flex h-dvh items-center justify-center text-muted-foreground">
@@ -32,6 +33,14 @@ const App = () => {
         {/* One route for both /chat and /chat/:id, so the page (and its
             conversation list) stays mounted while switching conversations. */}
         <Route path="/chat/:conversationId?" element={<Chat />} />
+        <Route
+          path="/discover"
+          element={
+            <Suspense fallback={<PageSpinner />}>
+              <Discover />
+            </Suspense>
+          }
+        />
         <Route
           path="/settings"
           element={

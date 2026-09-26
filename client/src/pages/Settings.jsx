@@ -307,24 +307,24 @@ const PasswordSection = () => {
   );
 };
 
-const PrivacySection = () => {
+// An on/off account setting, saved as soon as it is switched (no Save
+// button). The switch moves at once and moves back if saving fails.
+const SettingSwitch = ({ setting, label, hintId, children }) => {
   const { currentUser, updateCurrentUser } = useAuth();
-  const [isOn, setIsOn] = useState(currentUser.readReceipts !== false);
+  const [isOn, setIsOn] = useState(currentUser[setting] !== false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Saved as soon as it is switched (no Save button for one switch). The
-  // switch moves at once and moves back if saving fails.
   const handleChange = async (e) => {
-    const readReceipts = e.target.checked;
-    setIsOn(readReceipts);
+    const value = e.target.checked;
+    setIsOn(value);
     setIsSaving(true);
     setError("");
     try {
-      await api.patch("/users/me", { readReceipts });
-      updateCurrentUser({ readReceipts });
+      await api.patch("/users/me", { [setting]: value });
+      updateCurrentUser({ [setting]: value });
     } catch (err) {
-      setIsOn(!readReceipts);
+      setIsOn(!value);
       setError(err.response?.data?.message ?? "Could not save. Please try again.");
     } finally {
       setIsSaving(false);
@@ -332,31 +332,43 @@ const PrivacySection = () => {
   };
 
   return (
-    <Section title="Privacy">
-      <div className="space-y-3">
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            role="switch"
-            checked={isOn}
-            disabled={isSaving}
-            onChange={handleChange}
-            aria-describedby="read-receipts-hint"
-            className="mt-0.5 size-4 shrink-0 accent-primary"
-          />
-          <span>
-            <span className="block text-sm font-medium">Read receipts</span>
-            <span id="read-receipts-hint" className="mt-0.5 block text-sm text-muted-foreground">
-              Let people see when you&apos;ve read their messages. If you turn this off, you won&apos;t see
-              when others read yours either. Delivered ticks are always shown.
-            </span>
+    <div className="space-y-3">
+      <label className="flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={isOn}
+          disabled={isSaving}
+          onChange={handleChange}
+          aria-describedby={hintId}
+          className="mt-0.5 size-4 shrink-0 accent-primary"
+        />
+        <span>
+          <span className="block text-sm font-medium">{label}</span>
+          <span id={hintId} className="mt-0.5 block text-sm text-muted-foreground">
+            {children}
           </span>
-        </label>
-        {error ? <FormAlert>{error}</FormAlert> : null}
-      </div>
-    </Section>
+        </span>
+      </label>
+      {error ? <FormAlert>{error}</FormAlert> : null}
+    </div>
   );
 };
+
+const PrivacySection = () => (
+  <Section title="Privacy">
+    <div className="space-y-5">
+      <SettingSwitch setting="readReceipts" label="Read receipts" hintId="read-receipts-hint">
+        Let people see when you&apos;ve read their messages. If you turn this off, you won&apos;t see when
+        others read yours either. Delivered ticks are always shown.
+      </SettingSwitch>
+      <SettingSwitch setting="discoverable" label="Show me in Discover" hintId="discoverable-hint">
+        List me among the people of my state on the Discover page. If you turn this off, only people who
+        type your username can find you.
+      </SettingSwitch>
+    </div>
+  </Section>
+);
 
 const NotificationsSection = () => {
   const isSupported = "Notification" in window;
