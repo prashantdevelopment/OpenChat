@@ -2,9 +2,11 @@ import axios from "axios";
 
 // Vite only exposes env variables that start with VITE_ to browser code.
 // Never put secrets here: everything in the client bundle is public.
+// The server's address. Empty = the same site that serves this page (the
+// production setup: one server for the API and the app).
 export const API_URL = import.meta.env.VITE_API_URL;
 
-if (!API_URL) {
+if (API_URL === undefined) {
   throw new Error("VITE_API_URL is not defined. Copy client/.env.example to client/.env");
 }
 

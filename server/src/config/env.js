@@ -6,7 +6,9 @@ dotenv.config();
 
 
 
-const CLIENT_URL = process.env.CLIENT_URL;
+// The app's address (CORS, sockets). On Render it defaults to the service's
+// own address, since the same server serves the app.
+const CLIENT_URL = process.env.CLIENT_URL ?? process.env.RENDER_EXTERNAL_URL;
 if(!CLIENT_URL) {
     throw new Error("CLIENT_URL is not defined in the environment variables");
 }
@@ -45,6 +47,12 @@ const STORAGE_DRIVER = process.env.STORAGE_DRIVER ?? "local";
             }
 const UPLOADS_DIR = process.env.UPLOADS_DIR
     ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "uploads");
+            // Hosts like Render's free plan wipe the disk on every restart:
+            // files kept there would vanish. Production uses Cloudinary, unless
+            // a (persistent) folder is given on purpose.
+            if (STORAGE_DRIVER === "local" && process.env.NODE_ENV === "production" && !process.env.UPLOADS_DIR) {
+                throw new Error("In production, set STORAGE_DRIVER=cloudinary (or UPLOADS_DIR to a persistent disk)");
+            }
 
 const CLOUDINARY = {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,

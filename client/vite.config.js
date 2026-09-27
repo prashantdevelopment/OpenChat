@@ -38,9 +38,15 @@ const seo = (rawSiteUrl) => {
   }
 }
 
+const siteUrlFor = (mode) => {
+  const env = loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), ['VITE_', 'RENDER_EXTERNAL_URL'])
+  return env.VITE_SITE_URL || env.RENDER_EXTERNAL_URL
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss(), seo(loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_').VITE_SITE_URL)],
+  // On Render the site address defaults to the service's own (RENDER_EXTERNAL_URL).
+  plugins: [react(), tailwindcss(), seo(siteUrlFor(mode))],
   resolve: {
     // "@/..." = "src/..." (used by shadcn/coss ui components)
     alias: {

@@ -14,6 +14,7 @@ import messageRoutes from "./routes/message.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import presenceRoutes from "./routes/presence.routes.js";
 import blockRoutes from "./routes/block.routes.js";
+import { createClientApp } from "./clientApp.js";
 
 
 
@@ -49,6 +50,13 @@ app.use("/api", messageRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api", presenceRoutes);
 app.use("/api", blockRoutes);
+
+// Production: the built React app for every other path (clientApp.js).
+if (process.env.NODE_ENV === "production") {
+    const clientApp = createClientApp();
+    if (clientApp) app.use(clientApp);
+    else console.warn("No client build found (client/dist): run `npm run build` first. Serving the API only.");
+}
 
 app.use(() => {
     throw new AppError("Route not found", 404);

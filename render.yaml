@@ -1,0 +1,38 @@
+# Render Blueprint: one free web service runs everything (the API, the
+# sockets and the React app), on Render's own address
+# (https://<name>.onrender.com). Step-by-step: docs/DEPLOY.md.
+# Secrets are never in this file: "sync: false" values are typed into the
+# Render dashboard once.
+services:
+  - type: web
+    name: openchat
+    runtime: node
+    plan: free
+    region: singapore # the closest Render region to India
+    # Dev dependencies too (Vite builds the app). VITE_API_URL empty: the app
+    # talks to the server that serves it. The site address for link previews,
+    # robots.txt and sitemap.xml comes from RENDER_EXTERNAL_URL.
+    buildCommand: npm ci --include=dev && VITE_API_URL= npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # MongoDB Atlas connection string (mongodb+srv://...), with the database name
+      - key: MONGO_URI
+        sync: false
+      # Signs login tokens; Render generates a long random value
+      - key: JWT_SECRET
+        generateValue: true
+      # Render's own proxy sits in front of the server (rate limits per IP)
+      - key: TRUST_PROXY
+        value: "1"
+      # Render's free disk is wiped on every restart: files go to Cloudinary
+      - key: STORAGE_DRIVER
+        value: cloudinary
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

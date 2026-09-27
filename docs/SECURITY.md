@@ -60,8 +60,8 @@ Severity is by exploitability in this app, not by pattern.
 
 **Recommendation.** Keep the current design for launch and document it, like the other honest limits above. It is the right trade for a web app whose promise is "your history on any browser with your password". If stronger protection is wanted later, do **D first** (cheap, protects every message against a stolen database), and consider **A** only together with a real multi-device design and an encrypted backup, as its own project.
 
-## 5. For deploy (step 53) and later
+## 5. Deploy (step 53) and later
 
-- Serve the client with a Content-Security-Policy: `default-src 'self'`, `connect-src` the API and its WebSocket, `img-src 'self' blob: data:` plus the API, and **hashes** for the two small inline scripts (the theme script in `client/index.html` and the retry script in `client/public/offline.html`). CSP is the main defence against XSS, which would let an attacker use the unlocked key.
-- One server instance (in-memory sessions, rate limits, presence), `TRUST_PROXY` set to the host's proxy count, `NODE_ENV=production` (Secure cookies; `RATE_LIMITS=off` is refused), app and API on the same site (SameSite=Strict cookie).
+- **Done:** in production the server serves the app itself with a Content-Security-Policy (`server/src/clientApp.js`): scripts only from the server plus the two small inline scripts by SHA-256 hash (the theme script in `client/index.html`, the retry script in `client/public/offline.html`, hashed from the build at start), images and media also from `blob:` (decrypted files), no framing. CSP is the main defence against XSS, which would let an attacker use the unlocked key.
+- One server instance (in-memory sessions, rate limits, presence), `TRUST_PROXY` set to the host's proxy count (Render: 1), `NODE_ENV=production` (Secure cookies; `RATE_LIMITS=off` and local file storage are refused), app and API on one address (SameSite=Strict cookie). How to set it up: `docs/DEPLOY.md`.
 - Run `npm audit` before every release.
