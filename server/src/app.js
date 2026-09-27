@@ -11,6 +11,7 @@ import conversationRoutes from "./routes/conversation.routes.js";
 import messageRoutes from "./routes/message.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import presenceRoutes from "./routes/presence.routes.js";
+import blockRoutes from "./routes/block.routes.js";
 
 
 
@@ -34,6 +35,7 @@ app.use("/api", conversationRoutes);
 app.use("/api", messageRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api", presenceRoutes);
+app.use("/api", blockRoutes);
 
 app.use(() => {
     throw new AppError("Route not found", 404);

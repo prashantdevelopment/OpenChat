@@ -2,7 +2,8 @@ import { randomBytes } from "crypto";
 import Upload from "../models/upload.model.js";
 import storage from "../storage/index.js";
 import AppError from "../utils/AppError.js";
-import { getConversationForParticipant } from "./conversation.service.js";
+import { getConversationForParticipant, otherParticipant } from "./conversation.service.js";
+import { assertNotBlocked } from "./block.service.js";
 
 // 10 MB per encrypted file, for every kind: the most Cloudinary's plan takes
 // for one raw file. (Photos are shrunk to 2048px first, so they stay far
@@ -24,6 +25,7 @@ const createUpload = async (conversationId, userId, bytes, kind) => {
         throw new AppError("The file is empty", 400);
     }
     const conversation = await getConversationForParticipant(conversationId, userId);
+    await assertNotBlocked(userId, otherParticipant(conversation, userId), "You can't send files in this chat");
 
     const fileId = randomBytes(16).toString("hex");
     await storage.save(fileId, bytes);

@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 import Message from "../models/message.model.js";
 import AppError from "../utils/AppError.js";
 import { base64Length, isBase64 } from "../utils/base64.js";
-import { getConversationForParticipant } from "./conversation.service.js";
+import { getConversationForParticipant, otherParticipant } from "./conversation.service.js";
+import { assertNotBlocked } from "./block.service.js";
 import { getAttachableUpload } from "./upload.service.js";
 
 // Messages are end-to-end encrypted, so the server cannot see the text. It can
@@ -51,6 +52,7 @@ const createMessage = async (conversationId, currentUserId, encrypted) => {
     }
 
     const conversation = await getConversationForParticipant(conversationId, currentUserId);
+    await assertNotBlocked(currentUserId, otherParticipant(conversation, currentUserId), "You can't send messages in this chat");
     // The sender's own upload, made for this conversation as this kind.
     const upload = hasFile ? await getAttachableUpload(attachment?.fileId, currentUserId, conversation._id, messageType) : null;
 

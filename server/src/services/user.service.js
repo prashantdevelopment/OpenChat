@@ -2,6 +2,7 @@ import User, { PUBLIC_USER_FIELDS } from "../models/user.model.js"
 import bcrypt from "bcrypt";
 import AppError from "../utils/AppError.js";
 import { INDIAN_STATE_CODES } from "../../../shared/indian-states.js";
+import { blockRelations, hasBlocked } from "./block.service.js";
 
 // Text that goes into a regex: escape every special character, otherwise ".*"
 // would match everyone and patterns like "(a+)+$" could make the database
@@ -54,7 +55,9 @@ const discoverUsers = async ({ state, q, after }, currentUserId) => {
     if (!INDIAN_STATE_CODES.includes(state)) {
         throw new AppError("Choose a valid state", 400);
     }
-    const filter = { state, discoverable: { $ne: false }, _id: { $ne: currentUserId } };
+    // Never the user, nor anyone a block separates them from.
+    const { separated } = await blockRelations(currentUserId);
+    const filter = { state, discoverable: { $ne: false }, _id: { $nin: [currentUserId, ...separated] } };
     const prefix = typeof q === "string" ? q.trim().toLowerCase() : "";
     if (prefix.length > 30) {
         throw new AppError("Search query is too long", 400);
@@ -91,12 +94,13 @@ const searchUsers = async (query, currentUserId) => {
     }
 
     const escapedQuery = escapeRegex(normalizedQuery);
+    const { separated } = await blockRelations(currentUserId);
 
     // Usernames are stored in lowercase, so an anchored "^prefix" regex can use
     // the username index.
     return User.find({
         username: { $regex: `^${escapedQuery}` },
-        _id: { $ne: currentUserId },
+        _id: { $nin: [currentUserId, ...separated] },
     })
         .select(PUBLIC_USER_FIELDS)
         .sort({ username: 1 })
@@ -106,16 +110,18 @@ const searchUsers = async (query, currentUserId) => {
 
 // One person's public profile by username (the /u/:username page): the same
 // public fields as search, never email or password. An exact match, not a
-// regex: usernames are stored in lowercase.
-const getPublicProfile = async (username) => {
+// regex: usernames are stored in lowercase. Someone who blocked the viewer
+// doesn't exist for them (404, like a wrong name); someone the viewer blocked
+// is shown with blockedByMe, so they can be unblocked.
+const getPublicProfile = async (username, viewerId) => {
     if (typeof username !== "string" || username.length > 30) {
         throw new AppError("User not found", 404);
     }
     const user = await User.findOne({ username: username.toLowerCase() }).select(PUBLIC_USER_FIELDS).lean();
-    if (!user) {
+    if (!user || (String(user._id) !== String(viewerId) && (await hasBlocked(user._id, viewerId)))) {
         throw new AppError("User not found", 404);
     }
-    return user;
+    return { ...user, blockedByMe: await hasBlocked(viewerId, user._id) };
 };
 
 // The profile fields a user may change (settings page). Not the avatar:

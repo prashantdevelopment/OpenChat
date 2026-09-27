@@ -62,7 +62,9 @@ const withFigureNumbers = (items) => {
 // peerPublicKey: the other participant's public key, needed to derive the
 // conversation's encryption key (undefined until the conversation list loads).
 // onPhotosChange(messages): the photo messages loaded so far (for the margin notes).
-const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName, receipts, onPhotosChange }) => {
+// blocked: the user blocked this person (the composer gives way to a note
+// with Unblock); onUnblock unblocks them.
+const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName, receipts, onPhotosChange, blocked = false, onUnblock }) => {
   // The loaded messages and whether older ones exist on the server. Kept in
   // one state object because they always change together.
   const [history, setHistory] = useState({ messages: [], hasOlder: false });
@@ -211,7 +213,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
         socket.emit("leaveConversation", conversationId);
       }
     };
-  }, [conversationId, historyAttempt]);
+  }, [conversationId, historyAttempt, blocked]);
 
   const retryHistory = () => {
     setHistoryStatus("loading");
@@ -603,6 +605,9 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
           </Button>
         ) : null}
       </div>
+      {blocked ? (
+        <BlockedNote peerName={peerName} onUnblock={onUnblock} />
+      ) : (
       <form
         className="relative shrink-0 border-t border-border px-5 pt-4 pb-5 md:px-9 md:pb-6"
         onSubmit={(e) => {
@@ -759,6 +764,31 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
           </p>
         ) : null}
       </form>
+      )}
+    </div>
+  );
+};
+
+// In place of the composer while the user has blocked this person.
+const BlockedNote = ({ peerName, onUnblock }) => {
+  const [busy, setBusy] = useState(false);
+  const unblock = async () => {
+    setBusy(true);
+    try {
+      await onUnblock();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div role="status" className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-5 pt-4 pb-5 md:px-9 md:pb-6">
+      <p className="max-w-md text-sm">
+        <span className="font-heading text-lg italic">You blocked {peerName}.</span>{" "}
+        <span className="text-muted-foreground">Neither of you can message or call the other.</span>
+      </p>
+      <Button variant="outline" loading={busy} onClick={unblock} className="h-11 rounded-full border-foreground px-5 sm:h-11">
+        Unblock {peerName}
+      </Button>
     </div>
   );
 };

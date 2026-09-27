@@ -7,6 +7,7 @@ import { computeSafetyNumber } from "../crypto/safetyNumber.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
 import Avatar from "../components/Avatar.jsx";
 import Masthead from "../components/Masthead.jsx";
+import PersonActions from "../components/PersonActions.jsx";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastManager } from "@/components/ui/toast";
@@ -15,8 +16,8 @@ const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.
 
 // A person's public page (/u/:username): the same public facts as search
 // (name, photo, bio, state), set like a magazine profile, with a "Message"
-// button and the safety number to compare. Never shows whether they are
-// online (that is only for people who already chat).
+// button, the safety number to compare, and Block / Report. Never shows
+// whether they are online (that is only for people who already chat).
 const Profile = () => {
   const { username } = useParams();
   const { currentUser } = useAuth();
@@ -60,6 +61,8 @@ const Profile = () => {
       toastManager.add({ type: "error", title: `Couldn't open the chat with ${user.username}`, description: error.response?.data?.message ?? "Check your connection and try again." });
     }
   };
+
+  const setBlocked = (blocked) => setResult((current) => ({ ...current, user: { ...current.user, blockedByMe: blocked } }));
 
   const number = safety && user && safety.key === user.publicKey ? safety.number : null;
   const place = stateName(user?.state);
@@ -110,6 +113,12 @@ const Profile = () => {
               )}
             </div>
 
+            {user.blockedByMe ? (
+              <p role="status" className="mt-6 max-w-xl border-l-2 border-brand pl-4 text-sm">
+                You blocked {user.username}. Neither of you can message or call the other until you unblock them.
+              </p>
+            ) : null}
+
             {!isMe ? (
               <section aria-labelledby="safety-heading" className="mt-12 border-t border-border pt-6">
                 <h2 id="safety-heading" className="text-2xl">
@@ -122,6 +131,18 @@ const Profile = () => {
                 <p className="mt-4 grid max-w-md grid-cols-4 gap-x-4 gap-y-2 font-mono text-base tracking-wider">
                   {number ? number.split(" ").map((group, i) => <span key={i}>{group}</span>) : <span className="col-span-4">Calculating...</span>}
                 </p>
+              </section>
+            ) : null}
+
+            {!isMe ? (
+              <section aria-labelledby="safety-actions-heading" className="mt-10 border-t border-border pt-6">
+                <h2 id="safety-actions-heading" className="text-2xl">
+                  Block or report
+                </h2>
+                <p className="mt-2 mb-5 max-w-xl text-sm text-muted-foreground">
+                  If {user.username} bothers you, block them. Report them if they break the rules; they won&apos;t know who reported them.
+                </p>
+                <PersonActions user={user} blocked={Boolean(user.blockedByMe)} onBlockedChange={setBlocked} />
               </section>
             ) : null}
           </article>

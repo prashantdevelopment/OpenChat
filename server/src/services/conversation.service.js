@@ -4,6 +4,7 @@ import AppError from '../utils/AppError.js';
 import User, { PUBLIC_USER_FIELDS } from '../models/user.model.js';
 import Message from '../models/message.model.js';
 import { isOnline } from "../presence.js";
+import { assertNotBlocked, blockRelations } from "./block.service.js";
 
 
 const getConversationForParticipant = async (conversationId, userId) => {
@@ -51,9 +52,12 @@ const createOrGetConversation = async (currentUserId, otherUserId) => {
 
     const existingConversation = await Conversation.findOne({ conversationKey });
 
+    // An existing chat still opens (its history stays readable); a new one
+    // can't be started across a block.
     if (existingConversation) {
         return existingConversation;
     }
+    await assertNotBlocked(currentUserId, otherUserId, "You can't message this person");
 
     try {
         return await Conversation.create({
@@ -101,6 +105,9 @@ const getUserConversations = async (userId) => {
         return [];
     }
 
+    // Across a block, neither sees the other online or when they were last seen.
+    const { blockedByMe, separated } = await blockRelations(userId);
+
     // One aggregation counts unread messages for every conversation at once,
     // instead of one query per conversation.
     const counts = await Message.aggregate([
@@ -112,12 +119,16 @@ const getUserConversations = async (userId) => {
     // toJSON() applies the model's privacy rules (no raw lastReadAt/lastDeliveredAt).
     return conversations.map((conversation) => {
         const json = conversation.toJSON();
+        const otherIds = json.participants.map((participant) => String(participant._id)).filter((id) => id !== String(userId));
         return {
             ...json,
-            participants: json.participants.map(({ readReceipts: _setting, ...participant }) => ({
-                ...participant,
-                online: isOnline(participant._id)
-            })),
+            participants: json.participants.map(({ readReceipts: _setting, lastSeen, ...participant }) =>
+                separated.has(String(participant._id))
+                    ? { ...participant, lastSeen: null, online: false }
+                    : { ...participant, lastSeen, online: isOnline(participant._id) }
+            ),
+            // Only the blocker learns about the block (the blocked person is never told).
+            blockedByMe: otherIds.some((id) => blockedByMe.has(id)),
             receipts: receiptsFor(conversation, userId),
             unreadCount: unreadById.get(conversation._id.toString()) ?? 0
         };
@@ -147,10 +158,18 @@ const readReceiptsShared = async (conversation) =>
 
 // Everyone who shares a conversation with the user: they are told when the
 // user comes online or goes offline.
+// Not across a block.
 const getContactIds = async (userId) => {
-    const ids = await Conversation.distinct("participants", { participants: userId });
-    return ids.map(String).filter((id) => id !== String(userId));
+    const [ids, { separated }] = await Promise.all([Conversation.distinct("participants", { participants: userId }), blockRelations(userId)]);
+    return ids.map(String).filter((id) => id !== String(userId) && !separated.has(id));
 };
+
+// The 1:1 conversation between two users, if they have one.
+const findConversationBetween = (userId, otherUserId) =>
+    Conversation.findOne({ conversationKey: [String(userId), String(otherUserId)].sort().join("_") });
+
+// The other participant of a 1:1 conversation.
+const otherParticipant = (conversation, userId) => conversation.participants.map(String).find((id) => id !== String(userId));
 
 const markConversationRead = async (conversationId, userId) => {
     const conversation = await getConversationForParticipant(conversationId, userId);
@@ -205,5 +224,7 @@ export {
     markConversationDelivered,
     markAllDelivered,
     readReceiptsShared,
-    getContactIds
+    getContactIds,
+    otherParticipant,
+    findConversationBetween
 };

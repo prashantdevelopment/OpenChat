@@ -47,7 +47,7 @@ const searchUsersController = async (req, res) => {
 }
 
 const getProfileController = async (req, res) => {
-    const user = await getPublicProfile(req.params.username);
+    const user = await getPublicProfile(req.params.username, req.user.userId);
     res.status(200).json({ success: true, user });
 };
 

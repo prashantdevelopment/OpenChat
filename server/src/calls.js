@@ -2,6 +2,7 @@ import AppError from "./utils/AppError.js";
 import { base64Length, isBase64 } from "./utils/base64.js";
 import User, { PUBLIC_USER_FIELDS } from "./models/user.model.js";
 import { getConversationForParticipant } from "./services/conversation.service.js";
+import { assertNotBlocked } from "./services/block.service.js";
 import { isOnline } from "./presence.js";
 
 // Call signaling (WebRTC). The server only relays: the offer, the answer and
@@ -36,9 +37,11 @@ const checkCallId = (callId) => {
 
 const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
     // The conversation (the user must be in it) and the other participant.
+    // No call signal crosses a block, so blocking also ends a ringing call.
     const callPeer = async (conversationId) => {
         const conversation = await getConversationForParticipant(conversationId, socket.userId);
         const peerId = conversation.participants.map(String).find((id) => id !== socket.userId);
+        await assertNotBlocked(socket.userId, peerId, "You can't call this person");
         return { conversation, peerId };
     };
 

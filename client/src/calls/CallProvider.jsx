@@ -125,13 +125,20 @@ const CallProvider = ({ children }) => {
     }, ENDED_VISIBLE_MS);
   };
 
-  // Tell the other side, then finish here.
+  // Tell the other side, then finish here. The promise settles when the
+  // server passed it on (blocking someone waits for it: after the block, no
+  // call signal would reach them).
   const hangUp = (reason, shownReason = reason) => {
     const current = callRef.current;
+    let told = Promise.resolve();
     if (current && current.status !== "ended") {
-      socket.emit("endCall", { conversationId: current.conversationId, callId: current.callId, reason });
+      told = socket
+        .timeout(3000)
+        .emitWithAck("endCall", { conversationId: current.conversationId, callId: current.callId, reason })
+        .catch(() => {});
     }
     finish(shownReason);
+    return told;
   };
 
   const openMedia = async (media) => {
@@ -252,7 +259,7 @@ const CallProvider = ({ children }) => {
       update(null);
       return;
     }
-    hangUp(current.direction === "outgoing" && current.status === "calling" ? "cancelled" : "ended", "you-ended");
+    return hangUp(current.direction === "outgoing" && current.status === "calling" ? "cancelled" : "ended", "you-ended");
   };
 
   const toggleMute = () => {

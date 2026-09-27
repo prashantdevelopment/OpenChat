@@ -20,6 +20,7 @@ import { getNotificationPrefs, shouldNotify, titleWithUnread } from "../lib/noti
 import { getConversationKey, useConversationKey } from "../crypto/hooks.js";
 import { decryptMessage } from "../crypto/messages.js";
 import { describeMessage } from "../lib/messageContent.js";
+import { unblockUser } from "../lib/blocks.js";
 import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
@@ -197,12 +198,15 @@ const Chat = () => {
     socket.on("receipt", handleReceipt);
     socket.on("presence", handlePresence);
     socket.on("conversationRead", handleConversationRead);
+    // I blocked or unblocked someone (in any tab): fresh list, with blockedByMe.
+    socket.on("blocksChanged", handleReconnect);
     socket.io.on("reconnect", handleReconnect);
     return () => {
       socket.off("conversationUpdated", handleConversationUpdated);
       socket.off("receipt", handleReceipt);
       socket.off("presence", handlePresence);
       socket.off("conversationRead", handleConversationRead);
+      socket.off("blocksChanged", handleReconnect);
       socket.io.off("reconnect", handleReconnect);
     };
   }, []);
@@ -235,6 +239,17 @@ const Chat = () => {
   const peer = openConversation?.participants.find((participant) => participant._id !== currentUser._id);
   const conversationKey = useConversationKey(conversationId, peer?.publicKey);
   const place = stateName(peer?.state);
+  // Only the blocker is told about a block (server: conversation.service.js).
+  const blockedByMe = Boolean(openConversation?.blockedByMe);
+  const handleUnblock = async () => {
+    try {
+      await unblockUser(peer._id);
+      setConversations((prev) => prev.map((conversation) => (conversation._id === conversationId ? { ...conversation, blockedByMe: false } : conversation)));
+      toastManager.add({ type: "success", title: `Unblocked ${peer.username}` });
+    } catch (error) {
+      toastManager.add({ type: "error", title: "Couldn't unblock", description: error.response?.data?.message ?? "Check your connection and try again." });
+    }
+  };
 
   return (
     // The whole app fits the screen (dvh also follows mobile browser bars):
@@ -372,7 +387,7 @@ const Chat = () => {
                   size="icon-xl"
                   className="size-11.5 rounded-full border-foreground sm:size-11.5 md:row-span-2 md:self-end"
                   aria-label={`Voice call ${peer?.username ?? ""}`.trim()}
-                  disabled={!peer?.publicKey || !isConnected || isInCall}
+                  disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe}
                   onClick={() => startCall({ conversationId, peer, media: "audio" })}
                 >
                   <PhoneIcon aria-hidden="true" strokeWidth={1.3} />
@@ -381,7 +396,7 @@ const Chat = () => {
                   size="icon-xl"
                   className="size-11.5 rounded-full sm:size-11.5 md:row-span-2 md:self-end"
                   aria-label={`Video call ${peer?.username ?? ""}`.trim()}
-                  disabled={!peer?.publicKey || !isConnected || isInCall}
+                  disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe}
                   onClick={() => startCall({ conversationId, peer, media: "video" })}
                 >
                   <VideoIcon aria-hidden="true" strokeWidth={1.3} />
@@ -395,6 +410,8 @@ const Chat = () => {
                 peerName={peer?.username}
                 receipts={openConversation?.receipts}
                 onPhotosChange={setPhotos}
+                blocked={blockedByMe}
+                onUnblock={handleUnblock}
               />
             </>
           ) : (

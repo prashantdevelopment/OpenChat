@@ -1,4 +1,5 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { Link } from "react-router";
 import { flushSync } from "react-dom";
 import { ArrowDownIcon, CircleCheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import api from "../api/api.js";
@@ -7,6 +8,8 @@ import { rewrapPrivateKey } from "../crypto/keys.js";
 import { applyThemeChoice, getThemeChoice } from "../lib/theme.js";
 import { getNotificationPrefs, setNotificationPrefs } from "../lib/notifications.js";
 import { promptInstall, useInstallState } from "../lib/pwa.js";
+import { getBlockedUsers, unblockUser } from "../lib/blocks.js";
+import { toastManager } from "@/components/ui/toast";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
 import Avatar from "../components/Avatar.jsx";
@@ -368,6 +371,69 @@ const SettingSwitch = ({ setting, label, hintId, children }) => {
   );
 };
 
+// The people the user blocked, each with Unblock. (Blocking happens on a
+// person's profile.)
+const BlockedPeople = () => {
+  const [users, setUsers] = useState(null); // null while loading
+  const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+
+  useEffect(() => {
+    let ignore = false;
+    getBlockedUsers()
+      .then((list) => !ignore && setUsers(list))
+      .catch(() => !ignore && setError("Couldn't load the people you blocked. Check your connection and reload the page."));
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const unblock = async (user) => {
+    setBusyId(user._id);
+    try {
+      await unblockUser(user._id);
+      setUsers((list) => list.filter((item) => item._id !== user._id));
+      toastManager.add({ type: "success", title: `Unblocked ${user.username}` });
+    } catch (err) {
+      toastManager.add({ type: "error", title: "Couldn't unblock", description: err.response?.data?.message ?? "Check your connection and try again." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div>
+      <h3 className="font-medium">Blocked people</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        They can&apos;t message or call you, find you, or see when you&apos;re online. To block someone, open their profile.
+      </p>
+      {error ? (
+        <FormAlert>{error}</FormAlert>
+      ) : users === null ? (
+        <p role="status" className="mt-3 text-sm text-muted-foreground">
+          Loading...
+        </p>
+      ) : users.length === 0 ? (
+        <p className="mt-3 text-sm italic">You haven&apos;t blocked anyone.</p>
+      ) : (
+        <ul aria-label="Blocked people" className="mt-3 divide-y divide-border border-y border-border">
+          {users.map((user) => (
+            <li key={user._id} className="flex items-center gap-3 py-3">
+              <Avatar name={user.username} avatarId={user.avatar} className="size-9 text-base" />
+              <Link to={`/u/${user.username}`} className="min-w-0 flex-1 truncate font-heading text-lg text-foreground no-underline hover:underline">
+                {user.username}
+              </Link>
+              <Button variant="outline" loading={busyId === user._id} onClick={() => unblock(user)} className="h-11 rounded-full border-foreground/25 px-5 sm:h-11">
+                Unblock<span className="sr-only"> {user.username}</span>
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
 const PrivacySection = () => (
   <Section number="03" title="Privacy" description="Who can see what about you.">
     <div className="divide-y divide-border [&>*]:py-5 [&>*:first-child]:pt-0">
@@ -379,6 +445,7 @@ const PrivacySection = () => (
         List me among the people of my state on the Discover page. If you turn this off, only people who
         type your username can find you.
       </SettingSwitch>
+      <BlockedPeople />
     </div>
   </Section>
 );

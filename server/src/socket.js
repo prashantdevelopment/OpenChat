@@ -2,7 +2,8 @@ import { Server } from "socket.io";
 import { CLIENT_URL } from "./config/env.js";
 import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
-import { countUnread, getContactIds, getConversationForParticipant, markAllDelivered, markConversationDelivered, markConversationRead, readReceiptsShared } from "./services/conversation.service.js";
+import { countUnread, findConversationBetween, getContactIds, getConversationForParticipant, markAllDelivered, markConversationDelivered, markConversationRead, otherParticipant, readReceiptsShared } from "./services/conversation.service.js";
+import { blockEvents, hasBlocked, isBlockedBetween } from "./services/block.service.js";
 import User from "./models/user.model.js";
 import { isOnline, socketClosed, socketOpened } from "./presence.js";
 import { markOffline, markOnline, statePresenceSnapshot } from "./statePresence.js";
@@ -38,6 +39,45 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
             });
     };
 
+    // Receipts never cross a block (they would show the other one is active).
+    const sendReceiptUnlessBlocked = async (conversation, userId, times) => {
+        if (await isBlockedBetween(userId, otherParticipant(conversation, userId))) return;
+        sendReceipt(conversation, userId, times);
+    };
+
+    // A block or unblock (block.service.js). The blocker's tabs leave the
+    // chat's room (so the blocked person's typing never reaches them) and
+    // reload their chat list; the blocked person just sees them go offline,
+    // as if they closed the app. Unblocking shows each the other's real status.
+    const onBlocked = async ({ blockerId, blockedId }) => {
+        try {
+            const conversation = await findConversationBetween(blockerId, blockedId);
+            if (conversation) io.in(userRoom(blockerId)).socketsLeave(conversation._id.toString());
+            io.to(userRoom(blockerId)).emit("blocksChanged", { userId: blockedId, blocked: true });
+            io.to(userRoom(blockedId)).emit("presence", { userId: blockerId, online: false, lastSeen: null });
+        } catch (err) {
+            console.error("Block error:", err);
+        }
+    };
+    const onUnblocked = async ({ blockerId, blockedId }) => {
+        try {
+            io.to(userRoom(blockerId)).emit("blocksChanged", { userId: blockedId, blocked: false });
+            if (!(await isBlockedBetween(blockerId, blockedId))) {
+                const blocker = await User.findById(blockerId).select("lastSeen");
+                io.to(userRoom(blockedId)).emit("presence", { userId: blockerId, online: isOnline(blockerId), lastSeen: blocker?.lastSeen ?? null });
+            }
+        } catch (err) {
+            console.error("Block error:", err);
+        }
+    };
+    blockEvents.on("blocked", onBlocked);
+    blockEvents.on("unblocked", onUnblocked);
+    // Tests start and stop many servers: don't leave listeners behind.
+    httpServer.on("close", () => {
+        blockEvents.off("blocked", onBlocked);
+        blockEvents.off("unblocked", onUnblocked);
+    });
+
     // Online counts per state, to the pages that watch them (Discover).
     // Batched: many people coming online at once cause one update.
     let lastSentCounts = JSON.stringify(statePresenceSnapshot());
@@ -70,7 +110,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
 
         // The app is open: messages sent while the user was away have arrived.
         markAllDelivered(socket.userId)
-            .then((delivered) => delivered.forEach(({ conversation, deliveredAt }) => sendReceipt(conversation, socket.userId, { deliveredAt })))
+            .then((delivered) => Promise.all(delivered.map(({ conversation, deliveredAt }) => sendReceiptUnlessBlocked(conversation, socket.userId, { deliveredAt }))))
             .catch((err) => console.error("Receipt error:", err));
 
         // First tab/device: tell the contacts. (More tabs change nothing.)
@@ -113,6 +153,12 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         socket.on("joinConversation", async (conversationId, ack) => {
             try {
                 const conversation = await getConversationForParticipant(conversationId, socket.userId);
+                // Someone who blocked the other person reads the history but
+                // stays out of the live room: no typing or messages from them.
+                if (await hasBlocked(socket.userId, otherParticipant(conversation, socket.userId))) {
+                    if (typeof ack === "function") ack({ success: true });
+                    return;
+                }
                 socket.join(conversation._id.toString());
                 console.log("User joined conversation:", conversation._id.toString(), "User:", socket.userId);
 
@@ -177,7 +223,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
                 io.to(userRoom(socket.userId)).emit("conversationRead", { _id: conversation._id });
                 // Read implies delivered. The read time only if both share read receipts.
                 const shared = await readReceiptsShared(conversation);
-                sendReceipt(conversation, socket.userId, shared ? { deliveredAt: readAt, readAt } : { deliveredAt: readAt });
+                await sendReceiptUnlessBlocked(conversation, socket.userId, shared ? { deliveredAt: readAt, readAt } : { deliveredAt: readAt });
 
                 if (typeof ack === "function") ack({ success: true });
             } catch (err) {
@@ -201,7 +247,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         socket.on("markDelivered", async (conversationId, ack) => {
             try {
                 const { conversation, deliveredAt } = await markConversationDelivered(conversationId, socket.userId);
-                sendReceipt(conversation, socket.userId, { deliveredAt });
+                await sendReceiptUnlessBlocked(conversation, socket.userId, { deliveredAt });
                 if (typeof ack === "function") ack({ success: true });
             } catch (err) {
                 replyWithError(err, ack);
