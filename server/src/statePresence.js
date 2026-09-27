@@ -7,7 +7,7 @@ import { INDIAN_STATE_CODES } from "../../shared/indian-states.js";
 // Presence is only shared with contacts, but everyone's state is public: "Goa:
 // 1 online" would tell a stranger that the one person they know from Goa is
 // online. In a crowd of 5 or more, nobody can be picked out.
-export const MIN_VISIBLE = 5;
+const MIN_VISIBLE = 5;
 
 const stateOf = new Map(); // userId -> state code (while online)
 const counts = new Map(); // state code -> online users

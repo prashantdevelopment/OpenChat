@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 // Voice messages are recorded with the browser's MediaRecorder: Opus in WebM
 // (Chrome, Edge, Firefox) or AAC in MP4 (Safari).
 const PREFERRED_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
-export const MAX_VOICE_SECONDS = 5 * 60; // about 1-2 MB, well under the 10 MB limit
+const MAX_VOICE_SECONDS = 5 * 60; // about 1-2 MB, well under the 10 MB limit
 
 export const canRecordVoice = () => typeof window.MediaRecorder === "function" && Boolean(navigator.mediaDevices?.getUserMedia);
 

@@ -1,23 +1,12 @@
-import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef } from "react";
 import { Link, Navigate } from "react-router";
-import {
-  CheckCheckIcon,
-  FileIcon,
-  LanguagesIcon,
-  LockIcon,
-  MapPinIcon,
-  MessageSquareLockIcon,
-  MicIcon,
-  VideoIcon,
-} from "lucide-react";
+import { CheckCheckIcon, FileIcon, LanguagesIcon, LockIcon, MapPinIcon, MicIcon, VideoIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import LandingPresence from "../components/LandingPresence.jsx";
+import ArrowLink from "../components/ArrowLink.jsx";
 import { useAuth } from "../auth/AuthContext.js";
-import { hasWebGL } from "../lib/webgl.js";
 
-// The 3D orb and three.js (~240 kB) are downloaded only when it will be shown.
-const HeroOrb = lazy(() => import("../components/HeroOrb.jsx"));
 
 const FEATURES = [
   {
@@ -52,79 +41,62 @@ const FEATURES = [
   },
 ];
 
-const Logo = () => (
-  <Link to="/" className="flex w-fit items-center gap-2 rounded-lg font-heading text-lg font-semibold text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-      <MessageSquareLockIcon aria-hidden="true" className="size-4.5" />
-    </span>
-    OpenChat
+const Wordmark = ({ className = "" }) => (
+  <Link to="/" className={`w-fit font-heading text-foreground no-underline ${className}`}>
+    Open<span className="text-brand italic">chat</span>
   </Link>
 );
 
-// The 3D orb is decoration, so it's only for large screens, never with reduced
-// motion or Data Saver, and only once the page is idle (it never slows the
-// first paint). Everyone else sees the poster: the example chat and a glow.
-const ORB_MEDIA = "(min-width: 1024px) and (prefers-reduced-motion: no-preference)";
-const subscribeOrbMedia = (onChange) => {
-  const media = matchMedia(ORB_MEDIA);
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-};
-const wantsOrb = () => matchMedia(ORB_MEDIA).matches && !navigator.connection?.saveData;
-
-const useHeroOrb = () => {
-  const wanted = useSyncExternalStore(subscribeOrbMedia, wantsOrb);
-  const [canDraw, setCanDraw] = useState(false);
+// Smooth scrolling and a few scroll reveals (lib/landingMotion.js). Its file
+// (GSAP + Lenis) is downloaded only here, and not at all with reduced motion.
+const useLandingMotion = (root) => {
   useEffect(() => {
-    if (!wanted || canDraw) return;
-    const start = () => setCanDraw(hasWebGL());
-    if ("requestIdleCallback" in window) {
-      const id = requestIdleCallback(start, { timeout: 3000 });
-      return () => cancelIdleCallback(id);
-    }
-    const id = setTimeout(start, 1500);
-    return () => clearTimeout(id);
-  }, [wanted, canDraw]);
-  return wanted && canDraw;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let stop = null;
+    let cancelled = false;
+    import("../lib/landingMotion.js").then(({ startLandingMotion }) => {
+      if (!cancelled) stop = startLandingMotion(root.current);
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [root]);
 };
 
 // The hero's picture: an example conversation drawn with the app's own
-// styles (no image to download). Decorative; the 3D hero builds on it later.
+// styles (no image to download), like the real chat. Decorative.
 const ChatPreview = ({ className = "" }) => (
   <div
     aria-hidden="true"
-    className={`relative z-10 mx-auto w-full max-w-sm select-none rounded-2xl border border-border bg-card text-card-foreground shadow-xl ${className}`}
+    className={`relative z-10 mx-auto w-full max-w-sm select-none border border-border bg-card text-card-foreground shadow-[0_40px_80px_-40px_rgb(40_20_10/0.55)] ${className}`}
   >
-    <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-      <span className="relative flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
-        R
-        <span className="absolute right-0 bottom-0 size-3 rounded-full border-2 border-card bg-success" />
-      </span>
-      <div className="min-w-0">
-        <p className="font-medium">riya_kochi</p>
-        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-          <LockIcon className="size-3" /> End-to-end encrypted
-        </p>
-      </div>
+    <div className="border-b border-border px-5 pt-4 pb-3">
+      <p className="font-heading text-[28px] leading-none italic">riya_kochi</p>
+      <p className="mt-2 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground uppercase">
+        <span className="text-success">● Online</span> · Kerala
+      </p>
     </div>
-    <div className="space-y-2 px-4 py-4 text-[15px]">
-      <p className="w-fit max-w-[80%] rounded-2xl rounded-bl-md bg-muted px-3 py-2">नमस्ते! आज शाम कॉल करें?</p>
-      <p className="ml-auto w-fit max-w-[80%] rounded-2xl rounded-br-md bg-bubble-own px-3 py-2 text-bubble-own-foreground">
+    <div className="space-y-2 px-5 py-4 text-[15px]">
+      <p className="w-fit max-w-[80%] rounded-md bg-muted px-3.5 py-2.5">नमस्ते! आज शाम कॉल करें?</p>
+      <p className="ml-auto w-fit max-w-[80%] rounded-md bg-bubble-own px-3.5 py-2.5 text-bubble-own-foreground">
         Haan, 7 baje. Pehle photos bhejta hoon.
       </p>
-      <div className="ml-auto flex w-fit items-center gap-2 rounded-2xl rounded-br-md bg-bubble-own px-3 py-2 text-bubble-own-foreground">
-        <MicIcon className="size-4" />
+      <div className="ml-auto flex w-fit items-center gap-2.5 rounded-md bg-muted px-3 py-2">
+        <span className="grid size-7 place-items-center rounded-full bg-brand text-brand-foreground">
+          <MicIcon className="size-3.5" strokeWidth={1.6} />
+        </span>
         <span className="flex h-4 items-end gap-0.5">
           {[6, 12, 8, 14, 10, 5, 12, 7, 11, 6].map((h, i) => (
-            <span key={i} className="w-0.5 rounded-full bg-current" style={{ height: h }} />
+            <span key={i} className="w-0.5 bg-brand" style={{ height: h }} />
           ))}
         </span>
-        <span className="text-xs tabular-nums">0:12</span>
+        <span className="font-mono text-[11px] text-muted-foreground">0:12</span>
       </div>
-      <p className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
-        7:02 pm <CheckCheckIcon className="size-3.5 text-primary" />
+      <p className="flex items-center justify-end gap-1.5 font-mono text-[10.5px] text-muted-foreground">
+        7:02 pm <CheckCheckIcon className="size-3.5" />
       </p>
-      <p className="w-fit rounded-2xl rounded-bl-md bg-muted px-3 py-2 text-muted-foreground italic">typing…</p>
+      <p className="font-heading text-[15px] text-muted-foreground italic">riya_kochi is writing…</p>
     </div>
   </div>
 );
@@ -133,85 +105,89 @@ const ChatPreview = ({ className = "" }) => (
 // their chats, like /login and /register do.
 const Landing = () => {
   const { currentUser } = useAuth();
-  const showOrb = useHeroOrb();
+  const root = useRef(null);
+  useLandingMotion(root);
   if (currentUser) return <Navigate to="/chat" replace />;
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div ref={root} className="min-h-dvh bg-background text-foreground">
       <title>OpenChat: private, end-to-end encrypted chat for India</title>
       <a
         href="#main"
-        className="sr-only z-50 rounded-lg bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+        className="sr-only z-50 rounded-full bg-primary px-4 py-2 text-primary-foreground no-underline focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
         Skip to content
       </a>
 
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Logo />
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 md:h-18 md:px-9">
+          <Wordmark className="text-2xl md:text-[30px]" />
           <nav aria-label="Account" className="flex items-center gap-2">
-            <Button render={<Link to="/login" />} variant="ghost">
+            <Button render={<Link to="/login" />} variant="ghost" className="rounded-full px-4">
               Log in
             </Button>
-            <Button render={<Link to="/register" />} className="max-sm:hidden">
+            <Button render={<Link to="/register" />} className="rounded-full px-4 max-sm:hidden">
               Create account
             </Button>
-            <ThemeToggle />
+            <ThemeToggle className="rounded-full" />
           </nav>
         </div>
       </header>
 
       <main id="main">
-        <section aria-labelledby="hero-heading" className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:px-6 md:grid-cols-2 md:py-24">
-          <div>
-            <p className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-foreground">
-              <LockIcon aria-hidden="true" className="size-3.5 text-primary" /> End-to-end encrypted
-            </p>
-            <h1 id="hero-heading" className="mt-5 text-4xl leading-tight text-balance sm:text-5xl">
-              Private chats with people across India
-            </h1>
-            <p className="mt-5 max-w-prose text-lg text-muted-foreground">
-              Messages, photos, voice notes and calls are locked on your device. Only the person you're talking to can
-              open them, not even our server.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button render={<Link to="/register" />} size="xl">
-                Create free account
-              </Button>
-              <Button render={<Link to="/login" />} size="xl" variant="outline">
-                Log in
-              </Button>
+        <section aria-labelledby="hero-heading" data-hero="" className="relative overflow-hidden border-b border-border">
+          {/* A soft red glow behind the example chat (it drifts a little on scroll). */}
+          <div
+            aria-hidden="true"
+            data-hero-glow=""
+            className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] lg:block"
+            style={{ background: "radial-gradient(55% 55% at 62% 50%, color-mix(in srgb, var(--brand) 26%, transparent), transparent)" }}
+          />
+
+          <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-5 py-14 md:px-9 md:py-20 lg:min-h-[640px] lg:grid-cols-2">
+            <div>
+              <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
+                End-to-end encrypted · Made for India
+              </p>
+              <h1 id="hero-heading" className="mt-5 text-[52px] leading-[0.95] text-balance sm:text-7xl xl:text-[84px]">
+                Private chats with people <span className="text-brand italic">across India</span>
+              </h1>
+              <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-muted-foreground">
+                Messages, photos, voice notes and calls are locked on your device. Only the person you're talking to can
+                open them, not even our server.
+              </p>
+              <div className="mt-9 flex flex-wrap items-center gap-3">
+                <ArrowLink to="/register">Create free account</ArrowLink>
+                <Button render={<Link to="/login" />} variant="outline" className="h-12.5 rounded-full border-foreground px-6 text-[15px] sm:h-12.5 sm:text-[15px]">
+                  Log in
+                </Button>
+              </div>
+              <p className="mt-5 font-mono text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
+                No phone number needed · Works in your browser
+              </p>
             </div>
-            <p className="mt-4 text-sm text-muted-foreground">No phone number needed. Works in your browser.</p>
-          </div>
-          <div className="relative lg:h-[520px]">
-            <div aria-hidden="true" className="absolute top-0 right-0 hidden size-[440px] lg:block" data-hero-art="">
-              <div
-                className="absolute inset-0 rounded-full"
-                style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--brand) 30%, transparent), transparent)" }}
-              />
-              {showOrb ? (
-                <Suspense fallback={null}>
-                  <HeroOrb />
-                </Suspense>
-              ) : null}
+            <div className="lg:flex lg:h-full lg:items-end lg:pb-4">
+              <ChatPreview className="lg:ml-0 lg:w-88 lg:-rotate-2" />
             </div>
-            <ChatPreview className="lg:absolute lg:bottom-0 lg:left-0 lg:w-88" />
           </div>
         </section>
 
-        <section aria-labelledby="features-heading" className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 md:pb-24">
-          <h2 id="features-heading" className="text-2xl sm:text-3xl">
-            Everything a chat needs, private by default
+        <section aria-labelledby="features-heading" data-reveal="" className="mx-auto max-w-6xl px-5 py-16 md:px-9 md:py-24">
+          <p data-reveal-item="" className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">What you get</p>
+          <h2 id="features-heading" data-reveal-item="" className="mt-3 max-w-3xl text-[40px] leading-[1.02] sm:text-[52px]">
+            Everything a chat needs, <span className="italic">private by default</span>
           </h2>
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map(({ icon: Icon, title, text }) => (
-              <li key={title} className="rounded-xl border border-border bg-card p-5 text-card-foreground">
-                <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Icon aria-hidden="true" className="size-5" />
-                </span>
-                <h3 className="mt-4 text-lg">{title}</h3>
-                <p className="mt-1.5 text-muted-foreground">{text}</p>
+          <ul className="mt-12 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map(({ icon: Icon, title, text }, i) => (
+              <li key={title} data-reveal-item="" className="border-t border-border py-7">
+                <div className="flex items-center justify-between">
+                  <span aria-hidden="true" className="font-mono text-xs text-muted-foreground">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <Icon aria-hidden="true" strokeWidth={1.3} className="size-5 text-brand" />
+                </div>
+                <h3 className="mt-4 text-[26px] leading-tight">{title}</h3>
+                <p className="mt-2 text-muted-foreground">{text}</p>
               </li>
             ))}
           </ul>
@@ -220,20 +196,24 @@ const Landing = () => {
         <LandingPresence />
       </main>
 
-      <footer className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div>
-          <Logo />
-          <p className="mt-2">End-to-end encrypted chat for India.</p>
+      <footer data-reveal="" className="mx-auto max-w-6xl px-5 pt-14 pb-10 md:px-9">
+        <div data-reveal-item="" className="flex flex-col gap-8 border-b border-border pb-10 md:flex-row md:items-end md:justify-between">
+          <div>
+            <Wordmark className="text-5xl md:text-6xl" />
+            <p className="mt-3 text-muted-foreground">End-to-end encrypted chat for India.</p>
+          </div>
+          <nav aria-label="Footer" className="flex gap-6">
+            <Link to="/login" className="text-foreground no-underline underline-offset-4 hover:underline">
+              Log in
+            </Link>
+            <Link to="/register" className="text-foreground no-underline underline-offset-4 hover:underline">
+              Create account
+            </Link>
+          </nav>
         </div>
-        <nav aria-label="Footer" className="flex gap-4">
-          <Link to="/login" className="rounded text-muted-foreground no-underline underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring">
-            Log in
-          </Link>
-          <Link to="/register" className="rounded text-muted-foreground no-underline underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring">
-            Create account
-          </Link>
-        </nav>
-        <p>© {new Date().getFullYear()} OpenChat</p>
+        <p className="mt-6 font-mono text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
+          © {new Date().getFullYear()} OpenChat
+        </p>
       </footer>
     </div>
   );

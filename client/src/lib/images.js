@@ -4,7 +4,7 @@
 // - made at most 2048px on the long side (phone photos are much bigger).
 // GIFs are kept as they are, so they stay animated.
 export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-export const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // before shrinking
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // before shrinking
 const MAX_SIDE = 2048;
 
 // Returns { blob, mime, width, height }, or throws an Error with a message

@@ -2,7 +2,7 @@ import { isSameDay } from "./time.js";
 
 // Messages from the same person this close together form one visual group:
 // bubbles sit closer and only the last one shows the time.
-export const GROUP_GAP_MS = 5 * 60 * 1000;
+const GROUP_GAP_MS = 5 * 60 * 1000;
 
 const continuesGroup = (earlier, later) =>
   Boolean(earlier && later) &&

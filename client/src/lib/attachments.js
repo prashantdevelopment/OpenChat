@@ -11,7 +11,7 @@ export const baseType = (mime) => String(mime).split(";")[0].trim().toLowerCase(
 
 // Every file is encrypted and uploaded in one piece of at most 10 MB (the
 // most Cloudinary's plan takes); AES-GCM adds 16 bytes.
-export const MAX_FILE_BYTES = 10 * 1024 * 1024 - 16;
+const MAX_FILE_BYTES = 10 * 1024 * 1024 - 16;
 const MAX_NAME_LENGTH = 200;
 
 const tooLarge = () => new Error("This file is larger than 10 MB.");

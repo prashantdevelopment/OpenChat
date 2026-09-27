@@ -45,7 +45,7 @@ Implemented as CSS variables in `client/src/index.css`; the `dark` class on `<ht
 - Paper grain: one fixed, click-through overlay (`body::after`), lighter in dark.
 - Hairline rules instead of boxes; small radii for bubbles (6–8px); pill buttons; "button-in-button" arrow on primary CTAs.
 - Icons: lucide at `strokeWidth` 1.25–1.5 (thin), never emoji.
-- Motion: `motion` in the app (messages, lists, overlays), custom ease `--ease-out-soft` (cubic-bezier(0.32, 0.72, 0, 1)); everything respects reduced motion. Landing keeps the encrypted orb (step 46), in the brand red.
+- Motion: `motion` in the app (messages, lists, overlays), custom ease `--ease-out-soft` (cubic-bezier(0.32, 0.72, 0, 1)); the landing page alone uses GSAP + Lenis (smooth scroll, reveals, a drifting glow). Everything respects reduced motion. No 3D anywhere (removed for speed).
 
 ### Canvas
 Directions and the chosen screens: https://claude.ai/artifact/5eyH1UrWJYo1hu7pgZ4egK (page "Round 2", row E).
