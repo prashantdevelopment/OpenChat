@@ -57,7 +57,7 @@ const LandingPresence = () => {
       <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 md:grid-cols-2 md:px-9 md:py-24">
         <div data-reveal-item="">
           <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Live, counts only</p>
-          <h2 id="presence-heading" className="mt-3 text-[30px] leading-[1.05] sm:text-[52px]">
+          <h2 id="presence-heading" className="mt-3 text-[1.875rem] leading-[1.05] sm:text-[3.25rem]">
             Right now <span className="text-brand italic">across India</span>
           </h2>
           <p className="mt-4 max-w-prose text-muted-foreground">
@@ -93,7 +93,7 @@ const LandingPresence = () => {
                       <span aria-hidden="true" className="w-5 font-mono text-xs text-muted-foreground">
                         {String(i + 1).padStart(2, "0")}
                       </span>
-                      <span className="font-heading text-[26px] leading-tight">{stateName(state.code)}</span>
+                      <span className="font-heading text-[1.625rem] leading-tight">{stateName(state.code)}</span>
                       <span aria-hidden="true" className="min-w-4 flex-1 -translate-y-1.5 border-b border-dotted border-muted-foreground/60" />
                       <span className="font-mono text-[13px]">{formatCount(state.online)} online</span>
                     </li>

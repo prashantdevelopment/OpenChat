@@ -39,7 +39,7 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
       >
         {({ isActive }) => (
           <>
-            <span className="flex min-w-0 items-center gap-2 font-heading text-[21px] leading-tight">
+            <span className="flex min-w-0 items-center gap-2 font-heading text-[1.3125rem] leading-tight">
               <span className="truncate">{otherParticipant?.username}</span>
               {otherParticipant?.online ? (
                 <>

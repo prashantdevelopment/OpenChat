@@ -12,7 +12,7 @@ const AuthCard = ({ title, description, children, footer, tagline = ["Private le
       <Link to="/" className="font-heading text-3xl text-foreground no-underline">
         Open<span className="text-brand italic">chat</span>
       </Link>
-      <p aria-hidden="true" className="font-heading text-[64px] leading-[0.95] tracking-tight xl:text-[84px]">
+      <p aria-hidden="true" className="font-heading text-[4rem] leading-[0.95] tracking-tight xl:text-[5.25rem]">
         {tagline[0]}
         <br />
         <span className="text-brand italic">{tagline[1]}</span>
@@ -26,7 +26,7 @@ const AuthCard = ({ title, description, children, footer, tagline = ["Private le
       <Link to="/" className="mb-10 font-heading text-2xl text-foreground no-underline lg:hidden">
         Open<span className="text-brand italic">chat</span>
       </Link>
-      <h1 className="text-[32px] leading-none sm:text-[44px]">{title}</h1>
+      <h1 className="text-[2rem] leading-none sm:text-[2.75rem]">{title}</h1>
       {description ? <p className="mt-3 text-muted-foreground">{description}</p> : null}
       <div className="mt-8">{children}</div>
       {footer ? <div className="mt-8 border-t border-border pt-5 text-sm text-muted-foreground">{footer}</div> : null}
@@ -36,7 +36,7 @@ const AuthCard = ({ title, description, children, footer, tagline = ["Private le
 
 // The form's main button: an ink pill with the arrow in a red circle.
 export const SubmitButton = ({ children, loading }) => (
-  <Button type="submit" loading={loading} className="h-12.5 w-full justify-between rounded-full pr-1.5 pl-6 text-[15px] sm:h-12.5 sm:text-[15px]">
+  <Button type="submit" loading={loading} className="h-12.5 w-full justify-between rounded-full pr-1.5 pl-6 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]">
     {children}
     <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
       <ArrowUpRightIcon strokeWidth={1.7} />

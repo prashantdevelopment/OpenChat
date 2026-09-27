@@ -32,7 +32,7 @@ const Section = ({ number, title, description, children }) => {
         <p aria-hidden="true" className="font-mono text-xs text-muted-foreground">
           {number}
         </p>
-        <h2 id={headingId} className="mt-1 text-[26px] leading-tight md:text-[32px]">
+        <h2 id={headingId} className="mt-1 text-[1.625rem] leading-tight md:text-[2rem]">
           {title}
         </h2>
         {description ? <p className="mt-2 text-sm text-muted-foreground">{description}</p> : null}
@@ -575,7 +575,7 @@ const AppSection = () => {
     <Section number="06" title="App" description="Install OpenChat to open it like an app, in its own window, from your home screen.">
       {state === "prompt" ? (
         // An ink pill with the arrow in its own red circle, like the other main buttons.
-        <Button className="h-12.5 gap-3 rounded-full pr-1.5 pl-6 text-[15px] sm:h-12.5 sm:text-[15px]" onClick={promptInstall}>
+        <Button className="h-12.5 gap-3 rounded-full pr-1.5 pl-6 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]" onClick={promptInstall}>
           Install OpenChat
           <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
             <ArrowDownIcon strokeWidth={1.7} />
@@ -611,7 +611,7 @@ const Settings = () => (
     <Masthead discover={false} />
     <main id="main" className="mx-auto max-w-5xl px-5 pt-10 pb-16 md:px-10 md:pt-14">
       <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Your account</p>
-      <h1 className="mt-2 mb-8 text-[40px] leading-none md:mb-10 md:text-[72px]">Settings</h1>
+      <h1 className="mt-2 mb-8 text-[2.5rem] leading-none md:mb-10 md:text-[4.5rem]">Settings</h1>
       <ProfileSection />
       <PasswordSection />
       <PrivacySection />

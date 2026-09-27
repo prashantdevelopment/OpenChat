@@ -582,7 +582,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             {/* "... is writing" in italics while the other person types. Read
                 out by the status region below. */}
             {isPeerTyping ? (
-              <p aria-hidden="true" data-typing className="mt-3 font-heading text-[15px] text-muted-foreground italic">
+              <p aria-hidden="true" data-typing className="mt-3 font-heading text-[0.9375rem] text-muted-foreground italic">
                 {peerName ?? "They"} {peerName ? "is" : "are"} writing…
               </p>
             ) : null}
@@ -749,7 +749,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             type="submit"
             aria-label="Send"
             disabled={!conversationKey}
-            className="h-12.5 gap-3 rounded-full pr-1.5 pl-5.5 text-[15px] max-sm:w-12.5 max-sm:p-1.5 sm:h-12.5 sm:text-[15px]"
+            className="h-12.5 gap-3 rounded-full pr-1.5 pl-5.5 text-[0.9375rem] max-sm:w-12.5 max-sm:p-1.5 sm:h-12.5 sm:text-[0.9375rem]"
           >
             <span className="max-sm:sr-only">Send</span>
             <span className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">

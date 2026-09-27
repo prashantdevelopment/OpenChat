@@ -228,6 +228,12 @@ const CallProvider = ({ children }) => {
       }
       // Both at once: the relay credentials while the microphone opens.
       const [iceServers] = await Promise.all([loadIceServers(), openMedia(media)]);
+      // Hung up meanwhile: release the microphone/camera just opened, nothing else.
+      if (callRef.current?.callId !== current.callId || callRef.current.status === "ended") {
+        localStream.current?.getTracks().forEach((track) => track.stop());
+        localStream.current = null;
+        return;
+      }
       const pc = createPeerConnection(current, iceServers);
       attachStateChannel(pc.createDataChannel("call-state"));
       const offer = await pc.createOffer();

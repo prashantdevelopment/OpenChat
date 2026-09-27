@@ -20,7 +20,7 @@ const Masthead = ({ children, discover = true }) => {
       >
         Skip to content
       </a>
-      <Link to="/chat" className="font-heading text-2xl text-foreground no-underline md:text-[30px]">
+      <Link to="/chat" className="font-heading text-2xl text-foreground no-underline md:text-[1.875rem]">
         Open<span className="text-brand italic">chat</span>
       </Link>
       <span className="hidden font-mono text-[11.5px] tracking-[0.14em] text-muted-foreground uppercase lg:inline">{today()}</span>

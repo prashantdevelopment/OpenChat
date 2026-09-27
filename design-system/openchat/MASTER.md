@@ -41,6 +41,7 @@ Implemented as CSS variables in `client/src/index.css`; the `dark` class on `<ht
 - Headings, names: **DM Serif Display** (400 + italic; never fake-bold), Hindi: **Tiro Devanagari Hindi**.
 - Text: **Hanken Grotesk** (variable), Hindi: **Noto Sans Devanagari** (variable).
 - Times, counts, safety numbers, labels in small caps: **JetBrains Mono** (variable).
+- **Size scale** (user feedback after the first deploy: everything felt too big): the root size is 15px on tablets and computers and 14px on phones (`html` in index.css, as percentages so a larger browser font still scales). Text sizes of 14px and up are written in rem (`text-[2.125rem]`, not `text-[34px]`) so they follow it; the small mono labels (10–13px) stay in px so they don't shrink further. Touch targets stay 44px (the Button's `::after`, in px), and on touch screens form fields stay 16px so iPhones don't zoom in.
 
 ### Shape, texture, motion
 - Paper grain: one fixed, click-through overlay (`body::after`), lighter in dark.

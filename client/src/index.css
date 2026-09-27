@@ -271,6 +271,18 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* The site's overall size: everything in rem (text, spacing, buttons,
+     icons) follows it. 16px was too big: 15px on tablets and computers,
+     14px on phones. Percentages, so a larger font chosen in the browser's
+     settings still makes everything larger. */
+  html {
+    font-size: 93.75%;
+  }
+  @media (max-width: 639px) {
+    html {
+      font-size: 87.5%;
+    }
+  }
   html {
     /* Lets the browser draw scrollbars and form controls in the matching theme. */
     color-scheme: light;
@@ -410,5 +422,16 @@
 @layer base {
   input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] {
     @apply border-destructive-foreground;
+  }
+}
+
+/* iPhones zoom into any field whose text is smaller than 16px when it is
+   tapped. Touch screens keep form fields at 16px at least. Outside the
+   layers on purpose, so it wins over the size utilities. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
   }
 }

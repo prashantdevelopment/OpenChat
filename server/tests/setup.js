@@ -23,3 +23,8 @@ process.env.UPLOADS_DIR = path.join(os.tmpdir(), `openchat-test-uploads-${proces
 // Test suites send far more requests than a person could: rate limits off
 // (read on every request). tests/security.test.js switches them on for itself.
 process.env.RATE_LIMITS = "off";
+// Never the real Cloudflare TURN key from server/.env: tests don't call
+// outside services. Empty (not deleted), so env.js's dotenv won't load it
+// again. tests/iceServers.test.js sets a fake key for itself.
+process.env.CLOUDFLARE_TURN_KEY_ID = "";
+process.env.CLOUDFLARE_TURN_KEY_API_TOKEN = "";

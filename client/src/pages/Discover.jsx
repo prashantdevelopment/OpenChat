@@ -77,7 +77,7 @@ const MapPopup = ({ state, online, onClose, onSeeEveryone, className, style }) =
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-heading text-[36px] leading-none">{stateName(state)}</p>
+          <p className="font-heading text-[2.25rem] leading-none">{stateName(state)}</p>
           <p className="mt-1.5 font-mono text-xs text-success">
             ● {online === null || online === undefined ? "fewer than 5 online" : `${online} online`}
           </p>
@@ -86,7 +86,7 @@ const MapPopup = ({ state, online, onClose, onSeeEveryone, className, style }) =
           <XIcon aria-hidden="true" strokeWidth={1.4} />
         </Button>
       </div>
-      <p className="mt-2 font-heading text-[15px] text-muted-foreground italic">
+      <p className="mt-2 font-heading text-[0.9375rem] text-muted-foreground italic">
         {users === null ? "Looking…" : users.length ? `${users.length === 1 ? "Someone" : users.length === 2 ? "Two people" : "Three people"} you could write to.` : "No one from here is listed yet."}
       </p>
       {users?.length ? (
@@ -178,7 +178,7 @@ const StatePeople = ({ state, scrollOnChange }) => {
 
   return (
     <div>
-      <h2 ref={headingRef} tabIndex={-1} id="people-heading" className="scroll-mt-4 text-[28px] leading-tight outline-none md:text-[34px]">
+      <h2 ref={headingRef} tabIndex={-1} id="people-heading" className="scroll-mt-4 text-[1.75rem] leading-tight outline-none md:text-[2.125rem]">
         People in {stateName(state)}
       </h2>
       <label htmlFor="discover-search" className="mt-4 block font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
@@ -275,7 +275,7 @@ const Discover = () => {
           aria-labelledby="discover-heading"
           className="relative flex flex-col gap-6 px-5 pt-8 pb-8 md:px-10 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-border lg:pt-10"
         >
-          <h1 id="discover-heading" className="text-[42px] leading-[0.92] md:text-[76px]">
+          <h1 id="discover-heading" className="text-[2.625rem] leading-[0.92] md:text-[4.75rem]">
             India,
             <br />
             <span className="text-brand italic">tonight.</span>
@@ -325,7 +325,7 @@ const Discover = () => {
                     <span aria-hidden="true" className="w-5 font-mono text-xs text-muted-foreground">
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <span className={cn("min-w-0 truncate font-heading text-[20px] leading-tight sm:text-[26px]", isChosen && "italic")}>{state.name}</span>
+                    <span className={cn("min-w-0 truncate font-heading text-[1.25rem] leading-tight sm:text-[1.625rem]", isChosen && "italic")}>{state.name}</span>
                     <span aria-hidden="true" className="min-w-4 flex-1 -translate-y-1.5 border-b border-dotted border-muted-foreground/60" />
                     <OnlineCount online={onlineIn(state.code)} className="shrink-0 font-mono text-[13px]" />
                   </button>

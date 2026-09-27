@@ -214,13 +214,13 @@ const CallOverlay = ({ call }) => {
         <div className="mt-5 flex gap-3">
           <Button
             variant="outline"
-            className="h-12.5 flex-1 rounded-full border-foreground/25 bg-transparent text-[15px] shadow-none hover:bg-accent sm:h-12.5 sm:text-[15px]"
+            className="h-12.5 flex-1 rounded-full border-foreground/25 bg-transparent text-[0.9375rem] shadow-none hover:bg-accent sm:h-12.5 sm:text-[0.9375rem]"
             onClick={declineCall}
           >
             Decline
           </Button>
           {/* An ink pill with the phone in its own red circle, like Send. */}
-          <Button className="h-12.5 flex-1 justify-between rounded-full pr-1.5 pl-5.5 text-[15px] sm:h-12.5 sm:text-[15px]" onClick={acceptCall}>
+          <Button className="h-12.5 flex-1 justify-between rounded-full pr-1.5 pl-5.5 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]" onClick={acceptCall}>
             Accept
             <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
               {call.media === "video" ? <VideoIcon strokeWidth={1.5} /> : <PhoneIcon strokeWidth={1.5} />}

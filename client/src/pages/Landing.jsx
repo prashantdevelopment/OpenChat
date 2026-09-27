@@ -76,12 +76,12 @@ const ChatPreview = ({ className = "" }) => (
     className={`relative z-10 mx-auto w-full max-w-sm select-none border border-border bg-card text-card-foreground shadow-[0_40px_80px_-40px_rgb(40_20_10/0.55)] ${className}`}
   >
     <div className="border-b border-border px-5 pt-4 pb-3">
-      <p className="font-heading text-[28px] leading-none italic">riya_kochi</p>
+      <p className="font-heading text-[1.75rem] leading-none italic">riya_kochi</p>
       <p className="mt-2 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground uppercase">
         <span className="text-success">● Online</span> · Kerala
       </p>
     </div>
-    <div className="space-y-2 px-5 py-4 text-[15px]">
+    <div className="space-y-2 px-5 py-4 text-[0.9375rem]">
       <p className="w-fit max-w-[80%] rounded-md bg-muted px-3.5 py-2.5">नमस्ते! आज शाम कॉल करें?</p>
       <p className="ml-auto w-fit max-w-[80%] rounded-md bg-bubble-own px-3.5 py-2.5 text-bubble-own-foreground">
         Haan, 7 baje. Pehle photos bhejta hoon.
@@ -100,7 +100,7 @@ const ChatPreview = ({ className = "" }) => (
       <p className="flex items-center justify-end gap-1.5 font-mono text-[10.5px] text-muted-foreground">
         7:02 pm <CheckCheckIcon className="size-3.5" />
       </p>
-      <p className="font-heading text-[15px] text-muted-foreground italic">riya_kochi is writing…</p>
+      <p className="font-heading text-[0.9375rem] text-muted-foreground italic">riya_kochi is writing…</p>
     </div>
   </div>
 );
@@ -142,7 +142,7 @@ const Landing = () => {
 
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 md:h-18 md:px-9">
-          <Wordmark className="text-2xl md:text-[30px]" />
+          <Wordmark className="text-2xl md:text-[1.875rem]" />
           <nav aria-label="Account" className="flex items-center gap-2">
             <Button render={<Link to="/login" />} variant="ghost" className="rounded-full px-4">
               Log in
@@ -170,7 +170,7 @@ const Landing = () => {
               <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
                 End-to-end encrypted · Made for India
               </p>
-              <h1 id="hero-heading" className="mt-5 text-[40px] leading-[0.95] text-balance sm:text-7xl xl:text-[84px]">
+              <h1 id="hero-heading" className="mt-5 text-[2.5rem] leading-[0.95] text-balance sm:text-7xl xl:text-[5.25rem]">
                 Private chats with people <span className="text-brand italic">across India</span>
               </h1>
               <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-muted-foreground">
@@ -179,7 +179,7 @@ const Landing = () => {
               </p>
               <div className="mt-9 flex flex-wrap items-center gap-3">
                 <ArrowLink to="/register">Create free account</ArrowLink>
-                <Button render={<Link to="/login" />} variant="outline" className="h-12.5 rounded-full border-foreground px-6 text-[15px] sm:h-12.5 sm:text-[15px]">
+                <Button render={<Link to="/login" />} variant="outline" className="h-12.5 rounded-full border-foreground px-6 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]">
                   Log in
                 </Button>
               </div>
@@ -195,7 +195,7 @@ const Landing = () => {
 
         <section aria-labelledby="features-heading" data-reveal="" className="mx-auto max-w-6xl px-5 py-16 md:px-9 md:py-24">
           <p data-reveal-item="" className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">What you get</p>
-          <h2 id="features-heading" data-reveal-item="" className="mt-3 max-w-3xl text-[30px] leading-[1.05] sm:text-[52px]">
+          <h2 id="features-heading" data-reveal-item="" className="mt-3 max-w-3xl text-[1.875rem] leading-[1.05] sm:text-[3.25rem]">
             Everything a chat needs, <span className="italic">private by default</span>
           </h2>
           <ul className="mt-12 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
@@ -207,7 +207,7 @@ const Landing = () => {
                   </span>
                   <Icon aria-hidden="true" strokeWidth={1.3} className="size-5 text-brand" />
                 </div>
-                <h3 className="mt-4 text-[26px] leading-tight">{title}</h3>
+                <h3 className="mt-4 text-[1.625rem] leading-tight">{title}</h3>
                 <p className="mt-2 text-muted-foreground">{text}</p>
               </li>
             ))}

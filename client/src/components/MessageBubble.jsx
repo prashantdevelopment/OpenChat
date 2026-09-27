@@ -109,7 +109,7 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
           </Attachment>
         ) : null}
         {isPrint ? (
-          <p dir="auto" className="mt-2 font-heading text-[15px] leading-snug italic wrap-anywhere">
+          <p dir="auto" className="mt-2 font-heading text-[0.9375rem] leading-snug italic wrap-anywhere">
             Fig. {figure ?? 1}
             {content ? (
               <>
