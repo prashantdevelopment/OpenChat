@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Link, Navigate, useLocation } from "react-router";
 import { useAuth } from "../auth/AuthContext.js";
-import AuthCard from "../components/AuthCard.jsx";
+import AuthCard, { SubmitButton } from "../components/AuthCard.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
-import { Button } from "@/components/ui/button";
 
 const Login = () => {
   const [identifier, setIdentifier] = useState("");
@@ -42,9 +41,9 @@ const Login = () => {
         </>
       }
     >
-      <form onSubmit={handleLogin} className="space-y-4">
+      <form onSubmit={handleLogin} className="space-y-6">
         {error ? (
-          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+          <p role="alert" className="border border-destructive-foreground/40 px-3 py-2 text-sm text-destructive-foreground">
             {error}
           </p>
         ) : null}
@@ -54,7 +53,7 @@ const Login = () => {
             <input
               {...props}
               type="text"
-              className="w-full"
+              className="field"
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
@@ -75,9 +74,7 @@ const Login = () => {
           )}
         </FormField>
 
-        <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
-          Log in
-        </Button>
+        <SubmitButton loading={isSubmitting}>Log in</SubmitButton>
       </form>
     </AuthCard>
   );

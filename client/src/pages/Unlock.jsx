@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
-import AuthCard from "../components/AuthCard.jsx";
+import AuthCard, { SubmitButton } from "../components/AuthCard.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import { Button } from "@/components/ui/button";
 
@@ -21,7 +21,7 @@ const Unlock = () => {
           This account was created before OpenChat had end-to-end encryption, so it has no keys.
           Please log out and create a new account.
         </p>
-        <Button variant="outline" className="mt-4 w-full" onClick={logout}>
+        <Button variant="outline" className="mt-6 h-12 w-full rounded-full border-foreground sm:h-12" onClick={logout}>
           Log out
         </Button>
       </AuthCard>
@@ -44,19 +44,20 @@ const Unlock = () => {
   return (
     <AuthCard
       title="Unlock your messages"
+      tagline={["Your key", "stays with you."]}
       description={`Hi ${currentUser.username}, your messages are end-to-end encrypted. Enter your password to unlock them on this device.`}
       footer={
         <>
           Not you?{" "}
-          <Button variant="link" className="h-auto p-0 text-primary underline" onClick={logout}>
+          <Button variant="link" className="h-auto p-0 text-foreground underline sm:h-auto" onClick={logout}>
             Log out
           </Button>
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {error ? (
-          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+          <p role="alert" className="border border-destructive-foreground/40 px-3 py-2 text-sm text-destructive-foreground">
             {error}
           </p>
         ) : null}
@@ -72,9 +73,7 @@ const Unlock = () => {
           )}
         </FormField>
 
-        <Button type="submit" size="lg" className="w-full" loading={isUnlocking}>
-          Unlock
-        </Button>
+        <SubmitButton loading={isUnlocking}>Unlock</SubmitButton>
       </form>
 
       <p className="mt-6 text-sm text-muted-foreground">

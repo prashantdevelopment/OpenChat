@@ -15,8 +15,8 @@ const FormField = ({ id, label, hint, error, children }) => {
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium">
+    <div className="space-y-1">
+      <label htmlFor={id} className="block font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
         {label}
       </label>
       {children({ id, "aria-describedby": describedBy, "aria-invalid": error ? true : undefined })}
@@ -40,17 +40,17 @@ export const PasswordInput = (props) => {
   const [isVisible, setIsVisible] = useState(false);
   return (
     <div className="relative">
-      <input {...props} type={isVisible ? "text" : "password"} className="w-full pr-11" />
+      <input {...props} type={isVisible ? "text" : "password"} className="field pr-12" />
       <Button
         type="button"
         variant="ghost"
-        size="icon-sm"
-        className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
+        size="icon"
+        className="absolute top-1/2 right-0 size-11 -translate-y-1/2 rounded-full text-muted-foreground sm:size-11"
         aria-label="Show password"
         aria-pressed={isVisible}
         onClick={() => setIsVisible((visible) => !visible)}
       >
-        {isVisible ? <EyeOffIcon aria-hidden="true" /> : <EyeIcon aria-hidden="true" />}
+        {isVisible ? <EyeOffIcon aria-hidden="true" strokeWidth={1.4} /> : <EyeIcon aria-hidden="true" strokeWidth={1.4} />}
       </Button>
     </div>
   );

@@ -9,7 +9,7 @@ const UNION_TERRITORIES = INDIAN_STATES.filter((state) => state.unionTerritory);
 // Takes the usual select props (id, name, value, onChange, aria-*).
 const StateSelect = (props) => (
   <div className="relative">
-    <select {...props} className="w-full cursor-pointer appearance-none pr-10">
+    <select {...props} className="field cursor-pointer appearance-none pr-10">
       <option value="">Select your state</option>
       <optgroup label="States">
         {STATES.map((state) => (

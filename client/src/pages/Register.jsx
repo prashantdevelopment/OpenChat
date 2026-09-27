@@ -5,10 +5,9 @@ import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { createKeyBundle } from "../crypto/keys.js";
 import { KeyRoundIcon } from "lucide-react";
-import AuthCard from "../components/AuthCard.jsx";
+import AuthCard, { SubmitButton } from "../components/AuthCard.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
-import { Button } from "@/components/ui/button";
 
 const FIELD_ORDER = ["username", "email", "password", "state"];
 
@@ -72,6 +71,7 @@ const Register = () => {
   return (
     <AuthCard
       title="Create your account"
+      tagline={["From Kashmir", "to Kanyakumari."]}
       description="Your messages are end-to-end encrypted: only you and the people you talk to can read them."
       footer={
         <>
@@ -79,9 +79,9 @@ const Register = () => {
         </>
       }
     >
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {formError ? (
-          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+          <p role="alert" className="border border-destructive-foreground/40 px-3 py-2 text-sm text-destructive-foreground">
             {formError}
           </p>
         ) : null}
@@ -97,7 +97,7 @@ const Register = () => {
               {...props}
               name="username"
               type="text"
-              className="w-full"
+              className="field"
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
@@ -113,7 +113,7 @@ const Register = () => {
               {...props}
               name="email"
               type="email"
-              className="w-full"
+              className="field"
               autoComplete="email"
               value={form.email}
               onChange={handleChange}
@@ -133,8 +133,8 @@ const Register = () => {
         </FormField>
 
         {/* The password is also the key to the messages: say so before it is chosen. */}
-        <div className="flex gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
-          <KeyRoundIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-foreground" />
+        <div className="flex gap-3 border-y border-border py-4 text-sm">
+          <KeyRoundIcon aria-hidden="true" strokeWidth={1.4} className="mt-0.5 size-4 shrink-0 text-brand" />
           <p>
             <strong className="font-semibold">Don&apos;t lose your password.</strong> It also unlocks your
             encrypted messages. If you forget it, they can&apos;t be recovered, not even by OpenChat.
@@ -145,9 +145,7 @@ const Register = () => {
           {(props) => <StateSelect {...props} name="state" value={form.state} onChange={handleChange} />}
         </FormField>
 
-        <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
-          Create account
-        </Button>
+        <SubmitButton loading={isSubmitting}>Create account</SubmitButton>
       </form>
     </AuthCard>
   );

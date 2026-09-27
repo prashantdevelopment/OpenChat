@@ -341,6 +341,21 @@
   }
 }
 
+/* The Ink & Paper text field: a line to write on, like the chat composer.
+   Focus draws the line in ink and thickens it; an error (aria-invalid, set by
+   FormField) turns it red. Every colour pair is 3:1 or more on paper. */
+@utility field {
+  @apply h-11 w-full max-w-full rounded-none border-0 border-b border-input bg-transparent px-0 py-2 text-base text-foreground;
+  &:focus-visible {
+    outline: none;
+    border-bottom-color: var(--foreground);
+    box-shadow: 0 1px 0 0 var(--foreground);
+  }
+  &[aria-invalid="true"] {
+    border-color: var(--destructive-foreground);
+  }
+}
+
 /* Form controls with an error (FormField sets aria-invalid). Red border
    (destructive text colour: 4.5:1 or more, above the 3:1 needed). */
 @layer base {
