@@ -114,7 +114,7 @@ const Chat = () => {
         // Can't decrypt: keep "New message".
       }
     }
-    const notification = new Notification(sender?.username ?? "OpenChat", { body, tag: update._id, icon: "/favicon.svg" });
+    const notification = new Notification(sender?.username ?? "OpenChat", { body, tag: update._id, icon: "/icon-192.png" });
     notification.onclick = () => {
       window.focus();
       navigate(`/chat/${update._id}`);

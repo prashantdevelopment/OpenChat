@@ -54,9 +54,13 @@ const useLandingMotion = (root) => {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let stop = null;
     let cancelled = false;
-    import("../lib/landingMotion.js").then(({ startLandingMotion }) => {
-      if (!cancelled) stop = startLandingMotion(root.current);
-    });
+    import("../lib/landingMotion.js")
+      .then(({ startLandingMotion }) => {
+        if (!cancelled) stop = startLandingMotion(root.current);
+      })
+      .catch(() => {
+        // Couldn't download it (connection lost): the page works without it.
+      });
     return () => {
       cancelled = true;
       stop?.();

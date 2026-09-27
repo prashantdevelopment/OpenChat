@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "OpenChat",
+  "short_name": "OpenChat",
+  "description": "Private, end-to-end encrypted messages, photos, voice notes and calls with people across India.",
+  "lang": "en-IN",
+  "start_url": "/chat",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F3EDE2",
+  "theme_color": "#F3EDE2",
+  "categories": ["social", "communication"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

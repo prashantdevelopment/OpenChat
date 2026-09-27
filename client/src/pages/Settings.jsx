@@ -1,11 +1,12 @@
 import { useId, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { CircleCheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { ArrowDownIcon, CircleCheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { rewrapPrivateKey } from "../crypto/keys.js";
 import { applyThemeChoice, getThemeChoice } from "../lib/theme.js";
 import { getNotificationPrefs, setNotificationPrefs } from "../lib/notifications.js";
+import { promptInstall, useInstallState } from "../lib/pwa.js";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
 import Avatar from "../components/Avatar.jsx";
@@ -492,10 +493,39 @@ const AppearanceSection = () => {
   );
 };
 
+// What each install state tells the user (see lib/pwa.js).
+const INSTALL_TEXT = {
+  standalone: "You're using the installed app.",
+  installed: "Installed. Open OpenChat from your home screen or app list.",
+  ios: "In Safari, tap Share, then Add to Home Screen.",
+  unavailable: "To install, open OpenChat in Chrome, Edge or Samsung Internet and choose Install app from the menu.",
+};
+
+const AppSection = () => {
+  const state = useInstallState();
+  return (
+    <Section number="06" title="App" description="Install OpenChat to open it like an app, in its own window, from your home screen.">
+      {state === "prompt" ? (
+        // An ink pill with the arrow in its own red circle, like the other main buttons.
+        <Button className="h-12.5 gap-3 rounded-full pr-1.5 pl-6 text-[15px] sm:h-12.5 sm:text-[15px]" onClick={promptInstall}>
+          Install OpenChat
+          <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
+            <ArrowDownIcon strokeWidth={1.7} />
+          </span>
+        </Button>
+      ) : (
+        <p role="status" className="max-w-md">
+          {INSTALL_TEXT[state]}
+        </p>
+      )}
+    </Section>
+  );
+};
+
 const AccountSection = () => {
   const { currentUser, logout } = useAuth();
   return (
-    <Section number="06" title="Account">
+    <Section number="07" title="Account">
       <dl>
         <dt className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Email</dt>
         <dd className="mt-1 break-all">{currentUser.email}</dd>
@@ -518,6 +548,7 @@ const Settings = () => (
       <PrivacySection />
       <NotificationsSection />
       <AppearanceSection />
+      <AppSection />
       <AccountSection />
     </main>
   </div>

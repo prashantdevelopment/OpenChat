@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>You're offline · OpenChat</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#F3EDE2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#15120F" media="(prefers-color-scheme: dark)" />
+    <!-- Shown by the service worker (sw.js) when a page can't load. It has to
+         work with no network, so everything is inline and the fonts are the
+         device's own. Colours: the Ink & Paper tokens from src/index.css. -->
+    <style>
+      :root {
+        --paper: #f3ede2;
+        --ink: #1b1714;
+        --muted: #5e554c;
+        --brand: #c8321a;
+        --ring: #b42c16;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #15120f;
+          --ink: #efe7da;
+          --muted: #a89e91;
+          --brand: #ff6a4a;
+          --ring: #ff6a4a;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 24px 16px;
+        background: var(--paper);
+        color: var(--ink);
+        font: 16px/1.5 system-ui, sans-serif;
+        text-align: center;
+      }
+      main {
+        max-width: 26rem;
+      }
+      img {
+        width: 72px;
+        height: 72px;
+      }
+      .kicker {
+        margin: 28px 0 0;
+        font: 11px/1 ui-monospace, Consolas, monospace;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      h1 {
+        margin: 10px 0 0;
+        font: 400 44px/1.05 Georgia, "Times New Roman", serif;
+        letter-spacing: -0.01em;
+      }
+      h1 em {
+        color: var(--brand);
+      }
+      p {
+        color: var(--muted);
+      }
+      button {
+        margin-top: 12px;
+        min-height: 48px;
+        padding: 0 28px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--ink);
+        color: var(--paper);
+        font: inherit;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/favicon.svg" alt="" />
+      <p class="kicker">OpenChat</p>
+      <h1>You're <em>offline.</em></h1>
+      <p>OpenChat needs the internet to send and receive messages. It will open again as soon as you're connected.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+    <script>
+      // Back online: load the page that was asked for, once the site really
+      // answers (the "online" event can come before the network works).
+      const retry = () =>
+        fetch("/", { method: "HEAD", cache: "no-store" })
+          .then((response) => response.ok && location.reload())
+          .catch(() => {});
+      window.addEventListener("online", retry);
+      setInterval(() => navigator.onLine && retry(), 5000);
+    </script>
+  </body>
+</html>
