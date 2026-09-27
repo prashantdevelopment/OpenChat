@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { ArrowDownIcon, XIcon } from "lucide-react";
 import api from "../api/api.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
@@ -94,7 +94,9 @@ const MapPopup = ({ state, online, onClose, onSeeEveryone, className, style }) =
             <li key={user._id} className="flex items-center gap-3 border-t border-border py-2.5">
               <Avatar name={user.username} avatarId={user.avatar} className="size-9.5 border border-foreground bg-transparent text-lg text-foreground italic" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{user.username}</span>
+                <Link to={`/u/${user.username}`} className="block truncate text-sm font-semibold text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
+                  {user.username}
+                </Link>
                 {user.bio ? <span className="block truncate text-[12.5px] text-muted-foreground">{user.bio}</span> : null}
               </span>
               <Button size="sm" className="rounded-full px-3.5" loading={openingId === user._id} onClick={() => start(user)}>
@@ -200,7 +202,9 @@ const StatePeople = ({ state, scrollOnChange }) => {
             <li key={user._id} className="flex items-center gap-3 border-t border-border py-3">
               <Avatar name={user.username} avatarId={user.avatar} className="bg-foreground text-lg text-background italic" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold">{user.username}</span>
+                <Link to={`/u/${user.username}`} className="block truncate font-semibold text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
+                  {user.username}
+                </Link>
                 {user.bio ? <span className="block truncate text-sm text-muted-foreground">{user.bio}</span> : null}
               </span>
               <Button size="sm" className="rounded-full px-4" loading={openingId === user._id} onClick={() => start(user)}>

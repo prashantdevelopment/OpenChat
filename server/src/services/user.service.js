@@ -104,6 +104,20 @@ const searchUsers = async (query, currentUserId) => {
         .lean();
 }
 
+// One person's public profile by username (the /u/:username page): the same
+// public fields as search, never email or password. An exact match, not a
+// regex: usernames are stored in lowercase.
+const getPublicProfile = async (username) => {
+    if (typeof username !== "string" || username.length > 30) {
+        throw new AppError("User not found", 404);
+    }
+    const user = await User.findOne({ username: username.toLowerCase() }).select(PUBLIC_USER_FIELDS).lean();
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
+    return user;
+};
+
 // The profile fields a user may change (settings page). Not the avatar:
 // a free URL would make everyone who sees it load a file from any server
 // (leaking their IP address). Photos come with uploads (plan step 36).
@@ -165,5 +179,6 @@ export {
     updateUser,
     changePassword,
     searchUsers,
-    discoverUsers
+    discoverUsers,
+    getPublicProfile
 }   

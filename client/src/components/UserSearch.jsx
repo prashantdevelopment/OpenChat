@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import api from "../api/api.js";
 import { Button } from "@/components/ui/button";
 import { SearchIcon } from "lucide-react";
@@ -95,7 +96,9 @@ const UserSearch = ({ onMessageUser, inMasthead = false }) => {
             <li key={user._id} className="flex items-center gap-3 rounded-lg px-1 py-1.5">
               <Avatar name={user.username} avatarId={user.avatar} className="size-9 text-sm" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{user.username}</span>
+                <Link to={`/u/${user.username}`} className="block truncate font-medium text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
+                  {user.username}
+                </Link>
                 {/* "Kerala · bio" on one line, cut off with … when too long. */}
                 {stateName(user.state) || user.bio ? (
                   <span className="block truncate text-xs text-muted-foreground">

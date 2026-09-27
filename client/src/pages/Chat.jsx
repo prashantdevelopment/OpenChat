@@ -327,7 +327,13 @@ const Chat = () => {
                 <div className="min-w-0 flex-1">
                   {/* The name set large, in the italic serif, like a byline. */}
                   <h2 className="truncate pb-1 font-heading text-4xl leading-[0.95] italic md:text-[52px]">
-                    {peer?.username ?? "Conversation"}
+                    {peer ? (
+                      <Link to={`/u/${peer.username}`} className="text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
+                        {peer.username}
+                      </Link>
+                    ) : (
+                      "Conversation"
+                    )}
                   </h2>
                   <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11.5px] tracking-[0.14em] text-muted-foreground uppercase">
                     {peer?.online ? (

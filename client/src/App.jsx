@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 // Opened now and then, so it is downloaded only when needed (its own file).
 const Settings = lazy(() => import("./pages/Settings.jsx"));
 const Discover = lazy(() => import("./pages/Discover.jsx"));
+const Profile = lazy(() => import("./pages/Profile.jsx"));
 
 const PageSpinner = () => (
   <div className="flex h-dvh items-center justify-center text-muted-foreground">
@@ -58,6 +59,16 @@ const App = () => {
             <Suspense fallback={<PageSpinner />}>
               <PageFade>
                 <Discover />
+              </PageFade>
+            </Suspense>
+          }
+        />
+        <Route
+          path="/u/:username"
+          element={
+            <Suspense fallback={<PageSpinner />}>
+              <PageFade>
+                <Profile />
               </PageFade>
             </Suspense>
           }

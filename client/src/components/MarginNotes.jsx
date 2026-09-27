@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { useDecryptedText } from "../crypto/hooks.js";
 import { computeSafetyNumber } from "../crypto/safetyNumber.js";
 import { parseAttachmentContent } from "../lib/messageContent.js";
@@ -62,6 +63,9 @@ const MarginNotes = ({ peer, myPublicKey, conversationKey, photos }) => {
         <Avatar name={peer.username} avatarId={peer.avatar} className="size-18 bg-brand text-3xl text-brand-foreground italic" />
         {peer.bio ? <p className="mt-2 font-heading text-[22px] leading-snug">“{peer.bio}”</p> : null}
         <p className="text-sm text-muted-foreground">{place ? `${place} · ` : ""}on OpenChat</p>
+        <Link to={`/u/${peer.username}`} className="mt-1 self-start text-sm text-foreground underline-offset-4">
+          View profile
+        </Link>
       </div>
       {number ? (
         <div className="border-t border-border pt-5">
