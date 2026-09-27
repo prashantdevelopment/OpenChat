@@ -4,10 +4,11 @@ import { useConversationKey, useDecryptedText } from "../crypto/hooks.js";
 import { formatConversationTime, formatFullDateTime } from "../lib/time.js";
 import { cn } from "@/lib/utils";
 import { describeMessage } from "../lib/messageContent.js";
-import Avatar from "./Avatar.jsx";
 
-// One conversation in the sidebar: avatar, name, time, one-line preview and
-// unread badge. The preview is encrypted too, so it is decrypted here.
+// One conversation in the list, set like a line in a magazine's contents:
+// the name in the serif, time in mono, a one-line preview and a red unread
+// badge; the open one is printed in reverse (ink background). The preview is
+// encrypted too, so it is decrypted here.
 const ConversationListItem = ({ conversation, currentUserId }) => {
   const otherParticipant = conversation.participants.find((participant) => participant._id !== currentUserId);
   const conversationKey = useConversationKey(conversation._id, otherParticipant?.publicKey);
@@ -31,43 +32,45 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
         to={`/chat/${conversation._id}`}
         className={({ isActive }) =>
           cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-foreground no-underline transition-colors duration-150 hover:bg-accent",
-            isActive && "bg-accent",
+            "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-t border-border px-5 py-3.5 no-underline transition-colors duration-150 md:px-7",
+            isActive ? "bg-foreground text-background" : "text-foreground hover:bg-accent",
           )
         }
       >
-        <Avatar name={otherParticipant?.username} avatarId={otherParticipant?.avatar} online={otherParticipant?.online} />
-
-        <span className="min-w-0 flex-1">
-          <span className="flex items-baseline gap-2">
-            <span className={cn("min-w-0 flex-1 truncate", isUnread ? "font-semibold" : "font-medium")}>
-              {otherParticipant?.username}
-              {otherParticipant?.online ? <span className="sr-only">, online</span> : null}
+        {({ isActive }) => (
+          <>
+            <span className="flex min-w-0 items-center gap-2 font-heading text-[21px] leading-tight">
+              <span className="truncate">{otherParticipant?.username}</span>
+              {otherParticipant?.online ? (
+                <>
+                  <span data-online aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", isActive ? "bg-[#9be7b9]" : "bg-success")} />
+                  <span className="sr-only">, online</span>
+                </>
+              ) : null}
             </span>
             {lastMessageAt ? (
               <time
                 dateTime={lastMessageAt}
                 title={formatFullDateTime(lastMessageAt)}
-                className={cn("shrink-0 text-xs", isUnread ? "font-semibold text-primary" : "text-muted-foreground")}
+                className={cn("self-center font-mono text-[11.5px]", isUnread && !isActive ? "text-brand" : "opacity-70")}
               >
                 {formatConversationTime(lastMessageAt)}
               </time>
-            ) : null}
-          </span>
-
-          <span className="flex items-center gap-2">
+            ) : (
+              <span />
+            )}
             {/* truncate: one line with "..." however long the message is */}
-            <span className={cn("min-w-0 flex-1 truncate text-sm", isUnread ? "text-foreground" : "text-muted-foreground")}>
-              {preview}
-            </span>
+            <span className={cn("min-w-0 truncate text-sm", isUnread ? "font-medium" : "opacity-75")}>{preview}</span>
             {isUnread ? (
-              <span className="min-w-5 shrink-0 rounded-full bg-primary px-1.5 text-center text-xs leading-5 font-semibold text-primary-foreground">
-                {unreadCount > 99 ? "99+" : unreadCount}
-                <span className="sr-only"> unread</span>
+              <span className="grid h-5.5 min-w-5 place-items-center justify-self-end rounded-full bg-brand px-1.5 font-mono text-[11.5px] text-brand-foreground">
+                <span>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                  <span className="sr-only"> unread</span>
+                </span>
               </span>
             ) : null}
-          </span>
-        </span>
+          </>
+        )}
       </NavLink>
     </li>
   );

@@ -1,8 +1,13 @@
 @import "tailwindcss";
-/* Fonts are self-hosted (no request to Google): see design-system/openchat/MASTER.md */
+/* Fonts are self-hosted (no request to Google): see design-system/openchat/MASTER.md.
+   Ink & Paper: DM Serif Display (headings) + Hanken Grotesk (text) + JetBrains Mono
+   (times, numbers); Tiro Devanagari Hindi / Noto Sans Devanagari for Hindi. */
+@import "@fontsource-variable/hanken-grotesk";
 @import "@fontsource-variable/noto-sans-devanagari";
-@import "@fontsource/poppins/600.css";
-@import "@fontsource/poppins/700.css";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource/dm-serif-display/400.css";
+@import "@fontsource/dm-serif-display/400-italic.css";
+@import "@fontsource/tiro-devanagari-hindi/400.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -13,9 +18,10 @@
     --animate-toast-success-even: toast-success-even 0.32s cubic-bezier(0.5, 1, 0.89, 1);
     --animate-toast-error-odd: toast-error-odd 0.28s cubic-bezier(0.5, 1, 0.89, 1);
     --animate-toast-error-even: toast-error-even 0.28s cubic-bezier(0.5, 1, 0.89, 1);
-    --font-heading: 'Poppins', 'Noto Sans Devanagari Variable', system-ui, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
-    --font-sans: 'Noto Sans Devanagari Variable', system-ui, sans-serif;
+    --font-heading: 'DM Serif Display', 'Tiro Devanagari Hindi', Georgia, serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, Consolas, monospace;
+    --font-sans: 'Hanken Grotesk Variable', 'Noto Sans Devanagari Variable', system-ui, sans-serif;
+    --ease-out-soft: cubic-bezier(0.32, 0.72, 0, 1);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
     --color-sidebar-primary: var(--sidebar-primary);
@@ -59,6 +65,10 @@
     --color-info-foreground: var(--info-foreground);
     --color-info: var(--info);
     --color-destructive-foreground: var(--destructive-foreground);
+    --color-brand: var(--brand);
+    --color-print: var(--print);
+    --color-print-foreground: var(--print-foreground);
+    --color-brand-foreground: var(--brand-foreground);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -144,98 +154,113 @@
 }
 
 :root {
-    /* OpenChat light theme (default). Values and contrast: design-system/openchat/MASTER.md */
-    --background: #FFFFFF;
-    --foreground: #0F172A;
-    --card: #FFFFFF;
-    --card-foreground: #0F172A;
-    --popover: #FFFFFF;
-    --popover-foreground: #0F172A;
-    --primary: #2563EB;
-    --primary-foreground: #FFFFFF;
-    --secondary: #F1F5FD;
-    --secondary-foreground: #0F172A;
-    --muted: #F1F5FD;
-    --muted-foreground: #475569;
-    --accent: #EEF2FB;
-    --accent-foreground: #0F172A;
-    --border: #E2E8F0;          /* decorative dividers only */
-    --input: #8391A7;           /* form-control borders: 3.2:1 */
-    --ring: #2563EB;
-    --destructive: #DC2626;     /* background, with white text: 4.8:1 */
-    --destructive-foreground: #B91C1C; /* error text: 6.5:1 */
-    --success: #047857;         /* online dot: 5.5:1 */
-    --success-foreground: #047857;
-    --info: #2563EB;
-    --info-foreground: #1D4ED8;
-    --warning: #D97706;
-    --warning-foreground: #B45309;
-    --bubble-own: #2563EB;      /* my messages: white text 5.2:1 */
-    --bubble-own-foreground: #FFFFFF;
-    --radius: 0.625rem;
-    --chart-1: var(--color-orange-600);
-    --chart-2: var(--color-teal-600);
-    --chart-3: var(--color-cyan-900);
-    --chart-4: var(--color-amber-400);
-    --chart-5: var(--color-amber-500);
-    --code: #F1F5FD;
+    /* OpenChat "Ink & Paper" light theme (default): warm paper, black ink, one
+       sindoor-red accent. Contrast (WCAG) noted per pair; design-system/openchat/MASTER.md */
+    --background: #F3EDE2;      /* paper */
+    --foreground: #1B1714;      /* ink on paper: 15.3:1 */
+    --card: #FBF8F2;
+    --card-foreground: #1B1714;
+    --popover: #FBF8F2;
+    --popover-foreground: #1B1714;
+    --primary: #1B1714;         /* ink buttons, paper text: 15.3:1 */
+    --primary-foreground: #F3EDE2;
+    --secondary: #E8E0D1;
+    --secondary-foreground: #1B1714;
+    --muted: #E8E0D1;           /* the other person's bubble, panels */
+    --muted-foreground: #5E554C; /* 6.3:1 on paper, 5.6:1 on muted */
+    --accent: #EAE2D3;          /* hover */
+    --accent-foreground: #1B1714;
+    --border: #DCD2C1;          /* hairline rules, decorative only */
+    --input: #8C8173;           /* form-control borders: 3.3:1 */
+    --ring: #B42C16;            /* focus ring: 5.4:1 */
+    --brand: #C8321A;           /* sindoor red: 4.6:1 on paper */
+    --brand-foreground: #FFFFFF; /* on brand: 5.4:1 */
+    --destructive: #B42318;     /* background, white text: 6.6:1 */
+    --destructive-foreground: #A61B0F; /* error text: 6.5:1 */
+    --success: #1F7A4C;         /* online: 4.6:1 */
+    --success-foreground: #1F7A4C;
+    --info: #1B1714;
+    --info-foreground: #1B1714;
+    --warning: #A15C07;
+    --warning-foreground: #8A4E06;
+    --bubble-own: #1B1714;      /* my messages: paper text 15.3:1 */
+    --bubble-own-foreground: #F3EDE2;
+    --radius: 0.5rem;
+    --chart-1: #C8321A;
+    --chart-2: #1F7A4C;
+    --chart-3: #1B1714;
+    --chart-4: #A15C07;
+    --chart-5: #5E554C;
+    --code: #E8E0D1;
     --code-foreground: var(--foreground);
-    --code-highlight: #E2E8F0;
-    --sidebar: #F8FAFC;
-    --sidebar-foreground: #0F172A;
-    --sidebar-primary: #2563EB;
-    --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #EEF2FB;
-    --sidebar-accent-foreground: #0F172A;
-    --sidebar-border: #E2E8F0;
-    --sidebar-ring: #2563EB;
+    --code-highlight: #DCD2C1;
+    --sidebar: #F3EDE2;
+    --sidebar-foreground: #1B1714;
+    --sidebar-primary: #1B1714;
+    --sidebar-primary-foreground: #F3EDE2;
+    --sidebar-accent: #EAE2D3;
+    --sidebar-accent-foreground: #1B1714;
+    --sidebar-border: #DCD2C1;
+    --sidebar-ring: #B42C16;
+    --map-land: #EFE6D6;        /* a state with fewer than 5 online */
+    --map-disputed: #E3D8C5;    /* small inter-state disputed areas (Survey of India) */
+    --print: #FBF8F2;           /* photo prints: always light paper */
+    --print-foreground: #1B1714;
+    --grain-opacity: 0.3;
 }
 
 .dark {
-    /* OpenChat dark theme */
-    --background: #0B1220;
-    --foreground: #E2E8F0;
-    --card: #111A2E;
-    --card-foreground: #E2E8F0;
-    --popover: #111A2E;
-    --popover-foreground: #E2E8F0;
-    --primary: #60A5FA;         /* dark text on it: 7.4:1 */
-    --primary-foreground: #0B1220;
-    --secondary: #1E293B;
-    --secondary-foreground: #E2E8F0;
-    --muted: #1E293B;
-    --muted-foreground: #94A3B8;
-    --accent: #1A2436;
-    --accent-foreground: #E2E8F0;
-    --border: #1E293B;
-    --input: #64748B;           /* 3.9:1 */
-    --ring: #60A5FA;
-    --destructive: #DC2626;     /* white text: 4.8:1 */
-    --destructive-foreground: #F87171; /* 6.8:1 */
-    --success: #34D399;
-    --success-foreground: #34D399;
-    --info: #60A5FA;
-    --info-foreground: #60A5FA;
-    --warning: #FBBF24;
-    --warning-foreground: #FBBF24;
-    --bubble-own: #1D4ED8;      /* white text 6.7:1 */
-    --bubble-own-foreground: #FFFFFF;
-    --chart-1: var(--color-blue-700);
-    --chart-2: var(--color-emerald-500);
-    --chart-3: var(--color-amber-500);
-    --chart-4: var(--color-purple-500);
-    --chart-5: var(--color-rose-500);
-    --code: #111A2E;
+    /* "Ink night": the same system inverted, paper-coloured text on ink. */
+    --background: #15120F;
+    --foreground: #EFE7DA;      /* 15.2:1 */
+    --card: #1E1A16;
+    --card-foreground: #EFE7DA;
+    --popover: #1E1A16;
+    --popover-foreground: #EFE7DA;
+    --primary: #EFE7DA;         /* ink text on it: 15.2:1 */
+    --primary-foreground: #15120F;
+    --secondary: #221D18;
+    --secondary-foreground: #EFE7DA;
+    --muted: #221D18;
+    --muted-foreground: #A89E91; /* 7.1:1 on bg, 6.3:1 on muted */
+    --accent: #26211B;
+    --accent-foreground: #EFE7DA;
+    --border: #2E2822;
+    --input: #7D7366;           /* 4.0:1 */
+    --ring: #FF6A4A;
+    --brand: #FF6A4A;           /* 6.6:1 on bg */
+    --brand-foreground: #1A0C07; /* on brand: 6.7:1 */
+    --destructive: #B8321D;     /* white text: 6.0:1 */
+    --destructive-foreground: #FF8A70; /* 8.1:1 */
+    --success: #7FD9A0;         /* 11:1 */
+    --success-foreground: #7FD9A0;
+    --info: #EFE7DA;
+    --info-foreground: #EFE7DA;
+    --warning: #F2B35C;
+    --warning-foreground: #F2B35C;
+    --bubble-own: #EFE7DA;      /* ink text 15.2:1 */
+    --bubble-own-foreground: #15120F;
+    --chart-1: #FF6A4A;
+    --chart-2: #7FD9A0;
+    --chart-3: #EFE7DA;
+    --chart-4: #F2B35C;
+    --chart-5: #A89E91;
+    --code: #221D18;
     --code-foreground: var(--foreground);
-    --code-highlight: #1E293B;
-    --sidebar: #0E1627;
-    --sidebar-foreground: #E2E8F0;
-    --sidebar-primary: #60A5FA;
-    --sidebar-primary-foreground: #0B1220;
-    --sidebar-accent: #1A2436;
-    --sidebar-accent-foreground: #E2E8F0;
-    --sidebar-border: #1E293B;
-    --sidebar-ring: #60A5FA;
+    --code-highlight: #2E2822;
+    --sidebar: #15120F;
+    --sidebar-foreground: #EFE7DA;
+    --sidebar-primary: #EFE7DA;
+    --sidebar-primary-foreground: #15120F;
+    --sidebar-accent: #26211B;
+    --sidebar-accent-foreground: #EFE7DA;
+    --sidebar-border: #2E2822;
+    --sidebar-ring: #FF6A4A;
+    --map-land: #2A241E;
+    --map-disputed: #1F1A15;
+    --print: #EFE7DA;
+    --print-foreground: #15120F;
+    --grain-opacity: 0.12;
 }
 
 @layer base {
@@ -253,8 +278,24 @@
     @apply bg-background font-sans text-base leading-normal text-foreground antialiased;
   }
   h1, h2, h3 {
-    /* Poppins is loaded in 600 and 700 only (see the @imports above). */
-    @apply font-heading font-semibold;
+    /* DM Serif Display has one weight (400): never fake-bold it. */
+    @apply font-heading font-normal tracking-tight;
+  }
+  /* Paper grain: one fixed layer over the page that never takes clicks or
+     scrolls (cheap to draw). Lighter in the dark theme. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    background: url("./assets/paper-grain.svg");
+    opacity: var(--grain-opacity);
+    mix-blend-mode: multiply;
+  }
+  .dark body::after {
+    filter: invert(1);
+    mix-blend-mode: screen;
   }
   code, kbd, samp, pre {
     font-family: var(--font-mono);

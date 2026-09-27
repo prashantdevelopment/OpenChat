@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // One message. It arrives encrypted and is decrypted here, in the browser.
-// Mine: right, blue. Theirs: left, muted. Within a group (see lib/timeline.js)
+// Mine: right, ink. Theirs: left, a darker paper. A photo is shown like a
+// print with a figure caption ("Fig. 2 — caption"), slightly askew. Within a group (see lib/timeline.js)
 // bubbles sit close together and only the last one shows the time.
 // A message still on its way (see ConversationView) has `status` "sending" or
 // "failed" and its plain `text`; it shows that status instead of a time.
@@ -27,7 +28,7 @@ const RECEIPTS = {
   read: { Icon: CheckCheckIcon, label: "Read", className: "text-primary" },
 };
 
-const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, receipts, onRetry, animateIn }) => {
+const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, receipts, onRetry, animateIn, figure }) => {
   const { text, failed } = useDecryptedText(conversationKey, message, message.sender);
 
   const kind = ["image", "video", "audio", "file"].includes(message.messageType) ? message.messageType : null;
@@ -53,6 +54,7 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
   const callText = callRecord ? describeCall(callRecord, isOwnMessage) : null;
   if (message.messageType === "call" && text !== undefined && !callRecord) content = "[This call record could not be opened]";
   const progress = message.status === "sending" && message.progress < 1 ? message.progress : null;
+  const isPrint = kind === "image" && Boolean(attachment);
 
   return (
     // animateIn: a message that just arrived or was just sent rises in (only
@@ -67,11 +69,17 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
         className={cn(
           // relative: keeps the sr-only label (position: absolute) inside the
           // scrolling log, otherwise it stretches the whole page.
-          "relative max-w-[85%] rounded-2xl sm:max-w-[70%]",
-          attachment ? "p-1" : "px-3.5 py-2",
-          isOwnMessage ? "bg-bubble-own text-bubble-own-foreground" : "bg-muted text-foreground",
-          // The last bubble of a group gets a smaller corner on its side, like a tail.
-          isLastInGroup && (isOwnMessage ? "rounded-br-md" : "rounded-bl-md"),
+          "relative max-w-[85%] sm:max-w-[58%]",
+          isPrint
+            ? cn(
+                "bg-print p-2 pb-2.5 text-print-foreground shadow-[0_12px_24px_-14px_rgb(60_40_20/0.45)]",
+                isOwnMessage ? "rotate-[1.2deg]" : "-rotate-[0.8deg]",
+              )
+            : cn(
+                "rounded-md leading-relaxed",
+                attachment ? "p-1" : "px-4 py-3",
+                isOwnMessage ? "bg-bubble-own text-bubble-own-foreground" : "bg-muted text-foreground",
+              ),
         )}
       >
         {/* Screen readers hear who said it; sighted users see it from the side. */}
@@ -100,7 +108,17 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
             ) : null}
           </Attachment>
         ) : null}
-        {callText ? (
+        {isPrint ? (
+          <p dir="auto" className="mt-2 font-heading text-[15px] leading-snug italic wrap-anywhere">
+            Fig. {figure ?? 1}
+            {content ? (
+              <>
+                {" — "}
+                <span className="whitespace-pre-wrap">{content}</span>
+              </>
+            ) : null}
+          </p>
+        ) : callText ? (
           <p className={cn("flex items-center gap-2 font-medium", callText.missed && "text-destructive-foreground")}>
             {callText.missed ? (
               <PhoneMissedIcon aria-hidden="true" className="size-4 shrink-0" />
@@ -112,14 +130,14 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
             {callText.text}
           </p>
         ) : !attachment || content ? (
-          <p dir="auto" className={cn("whitespace-pre-wrap wrap-anywhere", attachment && "px-2.5 pt-1.5 pb-1", isStatus && "italic opacity-80")}>
+          <p dir="auto" className={cn("whitespace-pre-wrap wrap-anywhere", attachment && "px-2.5 pt-1.5 pb-1", isStatus && "font-heading italic opacity-80")}>
             {content}
           </p>
         ) : null}
       </div>
 
       {message.status === "sending" ? (
-        <span className="reveal-late mt-1 px-1 text-xs text-muted-foreground">Sending...</span>
+        <span className="reveal-late mt-1 px-1 font-mono text-[10.5px] text-muted-foreground">Sending...</span>
       ) : message.status === "failed" ? (
         <div className="mt-1 flex items-center gap-2 px-1 text-xs">
           <span className="inline-flex items-center gap-1 text-destructive-foreground">
@@ -132,7 +150,7 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
           </Button>
         </div>
       ) : isLastInGroup && message.createdAt ? (
-        <div className="mt-1 flex items-center gap-1 px-1 text-xs text-muted-foreground">
+        <div className={cn("flex items-center gap-1.5 px-1 font-mono text-[10.5px] text-muted-foreground", isPrint ? "mt-2.5" : "mt-1")}>
           <time dateTime={message.createdAt} title={formatFullDateTime(message.createdAt)}>
             {formatTimeOfDay(message.createdAt)}
           </time>
@@ -148,7 +166,7 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
 const Attachment = ({ kind, fileId, file, previewUrl, label, children }) => {
   if (kind === "image") {
     return (
-      <EncryptedImage fileId={fileId} file={file} previewUrl={previewUrl} alt={label}>
+      <EncryptedImage fileId={fileId} file={file} previewUrl={previewUrl} alt={label} className="rounded-none">
         {children}
       </EncryptedImage>
     );

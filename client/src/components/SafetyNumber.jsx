@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { LockIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { computeSafetyNumber } from "../crypto/safetyNumber.js";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,7 @@ import {
 
 // "End-to-end encrypted" in the chat header. Opens a dialog with the safety
 // number, to be compared with the other person (see crypto/safetyNumber.js).
-const SafetyNumber = ({ myPublicKey, peerPublicKey, peerName }) => {
+const SafetyNumber = ({ myPublicKey, peerPublicKey, peerName, className }) => {
   const [result, setResult] = useState({ forKeys: null, number: null });
   const keys = `${myPublicKey}|${peerPublicKey}`;
 
@@ -42,7 +43,7 @@ const SafetyNumber = ({ myPublicKey, peerPublicKey, peerName }) => {
         render={
           <button
             type="button"
-            className="inline-flex cursor-pointer items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground"
+            className={cn("inline-flex cursor-pointer items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground", className)}
           />
         }
       >

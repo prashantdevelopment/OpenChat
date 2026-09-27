@@ -1,14 +1,14 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeftIcon, CompassIcon, MessagesSquareIcon, PhoneIcon, SettingsIcon, VideoIcon, WifiOffIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowUpRightIcon, PhoneIcon, VideoIcon, WifiOffIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
 import ConversationListItem from "../components/ConversationListItem.jsx";
 import ConversationView from "../components/ConversationView.jsx";
 import SafetyNumber from "../components/SafetyNumber.jsx";
-import Avatar from "../components/Avatar.jsx";
-import ThemeToggle from "../components/ThemeToggle.jsx";
+import Masthead from "../components/Masthead.jsx";
+import MarginNotes from "../components/MarginNotes.jsx";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastManager } from "@/components/ui/toast";
@@ -17,16 +17,20 @@ import { formatLastSeen } from "../lib/time.js";
 import { mergeReceipts } from "../lib/receipts.js";
 import { useCall } from "../calls/CallContext.js";
 import { getNotificationPrefs, shouldNotify, titleWithUnread } from "../lib/notifications.js";
-import { getConversationKey } from "../crypto/hooks.js";
+import { getConversationKey, useConversationKey } from "../crypto/hooks.js";
 import { decryptMessage } from "../crypto/messages.js";
 import { describeMessage } from "../lib/messageContent.js";
 import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
+import { useMediaQuery } from "../hooks/useMediaQuery.js";
+import { INDIAN_STATES } from "../../../shared/indian-states.js";
+
+const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name;
 
 const getConversations = async () => (await api.get("/conversations")).data.conversations;
 
 const Chat = () => {
-  const { currentUser, privateKey, logout } = useAuth();
+  const { currentUser, privateKey } = useAuth();
   // The open conversation lives in the URL (/chat/:conversationId), so
   // refresh, back/forward and shared links all keep it.
   const { conversationId } = useParams();
@@ -42,6 +46,11 @@ const Chat = () => {
   const [isOfflineLong, setIsOfflineLong] = useState(false);
   if (isConnected && isOfflineLong) setIsOfflineLong(false); // reset for the next drop
   const navigate = useNavigate();
+  // The search sits in the top bar on wider screens and above the list on
+  // phones; only one copy is rendered. The margin notes need a wide screen.
+  const isWide = useMediaQuery("(min-width: 768px)");
+  const isExtraWide = useMediaQuery("(min-width: 1280px)");
+  const [photos, setPhotos] = useState([]);
 
   // Fetch conversations
   useEffect(() => {
@@ -219,6 +228,8 @@ const Chat = () => {
   // conversation isn't ours.
   const openConversation = conversations.find((conversation) => conversation._id === conversationId);
   const peer = openConversation?.participants.find((participant) => participant._id !== currentUser._id);
+  const conversationKey = useConversationKey(conversationId, peer?.publicKey);
+  const place = stateName(peer?.state);
 
   return (
     // The whole app fits the screen (dvh also follows mobile browser bars):
@@ -234,69 +245,63 @@ const Chat = () => {
           </p>
         ) : null}
       </div>
-      <div className="flex min-h-0 flex-1">
-        {/* Sidebar. Desktop: always visible. Mobile: only when no conversation
+      <Masthead>{isWide ? <UserSearch inMasthead onMessageUser={handleMessageUser} /> : null}</Masthead>
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]",
+          isExtraWide && peer && "xl:grid-cols-[360px_minmax(0,1fr)_290px]",
+        )}
+      >
+        {/* The list. Desktop: always visible. Mobile: only when no conversation
             is open (the URL decides, so the phone's back button just works). */}
-        <aside
-          aria-label="Chats"
-          className={cn(
-            "w-full flex-col border-border md:flex md:w-80 md:shrink-0 md:border-r",
-            conversationId ? "hidden" : "flex",
-          )}
-        >
-          <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg leading-tight">OpenChat</h1>
-              <p className="truncate text-sm text-muted-foreground">Logged in as {currentUser.username}</p>
+        <aside aria-label="Chats" className={cn("min-h-0 flex-col md:flex md:border-r md:border-border", conversationId ? "hidden" : "flex")}>
+          <div className="px-5 pt-6 pb-4 md:px-7">
+            <div className="flex items-baseline justify-between gap-3">
+              <h1 className="text-[44px] leading-none">Chats</h1>
+              {totalUnread > 0 ? (
+                <span className="font-mono text-xs text-brand">{String(totalUnread).padStart(2, "0")} unread</span>
+              ) : null}
             </div>
-            <ThemeToggle />
-            <Button render={<Link to="/settings" />} variant="outline" size="icon" aria-label="Settings">
-              <SettingsIcon aria-hidden="true" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={logout}>
-              Logout
-            </Button>
-          </header>
-
-          <div className="border-b border-border px-4 py-3">
-            <UserSearch onMessageUser={handleMessageUser} />
-            <Link to="/discover" className="mt-3 inline-flex items-center gap-1.5 text-sm">
-              <CompassIcon aria-hidden="true" className="size-4" />
-              Discover people by state
-            </Link>
+            <p className="mt-2 truncate text-sm text-muted-foreground">Logged in as {currentUser.username}</p>
+            {isWide ? null : (
+              <div className="mt-4 flex flex-col gap-3">
+                <UserSearch onMessageUser={handleMessageUser} />
+                <Link to="/discover" className="inline-flex items-center gap-1.5 self-start text-sm text-foreground sm:hidden">
+                  Discover India
+                  <ArrowUpRightIcon aria-hidden="true" strokeWidth={1.4} className="size-4" />
+                </Link>
+              </div>
+            )}
           </div>
 
-          <nav aria-label="Conversations" className="min-h-0 flex-1 overflow-y-auto p-2">
+          <nav aria-label="Conversations" className="min-h-0 flex-1 overflow-y-auto">
             <h2 className="sr-only">Conversations</h2>
             {listStatus === "loading" ? (
               // Skeletons only if loading takes longer than half a second.
               <div role="status" className="reveal-late">
                 <span className="sr-only">Loading conversations...</span>
                 {Array.from({ length: 5 }, (_, i) => (
-                  <div key={i} className="flex items-center gap-3 px-3 py-2.5">
-                    <Skeleton className="size-10 shrink-0 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-3.5 w-1/3" />
-                      <Skeleton className="h-3 w-2/3" />
-                    </div>
+                  <div key={i} className="space-y-2 border-t border-border px-7 py-4">
+                    <Skeleton className="h-5 w-1/2" />
+                    <Skeleton className="h-3 w-3/4" />
                   </div>
                 ))}
               </div>
             ) : listStatus === "error" ? (
-              <div role="alert" className="px-3 py-8 text-center">
-                <p className="font-medium">Couldn&apos;t load your chats</p>
+              <div role="alert" className="border-t border-border px-7 py-8 text-center">
+                <p className="font-heading text-xl">Couldn&apos;t load your chats</p>
                 <p className="mt-1 text-sm text-muted-foreground">Check your connection and try again.</p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={retryConversations}>
+                <Button variant="outline" size="sm" className="mt-3 rounded-full" onClick={retryConversations}>
                   Try again
                 </Button>
               </div>
             ) : conversations.length === 0 ? (
-              <div className="px-3 py-8 text-center">
-                <p className="font-medium">No conversations yet</p>
-                <p className="mt-1 text-sm text-muted-foreground">Find someone above and send them a message.</p>
+              <div className="border-t border-border px-7 py-8">
+                <p className="font-heading text-xl">No conversations yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">Find someone in the search and write to them.</p>
               </div>
             ) : (
-              <ul className="flex flex-col gap-0.5">
+              <ul className="flex flex-col border-b border-border">
                 {conversations.map((conversation) => (
                   <ConversationListItem key={conversation._id} conversation={conversation} currentUserId={currentUser._id} />
                 ))}
@@ -305,50 +310,66 @@ const Chat = () => {
           </nav>
         </aside>
 
-        {/* Open conversation. Mobile: shown instead of the sidebar. */}
-        <main className={cn("min-w-0 flex-1 flex-col md:flex", conversationId ? "flex" : "hidden")}>
+        {/* Open conversation. Mobile: shown instead of the list. */}
+        <main className={cn("min-h-0 min-w-0 flex-col md:flex", conversationId ? "flex" : "hidden")}>
           {conversationId ? (
             <>
-              <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+              <header className="flex items-end gap-3 border-b border-border px-5 pt-5 pb-4 md:gap-4.5 md:px-9 md:pt-6.5">
                 <Button
                   render={<Link to="/chat" />}
                   variant="ghost"
                   size="icon"
-                  className="-ml-2 md:hidden"
+                  className="-ml-2 self-center md:hidden"
                   aria-label="Back to conversations"
                 >
-                  <ArrowLeftIcon aria-hidden="true" />
+                  <ArrowLeftIcon aria-hidden="true" strokeWidth={1.4} />
                 </Button>
-                {peer ? <Avatar name={peer.username} avatarId={peer.avatar} online={peer.online} /> : null}
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-base leading-tight">{peer?.username ?? "Conversation"}</h2>
-                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                  {/* The name set large, in the italic serif, like a byline. */}
+                  <h2 className="truncate pb-1 font-heading text-4xl leading-[0.95] italic md:text-[52px]">
+                    {peer?.username ?? "Conversation"}
+                  </h2>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11.5px] tracking-[0.14em] text-muted-foreground uppercase">
                     {peer?.online ? (
-                      <span className="font-medium text-success-foreground">Online</span>
+                      <span className="text-success">
+                        <span aria-hidden="true">● </span>Online
+                      </span>
                     ) : peer?.lastSeen ? (
                       <span>{formatLastSeen(peer.lastSeen)}</span>
                     ) : null}
-                    {peer?.online || peer?.lastSeen ? <span aria-hidden="true">·</span> : null}
-                    <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={peer?.username} />
+                    {place ? (
+                      <>
+                        {peer?.online || peer?.lastSeen ? <span aria-hidden="true">·</span> : null}
+                        <span>{place}</span>
+                      </>
+                    ) : null}
+                    {peer?.online || peer?.lastSeen || place ? <span aria-hidden="true">·</span> : null}
+                    <SafetyNumber
+                      myPublicKey={currentUser.publicKey}
+                      peerPublicKey={peer?.publicKey}
+                      peerName={peer?.username}
+                      className="font-mono text-[11.5px] tracking-[0.14em] uppercase"
+                    />
                   </div>
                 </div>
                 <Button
-                  variant="ghost"
-                  size="icon"
+                  variant="outline"
+                  size="icon-xl"
+                  className="size-11.5 rounded-full border-foreground sm:size-11.5"
                   aria-label={`Voice call ${peer?.username ?? ""}`.trim()}
                   disabled={!peer?.publicKey || !isConnected || isInCall}
                   onClick={() => startCall({ conversationId, peer, media: "audio" })}
                 >
-                  <PhoneIcon aria-hidden="true" />
+                  <PhoneIcon aria-hidden="true" strokeWidth={1.3} />
                 </Button>
                 <Button
-                  variant="ghost"
-                  size="icon"
+                  size="icon-xl"
+                  className="size-11.5 rounded-full sm:size-11.5"
                   aria-label={`Video call ${peer?.username ?? ""}`.trim()}
                   disabled={!peer?.publicKey || !isConnected || isInCall}
                   onClick={() => startCall({ conversationId, peer, media: "video" })}
                 >
-                  <VideoIcon aria-hidden="true" />
+                  <VideoIcon aria-hidden="true" strokeWidth={1.3} />
                 </Button>
               </header>
               <ConversationView
@@ -358,15 +379,20 @@ const Chat = () => {
                 peerPublicKey={peer?.publicKey}
                 peerName={peer?.username}
                 receipts={openConversation?.receipts}
+                onPhotosChange={setPhotos}
               />
             </>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
-              <MessagesSquareIcon aria-hidden="true" className="size-10 opacity-60" />
-              <p>Select a conversation to start chatting.</p>
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+              <p className="font-heading text-4xl italic">Pick a conversation</p>
+              <p className="max-w-xs text-muted-foreground">Or find someone new in the search, or across India in Discover.</p>
             </div>
           )}
         </main>
+
+        {isExtraWide && conversationId && peer ? (
+          <MarginNotes peer={peer} myPublicKey={currentUser.publicKey} conversationKey={conversationKey} photos={photos} />
+        ) : null}
       </div>
     </div>
   );

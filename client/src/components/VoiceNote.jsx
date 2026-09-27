@@ -48,8 +48,7 @@ const VoiceNote = ({ fileId, file, previewUrl, children }) => {
       <Button
         type="button"
         size="icon-lg"
-        variant="outline"
-        className="shrink-0 rounded-full text-foreground"
+        className="shrink-0 rounded-full border-0 bg-brand text-brand-foreground hover:bg-brand/90"
         aria-label={isPlaying ? "Pause voice message" : "Play voice message"}
         loading={status === "loading"}
         onClick={toggle}
@@ -72,7 +71,7 @@ const VoiceNote = ({ fileId, file, previewUrl, children }) => {
           }}
           className="h-1.5 w-full cursor-pointer accent-current disabled:cursor-default"
         />
-        <p className="mt-0.5 text-xs tabular-nums opacity-80">
+        <p className="mt-0.5 font-mono text-[11px] tabular-nums opacity-80">
           {status === "failed" ? (
             <span role="alert">Couldn&apos;t load. Press play to try again.</span>
           ) : isPlaying || position > 0 ? (

@@ -200,10 +200,10 @@ const HeroOrb = () => {
   // light rim would vanish, so there the centre is light and the edge deep.
   const { centre, edge, particles } = useMemo(() => {
     const hex = (color) => "#" + color.getHexString();
-    const light = hex(new Color(theme.primary).lerp(new Color("#ffffff"), theme.dark ? 0.55 : 0.3));
-    const deep = hex(new Color(theme.primary).lerp(new Color(theme.background), 0.35));
-    return theme.dark ? { centre: deep, edge: light, particles: light } : { centre: light, edge: theme.primary, particles: theme.primary };
-  }, [theme.primary, theme.background, theme.dark]);
+    const light = hex(new Color(theme.brand).lerp(new Color("#ffffff"), theme.dark ? 0.55 : 0.3));
+    const deep = hex(new Color(theme.brand).lerp(new Color(theme.background), 0.35));
+    return theme.dark ? { centre: deep, edge: light, particles: light } : { centre: light, edge: theme.brand, particles: theme.brand };
+  }, [theme.brand, theme.background, theme.dark]);
 
   return (
     <div

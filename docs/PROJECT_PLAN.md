@@ -1,6 +1,6 @@
 # Project Plan — OpenChat
 
-**Status:** Approved, building · **Last updated:** 2026-09-27 · **Next step:** 48 – Accessibility + reduced-motion pass (both themes)
+**Status:** Approved, building · **Last updated:** 2026-09-27 · **Next step:** R4 – Landing, login/register/unlock, settings, 404 (and the call panel) in the Ink & Paper look
 
 > How to use this file: it is the single source of truth for what gets built and in which order.
 > Work happens **one step at a time**: pick the next `todo` → build only that → test (two users) → cleanup → mark `done` → the user commits.
@@ -59,9 +59,9 @@ flowchart TD
 | # | Section | Purpose | Components | Links / CTAs |
 |---|---|---|---|---|
 | 1 | Header | Brand, auth links, theme toggle | Header, Button, ThemeToggle | /login, /register |
-| 2 | Hero | Promise and a 3D visual (live India presence globe/map, poster fallback) | Hero3D (lazy), Button | /register |
+| 2 | Hero | Promise, an example chat as the poster and the 3D "encrypted orb" behind it (large screens only) | HeroOrb (lazy), Button | /register |
 | 3 | Features | Encrypted messaging, media, calls, presence | FeatureGrid | – |
-| 4 | Live presence teaser | Aggregate online counts per state | IndiaPresence (lazy) | /register |
+| 4 | Live presence teaser | Aggregate online counts per state | LandingPresence | /register |
 | 5 | Footer | Links, copyright | Footer | – |
 
 ### Login `/login` and Register `/register`
@@ -85,7 +85,7 @@ flowchart TD
 | # | Section | Purpose | Components | Links / CTAs |
 |---|---|---|---|---|
 | 1 | Search | Find users by username | SearchBar, UserCard | /u/:username, start chat |
-| 2 | India presence map | Interactive 3D map with online users per state (aggregate) | IndiaPresence (R3F, lazy, 2D fallback) | filter by state |
+| 2 | India presence map | Official Survey of India map, states tinted by online count (aggregate), popup with people next to the chosen state; desktop fits one screen | IndiaMap (SVG, lazy), MapPopup | filter by state |
 | 3 | People in state | Users of the selected state | UserCard list | start chat |
 
 ### Profile `/u/:username` and Settings `/settings` (protected)
@@ -281,13 +281,14 @@ Rooms: `conversationId` (existing) and `user:<userId>` (planned, joined automati
 
 ## 8. Design decisions
 
+- **Look (since 2026-09-27): "Ink & Paper"** — chosen by the user from two rounds of directions on a design canvas (redesign phase I2): paper and ink, one sindoor-red accent, DM Serif Display / Hanken Grotesk / JetBrains Mono (+ Devanagari faces), paper grain. The details and contrast table are in `design-system/openchat/MASTER.md`; the lines below are the original decisions, kept for history where they differ.
 - **Design system:** **`ui-ux-pro-max`**, chosen by the user. It is a searchable design database (styles, palettes, font pairings, UX rules). In step 19 it generates the design system with `--design-system --persist`, saved as `design-system/openchat/MASTER.md`, which every UI step then reads. It is reference data, not a separate "look", so no other direction skill is stacked on top.
 - **Theme:** **light by default**, with a **dark-mode toggle**. Both themes come from the same CSS variables (`:root` + `[data-theme="dark"]`); the choice is saved in `localStorage` and the first visit follows `prefers-color-scheme`. Both themes must pass contrast checks.
 - **Styling:** Tailwind CSS v4 (Vite plugin) + shadcn with **coss ui** primitives for app UI (dialogs, inputs, selects, menus, toasts). Kokonut UI only for eye-catching landing pieces.
 - **Tokens:** defined once as CSS variables (colors, type scale, spacing, radius, durations `--dur-fast/base`, `--ease-out`).
 - **Animation library (one):** `motion` (`motion/react`) for message enter, list reorder/layout, overlays and page transitions. No GSAP inside the app. The landing page can use GSAP only if Motion can't do a specific effect, and that needs approval.
 - **3D (only where it supports the message, never in the chat hot path):**
-  - Landing hero and Discover: an **interactive India presence map/globe** in React Three Fiber (`three` 0.186, fiber 9, drei 10; React 19 ✓). Base from **ThreeUI** where it fits, with `shader-glsl` / `particle-system` for glowing state points. Colors come from the theme tokens so it works in light and dark.
+  - Landing hero: the **encrypted orb** in React Three Fiber (`three` 0.186, fiber 9; own GLSL shader), large screens only, brand red. Discover uses a flat SVG map of India (Survey of India boundaries) instead of 3D: accurate borders matter more there (step 44's 3D tile map was replaced in R5).
   - Voice call screen: an audio-reactive **Liquid Orb** (export → web), driven by WebRTC audio levels.
   - Rules: lazy-loaded, static poster/2D fallback, pause off-screen/tab hidden, DPR ≤ 2 (1.5 on mobile), `prefers-reduced-motion` respected.
 - **Other kit sources:** Circle Loaders (spinners), liquid-glass (sparingly: floating call controls / mobile composer bar).
@@ -390,6 +391,19 @@ Each step is small enough to build, test with two users, and review in one go. *
 | 47 | App motion polish with `motion` (messages, lists, overlays, routes) | done | 2026-09-27 | `motion` 13.4.4 (`motion/react`), set up once in `main.jsx`: `LazyMotion` with `domAnimation` + `m.*` components (strict) and `MotionConfig reducedMotion="user"` (with reduced motion, movement is skipped, only fades stay). **Messages:** a message that arrives or is sent while the chat is open rises in (200 ms, opacity + 8px); history (opening a chat, loading older) never animates (`freshKeys` in ConversationView). Message keys are now stable (`clientId ?? _id`), so a sent message keeps the same bubble from "sending" to "sent" (no remount; unit test). **Chat list:** a chat that moves to the top slides there (FLIP with the browser's Web Animations API in `hooks/useSlideOnMove.js`, 0 kB), not with motion's layout engine, which would have added 14 kB (gzip) to every page; none with reduced motion. **Call panel:** rises in / fades away (`AnimatePresence`; the video call only fades, it fills a phone's screen); `CallOverlay` and its controls get the call as a prop, so the panel shows the ended call while leaving. **Pages:** 150 ms fade when Chat, Discover or Settings appears, inside the lazy pages' `Suspense` (so it runs when the page is really there); opacity only, so fixed elements aren't affected; switching conversations doesn't fade. Cost: +28 kB gzip in the vendor file. 16/16 motion E2E (received/sent/history/reduced motion via recorded in-between positions, list slide, page fade, call panel in/out without errors); mutation check (history animating) caught |
 | 48 | Accessibility + reduced-motion pass (both themes) | todo | | |
 
+### Phase I2 — Premium redesign & PWA (user feedback 2026-09-27)
+The user found the UI generic and cheap and asked for a premium chat UI (not blue), a real map of India on Discover with people shown in a popup, and an installable PWA. Built step by step like the rest; each step keeps every existing feature and test green.
+
+| # | Step | Status | Done on | Notes |
+|---|---|---|---|---|
+| R1 | Choose the visual direction (3 options on a design canvas), then design tokens: palette light + dark, fonts with Devanagari, radii, shadows, motion curves, thin icons | done | 2026-09-27 | Canvas round 1 (Saffron Night / Jade & Ivory / Terracotta Clay) was still too generic for the user; round 2 (Liquid Glass / Ink & Paper / Graphite & Lime, each with its own layout): **user chose E · Ink & Paper**. Tokens in `client/src/index.css`: paper `#F3EDE2` / ink `#1B1714`, one sindoor-red accent `--brand` (`#C8321A`, dark `#FF6A4A`), "ink night" dark theme; every pair measured (text ≥ 4.5:1, borders/ring ≥ 3:1; table in `design-system/openchat/MASTER.md`). Fonts self-hosted: DM Serif Display (headings, 400 only, never fake-bold) + Tiro Devanagari Hindi, Hanken Grotesk + Noto Sans Devanagari (text), JetBrains Mono (times, numbers); Poppins removed. Paper grain: one fixed click-through overlay (`body::after`, `src/assets/paper-grain.svg`). Landing orb and the voice-call orb now use the brand red. `theme-color` meta per scheme. 10/10 tokens E2E (colours, fonts load, no external requests, grain never blocks clicks, bubble colours, dark). 4 older suites updated for the new colours/fonts (theme, auth-ui, sidebar-items, voice orb); full regression green. The screens keep their old layout until R2–R4 |
+| R2 | App shell, chat list and conversation header in the new look | done | 2026-09-27 | **User asked for the chat to look exactly like the canvas artboard E (Ink & Paper).** `components/Masthead.jsx` (wordmark "Open*chat*", today's date in small caps, the people search as an underlined field with results on a paper card, "Discover India", theme, settings, logout; phones: icons only). List: "Chats" in the big serif, "Logged in as…", each chat a contents line (serif name, mono time, one-line preview, red unread badge), the open one printed in reverse (ink). Header: the name as a large italic serif byline, a mono small-caps line (online / last seen · state · End-to-end encrypted), round call buttons. `components/MarginNotes.jsx` on ≥ 1280px: big red avatar, bio as a quote, state, the safety number ("Compare", never a fake "Verified"), the photos shared in this chat as tiny prints (decrypted in the browser). Only one search box is ever rendered (`hooks/useMediaQuery.js` picks the top bar or the list). The list rows lost their avatars (as in the design); photos still show in the margin notes and search |
+| R3 | Message bubbles, composer, photos/videos/files, voice notes, call panel in the new look | done | 2026-09-27 | Bubbles with small corners (ink for mine, darker paper for theirs), mono times; days as a rule with the day in small caps; photos as prints (`--print` paper in both themes) with a figure caption "Fig. 2 — caption", slightly askew; voice notes with a red play button; "riya_menon is writing…" in italics instead of dots. Composer: round attach and mic buttons, an underlined field with the placeholder "Write a note to …" in the serif italic, a "Send" pill with the arrow in a red circle (icon only on phones). The Button's own `sm:` sizes are overridden so these keep their size on desktop. 17/17 chat-screen E2E (masthead, reversed row, byline, print + caption, typing line, composer, margin notes incl. decrypted photo and no "Verified", search card, dark, 1024px without margin, phone). Call panel keeps its step-47 look for now (R4) |
+| R4 | Landing, login/register/unlock, settings, 404 in the new look | todo | | Landing may use GSAP for the scroll story (plan rule: only where `motion` can't) |
+| R5 | Real India map on Discover: official Survey of India state boundaries, interactive (hover, tap, keyboard), popup with the state's count and people to message; replaces the tile map | done | 2026-09-27 | Like artboard E: "India, *tonight.*", the states as a numbered contents list (serif names, dotted leaders, mono counts; busiest first), filter, "Boundaries: Survey of India". `client/src/data/india-map.json` (all 36 states/UTs + 4 inter-state disputed areas; SOI data via India Geodata, CC0/CC-BY; J&K incl. PoK and Ladakh incl. Aksai Chin; the JSON says how it was made) and `components/IndiaMap.jsx` (SVG, lazy, 62 kB gzip): each state tinted with more sindoor red the more people are online (`lib/indiaMap.js`, log scale), hover shows name + count, click/tap chooses, the chosen state gets a heavy outline and a pin. Popup next to the pin (opens left for states in the east): name, live count, up to 3 people with "Write" (opens the chat), "See everyone", Close/Escape; on phones it sits under the map. The full list ("People in …", search, Load more) stays below. The keyboard path is the list (the map is one described image). Desktop (≥ 1024px) never scrolls the page (user request): the page is one screen, the map is sized to fit both ways (`container-type: size`, `min(100cqw, 100cqh × 900/1031)`), only the left column scrolls (states, then "People in …"); phones scroll normally. Checked at 1024×768, 1280×720, 1440×900, 1920×1080 for Discover and Chat. Tile map, its lib and test removed; three.js is now only for the landing orb. 7 unit tests (data complete, source, northern boundary, colours, popup side) + 20/20 map E2E |
+| R6 | PWA: web app manifest, icons, service worker (app shell + offline page, never caching private API data), install prompt, standalone display | todo | | Keys stay in IndexedDB as now; push notifications are a later option |
+| R7 | Visual QA: both themes, 360 → 1440 px, reduced motion, contrast; old E2E suites updated | todo | | Merges with step 48 |
+
 ### Phase J — Safety, security & launch
 | # | Step | Status | Done on | Notes |
 |---|---|---|---|---|
@@ -410,6 +424,8 @@ Status values: `todo` · `in progress` · `done` · `blocked (<reason>)`
 4. **E2EE and forgotten passwords:** a password reset cannot recover old messages. The UI says so on Register and the unlock screen (step 18); there is no password-reset flow yet.
 6. **Key-change warning (step 51):** users are only protected from a malicious server if they compare safety numbers. A "this person's key changed" warning (remember each contact's key on first use) would catch it automatically.
 5. **Existing dev data:** user chose to clear it (option b, 2026-09-25). The delete was blocked by the agent's permission rules, so the user runs it themselves. Until then, old accounts log in to a clear "Encryption is not set up" screen.
+
+7. **India map accuracy (legal):** maps of India published in India must show the official boundary (Survey of India). Use only the SOI-based data above; never Natural Earth's default or other world maps; don't hand-edit boundaries. Credit the source in the app.
 
 **Resolved (2026-09-25):**
 - Design: `ui-ux-pro-max`, light default + dark toggle.

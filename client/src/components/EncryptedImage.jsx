@@ -3,6 +3,7 @@ import { ImageOffIcon } from "lucide-react";
 import { loadDecrypted } from "../lib/encryptedFiles.js";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 
 // Display size: up to 288px wide and 320px tall, keeping the photo's shape.
 // Known before the photo loads, so nothing jumps when it appears.
@@ -14,7 +15,7 @@ const displaySize = ({ width, height }) => {
 
 // A photo from an image message. previewUrl: my own photo while it is still
 // being sent (no download needed).
-const EncryptedImage = ({ fileId, file, alt, previewUrl, children }) => {
+const EncryptedImage = ({ fileId, file, alt, previewUrl, children, className }) => {
   const [result, setResult] = useState({ fileId: null, url: null, failed: false });
   const [attempt, setAttempt] = useState(0);
 
@@ -34,7 +35,7 @@ const EncryptedImage = ({ fileId, file, alt, previewUrl, children }) => {
   const size = displaySize(file);
 
   return (
-    <div className="relative max-w-full overflow-hidden rounded-xl bg-muted" style={{ width: size.width, aspectRatio: `${size.width} / ${size.height}` }}>
+    <div className={cn("relative max-w-full overflow-hidden rounded-xl bg-muted", className)} style={{ width: size.width, aspectRatio: `${size.width} / ${size.height}` }}>
       {url ? (
         // Opens the full photo in a new tab (a local blob: address).
         <a href={url} target="_blank" rel="noopener noreferrer" title="Open full size" className="block size-full">

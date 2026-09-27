@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowDownIcon, FileIcon, LockIcon, MicIcon, PaperclipIcon, SendHorizontalIcon, Trash2Icon, VideoIcon, XIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpRightIcon, FileIcon, LockIcon, MicIcon, PaperclipIcon, SendHorizontalIcon, Trash2Icon, VideoIcon, XIcon } from "lucide-react";
 import socket from "../socket/socket.js";
 import api from "../api/api.js";
 import { rememberText, useConversationKey } from "../crypto/hooks.js";
@@ -48,12 +48,20 @@ const NEAR_BOTTOM_PX = 80;
 // Enter adds a new line there and the Send button sends.
 const enterSends = () => !window.matchMedia("(pointer: coarse)").matches;
 
+// Photos are numbered like figures in a magazine ("Fig. 1", "Fig. 2", ...),
+// in the order they appear in the chat.
+const withFigureNumbers = (items) => {
+  let figure = 0;
+  return items.map((item) => (item.message?.messageType === "image" ? { ...item, figure: ++figure } : item));
+};
+
 // One open conversation: its messages, real-time updates and the input.
 // Chat.jsx renders it with key={conversationId}, so switching conversation
 // mounts a fresh instance and all of this state starts empty.
 // peerPublicKey: the other participant's public key, needed to derive the
 // conversation's encryption key (undefined until the conversation list loads).
-const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName, receipts }) => {
+// onPhotosChange(messages): the photo messages loaded so far (for the margin notes).
+const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName, receipts, onPhotosChange }) => {
   // The loaded messages and whether older ones exist on the server. Kept in
   // one state object because they always change together.
   const [history, setHistory] = useState({ messages: [], hasOlder: false });
@@ -470,6 +478,10 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   // A message is confirmed once the server's copy (same clientId) is in the
   // history, even if its confirmation got lost (e.g. it came in a refetch).
   const confirmedClientIds = new Set(history.messages.map((message) => message.clientId));
+
+  useEffect(() => {
+    onPhotosChange?.(history.messages.filter((message) => message.messageType === "image"));
+  }, [history.messages, onPhotosChange]);
   const pending = outbox.filter((item) => !confirmedClientIds.has(item.clientId));
 
   if (joinError) {
@@ -493,7 +505,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
           onScroll={handleScroll}
           className="min-h-0 flex-1 overflow-y-auto"
         >
-          <div ref={contentRef} className="px-4 py-3">
+          <div ref={contentRef} className="px-5 py-4 md:px-9">
             <h2 className="sr-only">Messages</h2>
 
             {history.hasOlder ? (
@@ -524,21 +536,25 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
               </div>
             ) : history.messages.length === 0 && pending.length === 0 ? (
               <div className="flex flex-col items-center px-6 py-16 text-center">
-                <LockIcon aria-hidden="true" className="size-8 text-muted-foreground" />
-                <p className="mt-3 font-medium">No messages yet</p>
+                <LockIcon aria-hidden="true" strokeWidth={1.3} className="size-8 text-muted-foreground" />
+                <p className="mt-3 font-heading text-2xl">No messages yet</p>
                 <p className="mt-1 max-w-xs text-sm text-muted-foreground">
                   Messages with {peerName ?? "this person"} are end-to-end encrypted. Say hello!
                 </p>
               </div>
             ) : null}
 
-            {buildTimeline([...history.messages, ...pending]).map((item) =>
+            {withFigureNumbers(buildTimeline([...history.messages, ...pending])).map((item) =>
               item.type === "day" ? (
                 // A heading per day, so screen-reader users can jump between days.
-                <h3 key={item.key} className="my-4 flex justify-center font-sans text-xs font-medium first:mt-0">
-                  <time dateTime={item.date} className="rounded-full bg-muted px-3 py-1 text-muted-foreground">
-                    {formatDayLabel(item.date)}
-                  </time>
+                // Set like a section break: a rule, the day in small caps, a rule.
+                <h3
+                  key={item.key}
+                  className="my-5 flex items-center gap-3.5 font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase first:mt-0"
+                >
+                  <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                  <time dateTime={item.date}>{formatDayLabel(item.date)}</time>
+                  <span aria-hidden="true" className="h-px flex-1 bg-border" />
                 </h3>
               ) : (
                 <MessageBubble
@@ -552,24 +568,17 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
                   receipts={receipts}
                   onRetry={item.message.status ? () => deliver(item.message) : undefined}
                   animateIn={freshKeys.has(item.key)}
+                  figure={item.figure}
                 />
               ),
             )}
 
-            {/* Three bouncing dots while the other person types (they stand
-                still with reduced motion). Read out by the status region below. */}
+            {/* "... is writing" in italics while the other person types. Read
+                out by the status region below. */}
             {isPeerTyping ? (
-              <div aria-hidden="true" data-typing className="mt-3 flex">
-                <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-muted px-4 py-3.5">
-                  {[0, 150, 300].map((delay) => (
-                    <span
-                      key={delay}
-                      className="size-1.5 animate-bounce rounded-full bg-muted-foreground"
-                      style={{ animationDelay: `${delay}ms` }}
-                    />
-                  ))}
-                </div>
-              </div>
+              <p aria-hidden="true" data-typing className="mt-3 font-heading text-[15px] text-muted-foreground italic">
+                {peerName ?? "They"} {peerName ? "is" : "are"} writing…
+              </p>
             ) : null}
           </div>
         </div>
@@ -592,14 +601,14 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
         ) : null}
       </div>
       <form
-        className="relative shrink-0 border-t border-border p-3"
+        className="relative shrink-0 border-t border-border px-5 pt-4 pb-5 md:px-9 md:pb-6"
         onSubmit={(e) => {
           e.preventDefault();
           handleSendMessage();
         }}
       >
         {attachment ? (
-          <div className="mb-2 flex items-center gap-3 rounded-lg border border-border p-2">
+          <div className="mb-3 flex items-center gap-3 border border-border bg-card p-2">
             {attachment.kind === "image" ? (
               <img src={attachment.previewUrl} alt="Photo to send" className="size-16 shrink-0 rounded-md object-cover" />
             ) : (
@@ -673,25 +682,27 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             </Button>
           </div>
         ) : (
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-2 md:gap-3.5">
           <input ref={fileInputRef} type="file" hidden onChange={chooseFile} />
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="icon-xl"
+            className="size-11.5 rounded-full border-border sm:size-11.5"
             aria-label="Attach a photo, video or file"
             disabled={!conversationKey}
             onClick={() => fileInputRef.current?.click()}
           >
-            <PaperclipIcon aria-hidden="true" />
+            <PaperclipIcon aria-hidden="true" strokeWidth={1.3} />
           </Button>
           <textarea
             ref={inputRef}
             rows={1}
-            className="max-h-40 min-w-0 flex-1 resize-none"
+            // An underline to write on; the placeholder in the serif italic.
+            className="max-h-40 min-h-11 min-w-0 flex-1 resize-none rounded-none border-0 border-b border-foreground bg-transparent px-0 py-2.5 placeholder:font-heading placeholder:text-base placeholder:italic sm:placeholder:text-xl focus-visible:outline-none"
             aria-label="Message"
             aria-describedby="composer-hint"
-            placeholder={attachment ? "Add a caption..." : "Type a message..."}
+            placeholder={attachment ? "Add a caption..." : `Write a note to ${peerName ?? "them"}…`}
             maxLength={MAX_MESSAGE_LENGTH}
             enterKeyHint={enterSends() ? "send" : "enter"}
             value={messageInput}
@@ -711,18 +722,28 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
           {canRecordVoice() && !messageInput && !attachment ? (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="icon-xl"
+              className="size-11.5 rounded-full border-border sm:size-11.5"
               aria-label="Record voice message"
               disabled={!conversationKey}
               onClick={voice.start}
             >
-              <MicIcon aria-hidden="true" />
+              <MicIcon aria-hidden="true" strokeWidth={1.3} />
             </Button>
           ) : null}
           {/* Disabled until the encryption key for this conversation is ready. */}
-          <Button type="submit" size="icon-xl" aria-label="Send" disabled={!conversationKey}>
-            <SendHorizontalIcon aria-hidden="true" />
+          {/* A pill with the arrow in its own red circle ("button in button"). */}
+          <Button
+            type="submit"
+            aria-label="Send"
+            disabled={!conversationKey}
+            className="h-12.5 gap-3 rounded-full pr-1.5 pl-5.5 text-[15px] max-sm:w-12.5 max-sm:p-1.5 sm:h-12.5 sm:text-[15px]"
+          >
+            <span className="max-sm:sr-only">Send</span>
+            <span className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
+              <ArrowUpRightIcon aria-hidden="true" strokeWidth={1.7} />
+            </span>
           </Button>
         </div>
         )}

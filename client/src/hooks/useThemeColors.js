@@ -10,7 +10,8 @@ const readColors = () => {
     background: get("--background", "#ffffff"),
     foreground: get("--foreground", "#0f172a"),
     muted: get("--muted", "#f1f5fd"),
-    primary: get("--primary", "#2563eb"),
+    primary: get("--primary", "#1b1714"),
+    brand: get("--brand", "#c8321a"),
     ring: get("--ring", "#2563eb"),
   };
 };

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api/api.js";
 import { Button } from "@/components/ui/button";
+import { SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Avatar from "./Avatar.jsx";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
@@ -10,8 +11,9 @@ const SEARCH_DELAY_MS = 300;
 const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name;
 
 // Search box for finding people by username. Calls onMessageUser(user) when
-// the user clicks "Message" on a result.
-const UserSearch = ({ onMessageUser }) => {
+// the user clicks "Message" on a result. inMasthead: the underlined field in
+// the top bar, with results floating below it on a paper card.
+const UserSearch = ({ onMessageUser, inMasthead = false }) => {
   const [query, setQuery] = useState("");
   // The last finished search, with the query it belongs to. Results are only
   // shown when they match what is in the box right now.
@@ -48,21 +50,32 @@ const UserSearch = ({ onMessageUser }) => {
   else if (hasResults && search.error) status = search.error;
   else if (hasResults && search.users.length === 0) status = "No users found";
 
+  const showPanel = Boolean(status) || (hasResults && search.users.length > 0);
+
   return (
-    <div>
-      <label htmlFor="user-search" className="mb-1.5 block text-sm font-medium">
+    <div className={cn("relative", inMasthead && "w-72 max-lg:w-56")}>
+      <label htmlFor="user-search" className={cn("mb-1.5 block text-sm font-medium", inMasthead && "sr-only")}>
         Find people
       </label>
-      <input
+      <div className={cn("flex items-center gap-2.5 border-b border-foreground", !inMasthead && "border-input")}>
+        <SearchIcon aria-hidden="true" strokeWidth={1.3} className="size-4 shrink-0 text-muted-foreground" />
+        <input
         id="user-search"
         type="search"
-        className="w-full"
-        placeholder="Search by username"
+        className="h-10 w-full rounded-none border-0 bg-transparent px-0 outline-none focus-visible:outline-none"
+        placeholder={inMasthead ? "Search people" : "Search by username"}
         autoComplete="off"
         maxLength={30}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
+      </div>
+      <div
+        className={cn(
+          inMasthead && "absolute top-full right-0 z-40 mt-2 w-80 border border-border bg-card p-3 shadow-[0_24px_48px_-24px_rgb(60_40_20/0.45)]",
+          inMasthead && !showPanel && "hidden",
+        )}
+      >
 
       {/* aria-live: screen readers announce "No users found" etc. */}
       <p
@@ -91,8 +104,8 @@ const UserSearch = ({ onMessageUser }) => {
                 ) : null}
               </span>
               <Button
-                variant="outline"
                 size="sm"
+                className="rounded-full"
                 onClick={() => {
                   setQuery("");
                   onMessageUser(user);
@@ -104,6 +117,7 @@ const UserSearch = ({ onMessageUser }) => {
           ))}
         </ul>
       ) : null}
+      </div>
     </div>
   );
 };

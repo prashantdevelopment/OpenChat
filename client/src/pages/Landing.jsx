@@ -188,7 +188,7 @@ const Landing = () => {
             <div aria-hidden="true" className="absolute top-0 right-0 hidden size-[440px] lg:block" data-hero-art="">
               <div
                 className="absolute inset-0 rounded-full"
-                style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--primary) 30%, transparent), transparent)" }}
+                style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--brand) 30%, transparent), transparent)" }}
               />
               {showOrb ? (
                 <Suspense fallback={null}>

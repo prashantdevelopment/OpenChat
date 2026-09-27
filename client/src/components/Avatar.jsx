@@ -14,7 +14,7 @@ const Avatar = ({ name, avatarId, online = false, className }) => {
     <span
       aria-hidden="true"
       className={cn(
-        "relative flex size-10 shrink-0 items-center justify-center rounded-full bg-primary font-heading font-semibold text-primary-foreground",
+        "relative flex size-10 shrink-0 items-center justify-center rounded-full bg-primary font-heading text-primary-foreground",
         className,
       )}
     >
