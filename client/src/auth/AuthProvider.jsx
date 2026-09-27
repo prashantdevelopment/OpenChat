@@ -1,6 +1,6 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import api from "../api/api.js";
+import api, { setSessionGoneHandler } from "../api/api.js";
 import socket from "../socket/socket.js";
 import { unlockPrivateKey } from "../crypto/keys.js";
 import { clearKeys, loadKey, saveKey } from "../crypto/keyStore.js";
@@ -15,6 +15,12 @@ const AuthProvider = ({ children }) => {
   const [privateKey, setPrivateKey] = useState(null);
   // True until we know whether the httpOnly cookie still holds a valid session.
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  // The session ended by itself (expired, or logged out elsewhere): the login
+  // page says so.
+  const [sessionEnded, setSessionEnded] = useState(false);
+  // While logging out: the server ends the session and tells this tab's
+  // socket too; that is not "your session ended".
+  const loggingOut = useRef(false);
   const isLoggedIn = currentUser !== null;
   const navigate = useNavigate();
 
@@ -53,6 +59,31 @@ const AuthProvider = ({ children }) => {
     };
   }, [isLoggedIn]);
 
+  // The server no longer accepts this session: after an hour, or after
+  // logging out in another tab of this browser. Back to the login page (it
+  // remembers where the user was). The stored key stays: it only ever
+  // unlocks for this account, after its password.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const endSession = () => {
+      if (loggingOut.current) return;
+      setSessionEnded(true);
+      setCurrentUser(null);
+      setPrivateKey(null);
+    };
+    const onConnectError = (error) => {
+      if (/authentication token/i.test(error.message)) endSession();
+    };
+    setSessionGoneHandler(endSession);
+    socket.on("sessionExpired", endSession);
+    socket.on("connect_error", onConnectError);
+    return () => {
+      setSessionGoneHandler(null);
+      socket.off("sessionExpired", endSession);
+      socket.off("connect_error", onConnectError);
+    };
+  }, [isLoggedIn]);
+
   // Unlocks the private key with the password and remembers it for refreshes.
   // Throws if the password is wrong.
   const unlockAndStore = async (user, password) => {
@@ -79,6 +110,8 @@ const AuthProvider = ({ children }) => {
     // Both together, so the unlock screen never flashes after a normal login.
     setPrivateKey(key);
     setCurrentUser(user);
+    setSessionEnded(false);
+    loggingOut.current = false;
   };
 
   // Used by the unlock screen (logged in, key not available on this device).
@@ -87,10 +120,12 @@ const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    loggingOut.current = true;
     try {
       await api.post("/auth/logout");
     } catch (error) {
       console.error("Error logging out:", error);
+      loggingOut.current = false;
       return;
     }
     // The next person on this browser must not find this user's key.
@@ -104,6 +139,7 @@ const AuthProvider = ({ children }) => {
       navigate("/login", { replace: true });
       setCurrentUser(null);
       setPrivateKey(null);
+      setSessionEnded(false);
     });
   };
 
@@ -120,7 +156,7 @@ const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext value={{ currentUser, privateKey, login, unlock, logout, updateCurrentUser }}>
+    <AuthContext value={{ currentUser, privateKey, sessionEnded, login, unlock, logout, updateCurrentUser }}>
       {children}
     </AuthContext>
   );

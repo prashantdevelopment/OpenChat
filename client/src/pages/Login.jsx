@@ -10,7 +10,7 @@ const Login = () => {
   const [error, setError] = useState("");
   // Logging in now also unlocks the encryption key (PBKDF2 takes a moment).
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { currentUser, login } = useAuth();
+  const { currentUser, sessionEnded, login } = useAuth();
   const location = useLocation();
 
   const handleLogin = async (e) => {
@@ -42,6 +42,11 @@ const Login = () => {
       }
     >
       <form onSubmit={handleLogin} className="space-y-6">
+        {sessionEnded && !error ? (
+          <p role="status" className="border-l-2 border-brand pl-4 text-sm">
+            Your session ended. Log in again to carry on where you were.
+          </p>
+        ) : null}
         {error ? (
           <p role="alert" className="border border-destructive-foreground/40 px-3 py-2 text-sm text-destructive-foreground">
             {error}

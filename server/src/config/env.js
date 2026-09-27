@@ -56,7 +56,28 @@ const CLOUDINARY = {
                 throw new Error("STORAGE_DRIVER=cloudinary needs CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET");
             }
 
+// How many proxies (e.g. the host's load balancer) sit in front of the server.
+// Rate limits count per client IP address, which Express can only see behind
+// a proxy if it is told to trust it. 0 = none (development). Never higher
+// than the real number: the client could then fake its address.
+const TRUST_PROXY = Number(process.env.TRUST_PROXY ?? 0);
+            if (!Number.isInteger(TRUST_PROXY) || TRUST_PROXY < 0) {
+                throw new Error("TRUST_PROXY must be a whole number (the number of proxies in front of the server)");
+            }
+
+// Rate limits (src/rateLimit.js): "on", or "off" for the test suites, which
+// send far more requests than any person could. Never off in production.
+const RATE_LIMITS = process.env.RATE_LIMITS ?? "on";
+            if (!["on", "off"].includes(RATE_LIMITS)) {
+                throw new Error(`RATE_LIMITS must be "on" or "off", not "${RATE_LIMITS}"`);
+            }
+            if (RATE_LIMITS === "off" && process.env.NODE_ENV === "production") {
+                throw new Error("RATE_LIMITS can't be off in production");
+            }
+
 export {
+    TRUST_PROXY,
+    RATE_LIMITS,
     STORAGE_DRIVER,
     CLOUDINARY,
     UPLOADS_DIR,

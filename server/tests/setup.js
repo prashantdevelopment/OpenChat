@@ -20,3 +20,6 @@ if (!new URL(process.env.MONGO_URI).pathname.endsWith("_test")) {
 // never to Cloudinary (even if server/.env says STORAGE_DRIVER=cloudinary).
 process.env.STORAGE_DRIVER = "local";
 process.env.UPLOADS_DIR = path.join(os.tmpdir(), `openchat-test-uploads-${process.pid}`);
+// Test suites send far more requests than a person could: rate limits off
+// (read on every request). tests/security.test.js switches them on for itself.
+process.env.RATE_LIMITS = "off";

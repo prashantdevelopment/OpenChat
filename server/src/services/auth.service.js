@@ -1,8 +1,7 @@
 import User from "../models/user.model.js"
 import bcrypt from "bcrypt";
 import AppError from "../utils/AppError.js";
-import JWT from "jsonwebtoken";
-import { JWT_SECRET } from "../config/env.js";
+import { signSessionToken } from "../session.js";
 
 const loginUser = async (identifier, password) => {
 
@@ -30,7 +29,7 @@ const loginUser = async (identifier, password) => {
     }
 
 
-    const token = JWT.sign({ userId: findUser._id }, JWT_SECRET, { expiresIn: "1h" });
+    const token = signSessionToken(findUser._id);
 
 
     return { user: findUser, token };

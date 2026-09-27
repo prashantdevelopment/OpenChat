@@ -1,5 +1,6 @@
 import { loginUser } from "../services/auth.service.js";
 import { getCurrentUser } from "../services/user.service.js";
+import { endSession, SESSION_HOURS } from "../session.js";
 
 
 const loginUserController = async (req, res) => {
@@ -12,7 +13,7 @@ const loginUserController = async (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-        maxAge: 3600000 // 1 hour
+        maxAge: SESSION_HOURS * 60 * 60 * 1000
     });
 
     res.status(200).json({
@@ -31,7 +32,10 @@ const getCurrentUserController = async (req, res) => {
 }
 
 
+// Ends the session on the server as well (the token stops working and its
+// sockets close), then deletes the cookie.
 const logoutUserController = (req, res) => {
+    if (req.cookies.token) endSession(req.cookies.token);
     res.clearCookie("token", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

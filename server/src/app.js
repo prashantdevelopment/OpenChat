@@ -1,7 +1,9 @@
 import express from "express";
+import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { CLIENT_URL } from "./config/env.js";
+import { CLIENT_URL, TRUST_PROXY } from "./config/env.js";
+import { byIp, rateLimit } from "./rateLimit.js";
 import errorMiddleware from "./middleware/error.middleware.js";
 import AppError from "./utils/AppError.js";
 import healthRoutes from "./routes/health.routes.js";
@@ -16,6 +18,17 @@ import blockRoutes from "./routes/block.routes.js";
 
 
 const app = express();
+// req.ip is the client's address even behind the host's proxy (rate limits).
+app.set("trust proxy", TRUST_PROXY);
+// Security headers on every response (no MIME sniffing, no framing, HSTS,
+// no X-Powered-By, a strict CSP for anything the API itself returns...).
+// Resources may be used by the app on the same site only: profile photos are
+// shown from the app's pages (cookies are SameSite=Strict anyway, so the app
+// and the API have to share a site).
+app.use(helmet({ crossOriginResourcePolicy: { policy: "same-site" } }));
+// A ceiling for every API request per IP address: far above normal use
+// (a chat with many photos), low enough to stop a script hammering the server.
+app.use("/api", rateLimit({ windowMs: 60 * 1000, max: 600, keys: byIp("api"), message: "Too many requests" }));
 app.use(cors({
     origin: CLIENT_URL,
     credentials: true

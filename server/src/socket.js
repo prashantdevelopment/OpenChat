@@ -1,5 +1,7 @@
 import { Server } from "socket.io";
-import { CLIENT_URL } from "./config/env.js";
+import { CLIENT_URL, TRUST_PROXY } from "./config/env.js";
+import { createLimiter } from "./rateLimit.js";
+import { sessionEvents } from "./session.js";
 import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
 import { countUnread, findConversationBetween, getContactIds, getConversationForParticipant, markAllDelivered, markConversationDelivered, markConversationRead, otherParticipant, readReceiptsShared } from "./services/conversation.service.js";
@@ -11,6 +13,32 @@ import { createMessage } from "./services/message.service.js";
 import registerCallHandlers from "./calls.js";
 
 const userRoom = (userId) => `user:${userId}`;
+const sessionRoom = (jti) => `session:${jti}`;
+
+// Events per user (all their tabs together) in a window. Generous for a
+// person, tight for a script. An event over its limit is dropped; if it
+// expects an answer, it gets "slow down". Events not listed aren't limited
+// (leaveConversation, unwatchStatePresence: they only remove things).
+const EVENT_LIMITS = {
+    sendMessage: { windowMs: 10_000, max: 30 },
+    typing: { windowMs: 10_000, max: 20 },
+    markRead: { windowMs: 10_000, max: 60 },
+    markDelivered: { windowMs: 10_000, max: 60 },
+    joinConversation: { windowMs: 10_000, max: 60 },
+    watchStatePresence: { windowMs: 60_000, max: 20 },
+    callUser: { windowMs: 60_000, max: 10 },
+    answerCall: { windowMs: 60_000, max: 20 },
+    endCall: { windowMs: 60_000, max: 30 },
+    iceCandidate: { windowMs: 10_000, max: 200 },
+};
+// New connections per IP address a minute (each tab reconnects on its own).
+const CONNECTIONS_PER_MINUTE = 60;
+
+// The client's address, also behind the host's proxies (see TRUST_PROXY).
+const clientAddress = (socket) => {
+    const forwarded = String(socket.handshake.headers["x-forwarded-for"] ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+    return (TRUST_PROXY > 0 && forwarded.at(-TRUST_PROXY)) || socket.handshake.address;
+};
 
 // Builds the Socket.IO server on top of an HTTP server (like app.js builds
 // the Express app). server.js starts it; tests create their own.
@@ -27,7 +55,21 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         }
     });
 
+    const connectionLimiter = createLimiter({ windowMs: 60_000, max: CONNECTIONS_PER_MINUTE });
+    io.use((socket, next) => {
+        if (connectionLimiter.hit(`connect:${clientAddress(socket)}`).allowed) return next();
+        next(new Error("Too many connections"));
+    });
     io.use(socketAuthMiddleware);
+
+    const eventLimiters = Object.fromEntries(Object.entries(EVENT_LIMITS).map(([event, limit]) => [event, createLimiter(limit)]));
+
+    // Logout ended a session: its sockets are told, then closed.
+    const onSessionRevoked = (jti) => {
+        io.to(sessionRoom(jti)).emit("sessionExpired");
+        io.in(sessionRoom(jti)).disconnectSockets(true);
+    };
+    sessionEvents.on("revoked", onSessionRevoked);
 
     // Delivered / read receipt: to the other participants (every tab), so
     // their messages get the right ticks. { deliveredAt } and/or { readAt }.
@@ -76,6 +118,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
     httpServer.on("close", () => {
         blockEvents.off("blocked", onBlocked);
         blockEvents.off("unblocked", onUnblocked);
+        sessionEvents.off("revoked", onSessionRevoked);
     });
 
     // Online counts per state, to the pages that watch them (Discover).
@@ -107,6 +150,25 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         // server can reach the user no matter which conversation is open.
         // Joined on every connection, so it survives reconnects automatically.
         socket.join(userRoom(socket.userId));
+
+        // The login session behind this socket: it closes when the session
+        // expires (the token was only checked once, at connect) or is ended
+        // by logout. The client then asks for a new login.
+        const { jti, expiresAt } = socket.data.session;
+        if (jti) socket.join(sessionRoom(jti));
+        const expiryTimer = setTimeout(() => {
+            socket.emit("sessionExpired");
+            socket.disconnect(true);
+        }, Math.max(0, expiresAt - Date.now()));
+        socket.on("disconnect", () => clearTimeout(expiryTimer));
+
+        // Rate limits for every incoming event (see EVENT_LIMITS).
+        socket.use(([event, ...args], next) => {
+            const limiter = eventLimiters[event];
+            if (!limiter || limiter.hit(`${event}:${socket.userId}`).allowed) return next();
+            const ack = args.at(-1);
+            if (typeof ack === "function") ack({ success: false, message: "You're doing that too often. Wait a moment and try again." });
+        });
 
         // The app is open: messages sent while the user was away have arrived.
         markAllDelivered(socket.userId)

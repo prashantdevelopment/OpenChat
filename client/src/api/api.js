@@ -15,4 +15,18 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// The server's answers when the session itself is gone (expired, or ended by
+// logging out in another tab). Other 401s, like a wrong current password in
+// Settings, are ordinary errors. Keep in sync with server/src/session.js and
+// middleware/auth.middleware.js.
+const SESSION_GONE = ["Invalid or expired token", "Authentication token is missing"];
+let onSessionGone = null;
+export const setSessionGoneHandler = (handler) => {
+  onSessionGone = handler;
+};
+api.interceptors.response.use(undefined, (error) => {
+  if (error.response?.status === 401 && SESSION_GONE.includes(error.response.data?.message)) onSessionGone?.();
+  return Promise.reject(error);
+});
+
 export default api;

@@ -1,20 +1,20 @@
-import JWT from "jsonwebtoken";
 import { parse } from "cookie";
-import { JWT_SECRET } from "../config/env.js";
+import { verifySessionToken } from "../session.js";
 
+// The session cookie, checked once when the socket connects. socket.js then
+// closes the socket when that session ends (expiry or logout).
 const socketAuthMiddleware = (socket, next) => {
+  const token = parse(socket.handshake.headers.cookie || "").token;
+  if (!token) {
+    return next(new Error("Authentication token is missing"));
+  }
   try {
-    const cookies = parse(socket.handshake.headers.cookie || "");
-    const token = cookies.token;
-    if (!token) {
-      return next(new Error("Authentication token is missing"));
-    }
-
-    const decoded = JWT.verify(token, JWT_SECRET);
-    socket.userId = decoded.userId;
+    const { userId, jti, exp } = verifySessionToken(token);
+    socket.userId = userId;
+    socket.data.session = { jti, expiresAt: exp * 1000 };
     next();
-  } catch (err) {
-    return next(new Error("Invalid authentication token"));
+  } catch {
+    next(new Error("Invalid authentication token"));
   }
 };
 
