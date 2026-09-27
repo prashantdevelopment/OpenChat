@@ -21,6 +21,7 @@ import { getConversationKey, useConversationKey } from "../crypto/hooks.js";
 import { decryptMessage } from "../crypto/messages.js";
 import { describeMessage } from "../lib/messageContent.js";
 import { unblockUser } from "../lib/blocks.js";
+import { checkPeerKey, trustPeerKey } from "../crypto/keyPins.js";
 import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
@@ -239,6 +240,22 @@ const Chat = () => {
   const peer = openConversation?.participants.find((participant) => participant._id !== currentUser._id);
   const conversationKey = useConversationKey(conversationId, peer?.publicKey);
   const place = stateName(peer?.state);
+  // Is this the key this device saw for them before? (crypto/keyPins.js)
+  const [keyCheck, setKeyCheck] = useState({ publicKey: null, status: null });
+  useEffect(() => {
+    if (!peer?.publicKey) return;
+    let ignore = false;
+    checkPeerKey(currentUser._id, peer._id, peer.publicKey).then((status) => !ignore && setKeyCheck({ publicKey: peer.publicKey, status }));
+    return () => {
+      ignore = true;
+    };
+  }, [currentUser._id, peer?._id, peer?.publicKey]);
+  const keyChanged = keyCheck.publicKey === peer?.publicKey && keyCheck.status === "changed";
+  const trustNewKey = async () => {
+    await trustPeerKey(currentUser._id, peer._id, peer.publicKey);
+    setKeyCheck({ publicKey: peer.publicKey, status: "same" });
+  };
+
   // Only the blocker is told about a block (server: conversation.service.js).
   const blockedByMe = Boolean(openConversation?.blockedByMe);
   const handleUnblock = async () => {
@@ -387,7 +404,7 @@ const Chat = () => {
                   size="icon-xl"
                   className="size-11.5 rounded-full border-foreground sm:size-11.5 md:row-span-2 md:self-end"
                   aria-label={`Voice call ${peer?.username ?? ""}`.trim()}
-                  disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe}
+                  disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe || keyChanged}
                   onClick={() => startCall({ conversationId, peer, media: "audio" })}
                 >
                   <PhoneIcon aria-hidden="true" strokeWidth={1.3} />
@@ -396,7 +413,7 @@ const Chat = () => {
                   size="icon-xl"
                   className="size-11.5 rounded-full sm:size-11.5 md:row-span-2 md:self-end"
                   aria-label={`Video call ${peer?.username ?? ""}`.trim()}
-                  disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe}
+                  disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe || keyChanged}
                   onClick={() => startCall({ conversationId, peer, media: "video" })}
                 >
                   <VideoIcon aria-hidden="true" strokeWidth={1.3} />
@@ -412,6 +429,8 @@ const Chat = () => {
                 onPhotosChange={setPhotos}
                 blocked={blockedByMe}
                 onUnblock={handleUnblock}
+                keyChanged={keyChanged}
+                onTrustKey={trustNewKey}
               />
             </>
           ) : (

@@ -22,6 +22,7 @@ const endMessage = (reason, name) =>
     microphone: "Microphone access is blocked. Allow it in your browser's site settings.",
     camera: "Camera or microphone access is blocked. Allow them in your browser's site settings.",
     failed: "The call couldn't connect",
+    "key-changed": `${name}'s security key has changed. Open your chat with them to check it.`,
   })[reason] ?? "Call ended";
 
 // Seconds since the call connected, updated every second.

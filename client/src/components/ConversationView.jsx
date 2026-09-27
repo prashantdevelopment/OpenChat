@@ -63,8 +63,9 @@ const withFigureNumbers = (items) => {
 // conversation's encryption key (undefined until the conversation list loads).
 // onPhotosChange(messages): the photo messages loaded so far (for the margin notes).
 // blocked: the user blocked this person (the composer gives way to a note
-// with Unblock); onUnblock unblocks them.
-const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName, receipts, onPhotosChange, blocked = false, onUnblock }) => {
+// with Unblock); onUnblock unblocks them. keyChanged: their public key isn't
+// the one this device saw before (crypto/keyPins.js); onTrustKey accepts it.
+const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName, receipts, onPhotosChange, blocked = false, onUnblock, keyChanged = false, onTrustKey }) => {
   // The loaded messages and whether older ones exist on the server. Kept in
   // one state object because they always change together.
   const [history, setHistory] = useState({ messages: [], hasOlder: false });
@@ -607,6 +608,8 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       </div>
       {blocked ? (
         <BlockedNote peerName={peerName} onUnblock={onUnblock} />
+      ) : keyChanged ? (
+        <KeyChangedNote peerName={peerName} onTrust={onTrustKey} />
       ) : (
       <form
         className="relative shrink-0 border-t border-border px-5 pt-4 pb-5 md:px-9 md:pb-6"
@@ -768,6 +771,21 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     </div>
   );
 };
+
+// In place of the composer while the other person's key looks different from
+// the one this device saw before: nothing is sent until the user trusts it.
+const KeyChangedNote = ({ peerName, onTrust }) => (
+  <div role="alert" className="shrink-0 border-t-2 border-brand px-5 pt-4 pb-5 md:px-9 md:pb-6">
+    <p className="font-heading text-xl italic">{peerName}&apos;s security key has changed.</p>
+    <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+      Someone may be trying to read this chat. Open &ldquo;End-to-end encrypted&rdquo; above and compare the safety number with {peerName} in
+      person or on another app. Only if it matches, trust the new key. (Older messages may no longer open.)
+    </p>
+    <Button variant="outline" onClick={onTrust} className="mt-3 h-11 rounded-full border-foreground px-5 sm:h-11">
+      The numbers match: trust the new key
+    </Button>
+  </div>
+);
 
 // In place of the composer while the user has blocked this person.
 const BlockedNote = ({ peerName, onUnblock }) => {

@@ -52,7 +52,16 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         cors: {
             origin: CLIENT_URL,
             credentials: true
-        }
+        },
+        // CORS only covers the polling transport; a WebSocket handshake isn't
+        // checked by it. Browsers always send Origin: only the app's own is
+        // let in (another site can't open a socket as the user, on top of the
+        // SameSite cookie). Non-browser clients send none and still need a
+        // valid session cookie.
+        allowRequest: (req, callback) => {
+            const origin = req.headers.origin;
+            callback(null, origin === undefined || origin === CLIENT_URL);
+        },
     });
 
     const connectionLimiter = createLimiter({ windowMs: 60_000, max: CONNECTIONS_PER_MINUTE });

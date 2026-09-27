@@ -22,11 +22,36 @@ setInterval(() => {
     }
 }, 10 * 60 * 1000).unref();
 
+// Each user's sessions that haven't expired: userId -> Map(jti -> expiresAt).
+// Changing the password ends all but the current one. (Like `revoked`, this
+// is in memory: after a restart, older sessions simply run out within the hour.)
+const sessionsOf = new Map();
+setInterval(() => {
+    const now = Date.now();
+    for (const [userId, sessions] of sessionsOf) {
+        for (const [jti, expiresAt] of sessions) {
+            if (expiresAt <= now) sessions.delete(jti);
+        }
+        if (sessions.size === 0) sessionsOf.delete(userId);
+    }
+}, 10 * 60 * 1000).unref();
+
 // socket.js listens: "revoked" (jti) -> close that session's sockets.
 export const sessionEvents = new EventEmitter();
 
-export const signSessionToken = (userId) =>
-    JWT.sign({ userId }, JWT_SECRET, { algorithm: ALGORITHM, expiresIn: `${SESSION_HOURS}h`, jwtid: randomUUID() });
+export const signSessionToken = (userId) => {
+    const jti = randomUUID();
+    const token = JWT.sign({ userId }, JWT_SECRET, { algorithm: ALGORITHM, expiresIn: `${SESSION_HOURS}h`, jwtid: jti });
+    const id = String(userId);
+    if (!sessionsOf.has(id)) sessionsOf.set(id, new Map());
+    sessionsOf.get(id).set(jti, Date.now() + SESSION_HOURS * 60 * 60 * 1000);
+    return token;
+};
+
+const revoke = (jti, expiresAt) => {
+    revoked.set(jti, expiresAt);
+    sessionEvents.emit("revoked", jti);
+};
 
 // The token's claims ({ userId, jti, exp, ... }), or throws a 401.
 export const verifySessionToken = (token) => {
@@ -52,6 +77,18 @@ export const endSession = (token) => {
         return;
     }
     if (!claims.jti) return;
-    revoked.set(claims.jti, claims.exp * 1000);
-    sessionEvents.emit("revoked", claims.jti);
+    sessionsOf.get(String(claims.userId))?.delete(claims.jti);
+    revoke(claims.jti, claims.exp * 1000);
+};
+
+// After a password change: every other session of the user ends (a thief
+// logged in with the old password is thrown out); the current one stays.
+export const endOtherSessions = (userId, currentJti) => {
+    const sessions = sessionsOf.get(String(userId));
+    if (!sessions) return;
+    for (const [jti, expiresAt] of sessions) {
+        if (jti === currentJti) continue;
+        sessions.delete(jti);
+        revoke(jti, expiresAt);
+    }
 };

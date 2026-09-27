@@ -4,6 +4,7 @@ import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { getConversationKey } from "../crypto/hooks.js";
 import { decryptMessage, encryptMessage } from "../crypto/messages.js";
+import { checkPeerKey } from "../crypto/keyPins.js";
 import { CallContext } from "./CallContext.js";
 import CallOverlay from "./CallOverlay.jsx";
 
@@ -40,6 +41,9 @@ const CallProvider = ({ children }) => {
   const remoteAudio = useRef(null);
   const pendingCandidates = useRef([]);
   const incomingOffer = useRef(null);
+  // For an incoming call: is the caller's key the one this device knows?
+  // (crypto/keyPins.js) A promise, started when it rings.
+  const peerKeyCheck = useRef(null);
   const endedTimer = useRef(null);
   const ringTimer = useRef(null);
   const offerSent = useRef(false); // the other side was really called: worth a call record
@@ -210,6 +214,11 @@ const CallProvider = ({ children }) => {
     });
     const current = callRef.current;
     try {
+      // No call with a key this device doesn't know for them (the chat explains).
+      if ((await checkPeerKey(currentUser._id, peer._id, peer.publicKey)) === "changed") {
+        finish("key-changed");
+        return;
+      }
       await openMedia(media);
       const pc = createPeerConnection(current);
       attachStateChannel(pc.createDataChannel("call-state"));
@@ -233,13 +242,23 @@ const CallProvider = ({ children }) => {
 
   const acceptCall = async () => {
     const current = callRef.current;
-    if (current?.status !== "ringing") return;
+    // The offer is taken now: the call can end while the browser asks for the
+    // microphone (the caller hangs up), and ending clears it.
+    const offer = incomingOffer.current;
+    if (current?.status !== "ringing" || !offer) return;
     clearTimeout(ringTimer.current);
+    if ((await peerKeyCheck.current) === "changed") return; // already ended (see handleIncoming)
     update({ status: "connecting" });
     try {
       await openMedia(current.media);
+      // Ended meanwhile: release the microphone/camera just opened, nothing else.
+      if (callRef.current?.callId !== current.callId || callRef.current.status === "ended") {
+        localStream.current?.getTracks().forEach((track) => track.stop());
+        localStream.current = null;
+        return;
+      }
       const pc = createPeerConnection(current);
-      await pc.setRemoteDescription(await open(current, incomingOffer.current));
+      await pc.setRemoteDescription(await open(current, offer));
       await flushCandidates();
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -317,6 +336,11 @@ const CallProvider = ({ children }) => {
       incomingOffer.current = offer;
       callRef.current = null;
       update({ callId, conversationId, peer: from, media, direction: "incoming", status: "ringing", muted: false, cameraOff: false });
+      // A key this device doesn't know for them: the call ends with that reason.
+      peerKeyCheck.current = checkPeerKey(currentUser._id, from._id, from.publicKey).then((status) => {
+        if (status === "changed" && isThisCall(callId)) hangUp("failed", "key-changed");
+        return status;
+      });
       ringTimer.current = setTimeout(() => {
         if (callRef.current?.callId === callId && callRef.current.status === "ringing") {
           cleanUp();
@@ -338,6 +362,9 @@ const CallProvider = ({ children }) => {
     };
 
     const handleCandidate = async ({ callId, candidate }) => {
+      if (!isThisCall(callId)) return;
+      // Incoming: wait for the key check (a changed key ends the call instead).
+      if (callRef.current.direction === "incoming" && (await peerKeyCheck.current) === "changed") return;
       if (!isThisCall(callId)) return;
       try {
         await addCandidate(await open(callRef.current, candidate));

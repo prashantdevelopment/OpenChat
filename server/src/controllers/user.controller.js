@@ -1,5 +1,6 @@
 import { changePassword, createUser, discoverUsers, getPublicProfile, searchUsers } from "../services/user.service.js";
 import { updateUser } from "../services/user.service.js";
+import { endOtherSessions } from "../session.js";
 
 const createUserController = async (req, res) => { 
         const userData = req.body;
@@ -26,6 +27,8 @@ const changePasswordController = async (req, res) => {
     const userId = req.user.userId;
     const { currentPassword, newPassword, encryptedPrivateKey } = req.body;
     await changePassword(userId, currentPassword, newPassword, encryptedPrivateKey);
+    // Other devices logged in with the old password are logged out.
+    endOtherSessions(userId, req.user.jti);
     res.status(200).json({
         success: true,
         message: "Password changed successfully",

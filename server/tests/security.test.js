@@ -202,6 +202,36 @@ describe("sessions", () => {
         await expect(connect(`token=${token}`)).rejects.toThrow("Invalid authentication token");
     });
 
+    it("changing the password logs out the user's other sessions (and their sockets), not this one", async () => {
+        await registerAndLogin("carol_sec");
+        const [current, other] = [await loginCookie("carol_sec"), await loginCookie("carol_sec")];
+        const [mine, theirs] = await Promise.all([connect(current), connect(other)]);
+        const told = [];
+        theirs.on("sessionExpired", () => told.push("other"));
+        mine.on("sessionExpired", () => told.push("current"));
+        await request(app).patch("/api/users/me/password").set("Cookie", current).set("X-Forwarded-For", newIp())
+            .send({ currentPassword: PASSWORD, newPassword: "Another@123", encryptedPrivateKey: TEST_KEYS.encryptedPrivateKey })
+            .expect(200);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await request(app).get("/api/auth/me").set("Cookie", other).expect(401);
+        await request(app).get("/api/auth/me").set("Cookie", current).expect(200);
+        expect(told).toEqual(["other"]);
+        expect(theirs.connected).toBe(false);
+        expect(mine.connected).toBe(true);
+    });
+
+    it("sockets: only the app's own origin may connect from a browser", async () => {
+        const cookie = await loginCookie("alice_sec");
+        const withOrigin = (origin) => new Promise((resolve, reject) => {
+            const socket = connectClient(url, { extraHeaders: { cookie, origin, "x-forwarded-for": newIp() }, reconnection: false, transports: ["websocket"] });
+            openSockets.push(socket);
+            socket.on("connect", () => resolve(socket));
+            socket.on("connect_error", reject);
+        });
+        await expect(withOrigin("https://evil.example")).rejects.toThrow();
+        expect((await withOrigin(process.env.CLIENT_URL)).connected).toBe(true);
+    });
+
     it("login tokens carry their own id and last an hour", async () => {
         const token = (await loginCookie("alice_sec")).replace("token=", "");
         const claims = JWT.decode(token, { complete: true });
