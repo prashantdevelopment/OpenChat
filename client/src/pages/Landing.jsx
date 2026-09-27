@@ -1,3 +1,4 @@
+import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from "react";
 import { Link, Navigate } from "react-router";
 import {
   CheckCheckIcon,
@@ -13,6 +14,10 @@ import { Button } from "@/components/ui/button";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import LandingPresence from "../components/LandingPresence.jsx";
 import { useAuth } from "../auth/AuthContext.js";
+import { hasWebGL } from "../lib/webgl.js";
+
+// The 3D orb and three.js (~240 kB) are downloaded only when it will be shown.
+const HeroOrb = lazy(() => import("../components/HeroOrb.jsx"));
 
 const FEATURES = [
   {
@@ -56,10 +61,40 @@ const Logo = () => (
   </Link>
 );
 
+// The 3D orb is decoration, so it's only for large screens, never with reduced
+// motion or Data Saver, and only once the page is idle (it never slows the
+// first paint). Everyone else sees the poster: the example chat and a glow.
+const ORB_MEDIA = "(min-width: 1024px) and (prefers-reduced-motion: no-preference)";
+const subscribeOrbMedia = (onChange) => {
+  const media = matchMedia(ORB_MEDIA);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+};
+const wantsOrb = () => matchMedia(ORB_MEDIA).matches && !navigator.connection?.saveData;
+
+const useHeroOrb = () => {
+  const wanted = useSyncExternalStore(subscribeOrbMedia, wantsOrb);
+  const [canDraw, setCanDraw] = useState(false);
+  useEffect(() => {
+    if (!wanted || canDraw) return;
+    const start = () => setCanDraw(hasWebGL());
+    if ("requestIdleCallback" in window) {
+      const id = requestIdleCallback(start, { timeout: 3000 });
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(start, 1500);
+    return () => clearTimeout(id);
+  }, [wanted, canDraw]);
+  return wanted && canDraw;
+};
+
 // The hero's picture: an example conversation drawn with the app's own
 // styles (no image to download). Decorative; the 3D hero builds on it later.
-const ChatPreview = () => (
-  <div aria-hidden="true" className="mx-auto w-full max-w-sm select-none rounded-2xl border border-border bg-card text-card-foreground shadow-xl">
+const ChatPreview = ({ className = "" }) => (
+  <div
+    aria-hidden="true"
+    className={`relative z-10 mx-auto w-full max-w-sm select-none rounded-2xl border border-border bg-card text-card-foreground shadow-xl ${className}`}
+  >
     <div className="flex items-center gap-3 border-b border-border px-4 py-3">
       <span className="relative flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
         R
@@ -98,6 +133,7 @@ const ChatPreview = () => (
 // their chats, like /login and /register do.
 const Landing = () => {
   const { currentUser } = useAuth();
+  const showOrb = useHeroOrb();
   if (currentUser) return <Navigate to="/chat" replace />;
 
   return (
@@ -148,7 +184,20 @@ const Landing = () => {
             </div>
             <p className="mt-4 text-sm text-muted-foreground">No phone number needed. Works in your browser.</p>
           </div>
-          <ChatPreview />
+          <div className="relative lg:h-[520px]">
+            <div aria-hidden="true" className="absolute top-0 right-0 hidden size-[440px] lg:block" data-hero-art="">
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--primary) 30%, transparent), transparent)" }}
+              />
+              {showOrb ? (
+                <Suspense fallback={null}>
+                  <HeroOrb />
+                </Suspense>
+              ) : null}
+            </div>
+            <ChatPreview className="lg:absolute lg:bottom-0 lg:left-0 lg:w-88" />
+          </div>
         </section>
 
         <section aria-labelledby="features-heading" className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 md:pb-24">

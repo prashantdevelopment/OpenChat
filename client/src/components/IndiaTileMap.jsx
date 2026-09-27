@@ -1,7 +1,10 @@
-import { Component, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { CanvasTexture, Color, MathUtils, SRGBColorSpace, Vector3 } from "three";
 import { INDIA_TILES, tileLevel, tilePositions } from "../lib/indiaTiles.js";
+import { hasWebGL } from "../lib/webgl.js";
+import { useThemeColors } from "../hooks/useThemeColors.js";
+import CanvasBoundary from "./CanvasBoundary.jsx";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
 
 const RADIUS = 1;
@@ -14,28 +17,6 @@ const FOV = 40;
 // Half the map's width (tile centres plus a tile and a little margin).
 const HALF_WIDTH = Math.max(...tiles.map((tile) => Math.abs(tile.x))) + RADIUS * 1.3;
 const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name ?? code;
-
-// Colours from the theme's CSS variables, read again when the theme changes.
-const readTheme = () => {
-  const css = getComputedStyle(document.documentElement);
-  const get = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
-  return {
-    primary: get("--primary", "#2563eb"),
-    muted: get("--muted", "#f1f5fd"),
-    foreground: get("--foreground", "#0f172a"),
-    ring: get("--ring", "#2563eb"),
-  };
-};
-
-const useTheme = () => {
-  const [theme, setTheme] = useState(readTheme);
-  useEffect(() => {
-    const observer = new MutationObserver(() => setTheme(readTheme()));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-  return theme;
-};
 
 // The short label (e.g. "KL") drawn on a small canvas, shown as a sprite.
 const labelTexture = (text, colour) => {
@@ -100,32 +81,13 @@ const FitCamera = () => {
   return null;
 };
 
-// Catches WebGL/driver errors: the map is extra, the list still works.
-class MapBoundary extends Component {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
-}
-
-const hasWebGL = () => {
-  try {
-    return Boolean(document.createElement("canvas").getContext("webgl2") ?? document.createElement("canvas").getContext("webgl"));
-  } catch {
-    return false;
-  }
-};
-
 // 3D tile map of India's states and union territories (no borders: a
 // picture, not a boundary map). Height and colour = people online; click a
 // tile to choose the state. Renders only when something changes (frameloop
 // "demand"), so it costs nothing while you read. The list next to it is the
 // accessible way to choose a state; this is described as one image.
 const IndiaTileMap = ({ counts, selected, onSelect }) => {
-  const theme = useTheme();
+  const theme = useThemeColors();
   const [hovered, setHovered] = useState(null);
   const [webgl] = useState(hasWebGL);
   const textures = useMemo(
@@ -149,7 +111,7 @@ const IndiaTileMap = ({ counts, selected, onSelect }) => {
       aria-label="India's states and union territories as 3D tiles: taller and bluer means more people online. Use the list to choose a state."
       className="relative h-full w-full"
     >
-      <MapBoundary>
+      <CanvasBoundary>
         <Canvas
           frameloop="demand"
           dpr={[1, 2]}
@@ -173,7 +135,7 @@ const IndiaTileMap = ({ counts, selected, onSelect }) => {
             />
           ))}
         </Canvas>
-      </MapBoundary>
+      </CanvasBoundary>
       {hovered ? (
         <p aria-hidden="true" className="pointer-events-none absolute top-2 left-2 rounded-md bg-popover px-2 py-1 text-sm text-popover-foreground shadow">
           {stateName(hovered)} · {hoveredCount === null || hoveredCount === undefined ? "fewer than 5 online" : `${hoveredCount} online`}
