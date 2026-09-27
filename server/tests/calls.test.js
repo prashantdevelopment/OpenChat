@@ -46,6 +46,14 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 200));
 // Stand-in for a signal encrypted with the conversation key.
 const signal = () => encrypted("v=0 o=- 1 2 IN IP4 127.0.0.1 a=fingerprint:sha-256 AB:CD");
 
+describe("ICE servers (no TURN key configured)", () => {
+    it("STUN only, for logged-in users", async () => {
+        const res = await request(app).get("/api/calls/ice-servers").set("Cookie", alice.cookie).expect(200);
+        expect(res.body.iceServers).toEqual([{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }]);
+        await request(app).get("/api/calls/ice-servers").expect(401);
+    });
+});
+
 describe("call signaling", () => {
     it("rings the callee's tabs with the caller's public profile, never the caller's own", async () => {
         const [a, b1, b2, c] = await Promise.all([connectAs(alice), connectAs(bob), connectAs(bob), connectAs(carol)]);

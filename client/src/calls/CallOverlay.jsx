@@ -157,8 +157,8 @@ const VideoCall = ({ call }) => {
         </div>
         {/* My own picture, as a small print pinned in the corner. */}
         {call.localStream ? (
-          <figure className="absolute right-3 bottom-3 w-28 rotate-2 bg-print p-1 pb-0 text-print-foreground shadow-lg sm:w-40">
-            <div className="aspect-video overflow-hidden bg-stage">
+          <figure className="absolute right-3 bottom-3 w-[34vw] max-w-40 rotate-2 bg-print p-1 pb-0 text-print-foreground shadow-lg sm:w-44 sm:max-w-none">
+            <div className="aspect-[3/4] overflow-hidden bg-stage sm:aspect-video">
               {call.cameraOff ? (
                 <p className="flex size-full items-center justify-center px-1 text-center text-xs text-stage-foreground/80">Your camera is off</p>
               ) : (

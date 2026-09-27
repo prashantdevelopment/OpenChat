@@ -170,7 +170,7 @@ const Landing = () => {
               <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
                 End-to-end encrypted · Made for India
               </p>
-              <h1 id="hero-heading" className="mt-5 text-[52px] leading-[0.95] text-balance sm:text-7xl xl:text-[84px]">
+              <h1 id="hero-heading" className="mt-5 text-[40px] leading-[0.95] text-balance sm:text-7xl xl:text-[84px]">
                 Private chats with people <span className="text-brand italic">across India</span>
               </h1>
               <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-muted-foreground">
@@ -195,7 +195,7 @@ const Landing = () => {
 
         <section aria-labelledby="features-heading" data-reveal="" className="mx-auto max-w-6xl px-5 py-16 md:px-9 md:py-24">
           <p data-reveal-item="" className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">What you get</p>
-          <h2 id="features-heading" data-reveal-item="" className="mt-3 max-w-3xl text-[40px] leading-[1.02] sm:text-[52px]">
+          <h2 id="features-heading" data-reveal-item="" className="mt-3 max-w-3xl text-[30px] leading-[1.05] sm:text-[52px]">
             Everything a chat needs, <span className="italic">private by default</span>
           </h2>
           <ul className="mt-12 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">

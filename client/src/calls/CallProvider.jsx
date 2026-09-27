@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import socket from "../socket/socket.js";
+import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { getConversationKey } from "../crypto/hooks.js";
 import { decryptMessage, encryptMessage } from "../crypto/messages.js";
@@ -8,10 +9,16 @@ import { checkPeerKey } from "../crypto/keyPins.js";
 import { CallContext } from "./CallContext.js";
 import CallOverlay from "./CallOverlay.jsx";
 
-// Public STUN server: tells each browser its public address so the two can
-// reach each other directly. (Behind strict networks a TURN relay is needed:
-// plan step 41.)
-const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
+// How the two browsers find each other: the server hands out STUN (each
+// browser's public address) and, when configured, TURN relay credentials for
+// networks that can't connect directly (server: iceServers.service.js). If
+// the server can't be asked, public STUN alone still works on many networks.
+const FALLBACK_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
+const loadIceServers = () =>
+  api
+    .get("/calls/ice-servers")
+    .then((res) => res.data.iceServers)
+    .catch(() => FALLBACK_ICE_SERVERS);
 const ENDED_VISIBLE_MS = 3000;
 // Nobody answers within 30s: the caller gives up ("No answer", a missed call
 // for the other side). The callee stops ringing a bit later by itself, in
@@ -152,8 +159,8 @@ const CallProvider = ({ children }) => {
     return localStream.current;
   };
 
-  const createPeerConnection = (current) => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const createPeerConnection = (current, iceServers) => {
+    const pc = new RTCPeerConnection({ iceServers });
     pc.onicecandidate = async (event) => {
       if (!event.candidate) return;
       const candidate = await seal(current, event.candidate.toJSON());
@@ -219,8 +226,9 @@ const CallProvider = ({ children }) => {
         finish("key-changed");
         return;
       }
-      await openMedia(media);
-      const pc = createPeerConnection(current);
+      // Both at once: the relay credentials while the microphone opens.
+      const [iceServers] = await Promise.all([loadIceServers(), openMedia(media)]);
+      const pc = createPeerConnection(current, iceServers);
       attachStateChannel(pc.createDataChannel("call-state"));
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -250,14 +258,14 @@ const CallProvider = ({ children }) => {
     if ((await peerKeyCheck.current) === "changed") return; // already ended (see handleIncoming)
     update({ status: "connecting" });
     try {
-      await openMedia(current.media);
+      const [iceServers] = await Promise.all([loadIceServers(), openMedia(current.media)]);
       // Ended meanwhile: release the microphone/camera just opened, nothing else.
       if (callRef.current?.callId !== current.callId || callRef.current.status === "ended") {
         localStream.current?.getTracks().forEach((track) => track.stop());
         localStream.current = null;
         return;
       }
-      const pc = createPeerConnection(current);
+      const pc = createPeerConnection(current, iceServers);
       await pc.setRemoteDescription(await open(current, offer));
       await flushCandidates();
       const answer = await pc.createAnswer();

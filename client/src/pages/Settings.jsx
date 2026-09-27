@@ -32,7 +32,7 @@ const Section = ({ number, title, description, children }) => {
         <p aria-hidden="true" className="font-mono text-xs text-muted-foreground">
           {number}
         </p>
-        <h2 id={headingId} className="mt-1 text-[32px] leading-tight">
+        <h2 id={headingId} className="mt-1 text-[26px] leading-tight md:text-[32px]">
           {title}
         </h2>
         {description ? <p className="mt-2 text-sm text-muted-foreground">{description}</p> : null}
@@ -611,7 +611,7 @@ const Settings = () => (
     <Masthead discover={false} />
     <main id="main" className="mx-auto max-w-5xl px-5 pt-10 pb-16 md:px-10 md:pt-14">
       <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Your account</p>
-      <h1 className="mt-2 mb-10 text-[56px] leading-none md:text-[72px]">Settings</h1>
+      <h1 className="mt-2 mb-8 text-[40px] leading-none md:mb-10 md:text-[72px]">Settings</h1>
       <ProfileSection />
       <PasswordSection />
       <PrivacySection />

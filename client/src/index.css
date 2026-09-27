@@ -311,6 +311,13 @@
        Haveli and Daman and Diu"), which overflowed 360px phones. */
     @apply max-w-full rounded-md border border-input bg-background px-3 py-2;
   }
+  /* The open list of a <select> (state picker): browsers paint it with the
+     select's own background, which is transparent here, so in the dark theme
+     the light text sat on a white list. Explicit colours, both themes. */
+  option, optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
   /* Tailwind's reset makes plain buttons and links look like normal text.
      Until they are replaced by the designed components, keep them
      recognisable. coss <Button>s carry data-slot and are not affected. */

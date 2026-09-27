@@ -295,7 +295,7 @@ const Chat = () => {
         >
           <div className="px-5 pt-6 pb-4 md:px-7">
             <div className="flex items-baseline justify-between gap-3">
-              <h1 className="text-[44px] leading-none">Chats</h1>
+              <h1 className="text-[34px] leading-none md:text-[44px]">Chats</h1>
               {totalUnread > 0 ? (
                 <span className="font-mono text-xs text-brand">{String(totalUnread).padStart(2, "0")} unread</span>
               ) : null}
@@ -365,7 +365,7 @@ const Chat = () => {
                   <ArrowLeftIcon aria-hidden="true" strokeWidth={1.4} />
                 </Button>
                 {/* The name set large, in the italic serif, like a byline. */}
-                <PeerHeading className="min-w-0 truncate pb-1 font-heading text-4xl leading-[0.95] italic md:text-[52px]">
+                <PeerHeading className="min-w-0 truncate pb-1 font-heading text-[28px] leading-[0.95] italic md:text-[52px]">
                     {peer ? (
                       <Link to={`/u/${peer.username}`} className="text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
                         {peer.username}

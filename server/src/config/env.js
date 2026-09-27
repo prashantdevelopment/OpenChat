@@ -83,7 +83,21 @@ const RATE_LIMITS = process.env.RATE_LIMITS ?? "on";
                 throw new Error("RATE_LIMITS can't be off in production");
             }
 
+// Cloudflare Realtime TURN (relays calls the two browsers can't connect
+// directly): a TURN key's id and API token, from the Cloudflare dashboard.
+// Optional: without them calls use STUN only. Both or neither.
+const TURN = process.env.CLOUDFLARE_TURN_KEY_ID || process.env.CLOUDFLARE_TURN_KEY_API_TOKEN
+    ? { keyId: process.env.CLOUDFLARE_TURN_KEY_ID, apiToken: process.env.CLOUDFLARE_TURN_KEY_API_TOKEN }
+    : null;
+            if (TURN && (!TURN.keyId || !TURN.apiToken)) {
+                throw new Error("Cloudflare TURN needs both CLOUDFLARE_TURN_KEY_ID and CLOUDFLARE_TURN_KEY_API_TOKEN");
+            }
+            if (TURN && !/^[A-Za-z0-9_-]+$/.test(TURN.keyId)) {
+                throw new Error("CLOUDFLARE_TURN_KEY_ID looks wrong (letters, digits, - and _ only)");
+            }
+
 export {
+    TURN,
     TRUST_PROXY,
     RATE_LIMITS,
     STORAGE_DRIVER,

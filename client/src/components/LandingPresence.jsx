@@ -57,7 +57,7 @@ const LandingPresence = () => {
       <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 md:grid-cols-2 md:px-9 md:py-24">
         <div data-reveal-item="">
           <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Live, counts only</p>
-          <h2 id="presence-heading" className="mt-3 text-[40px] leading-[1.02] sm:text-[52px]">
+          <h2 id="presence-heading" className="mt-3 text-[30px] leading-[1.05] sm:text-[52px]">
             Right now <span className="text-brand italic">across India</span>
           </h2>
           <p className="mt-4 max-w-prose text-muted-foreground">

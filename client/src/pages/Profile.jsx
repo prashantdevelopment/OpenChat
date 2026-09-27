@@ -83,7 +83,7 @@ const Profile = () => {
           </div>
         ) : state.status === "missing" || state.status === "error" ? (
           <div role="alert" className="mt-6">
-            <h1 className="text-5xl italic">{state.status === "missing" ? `No one called ${username}` : "Couldn't load this profile"}</h1>
+            <h1 className="text-[34px] leading-tight italic md:text-5xl">{state.status === "missing" ? `No one called ${username}` : "Couldn't load this profile"}</h1>
             <p className="mt-3 text-muted-foreground">
               {state.status === "missing" ? "Check the spelling, or find people in the search." : "Check your connection and try again."}
             </p>
@@ -94,7 +94,7 @@ const Profile = () => {
         ) : (
           <article className="mt-6">
             <Avatar name={user.username} avatarId={user.avatar} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
-            <h1 className="mt-6 text-5xl leading-none wrap-break-word italic md:text-7xl">{user.username}</h1>
+            <h1 className="mt-6 text-[38px] leading-none wrap-break-word italic md:text-7xl">{user.username}</h1>
             {user.bio ? <p className="mt-6 max-w-xl font-heading text-2xl leading-snug md:text-3xl">“{user.bio}”</p> : null}
             <p className="mt-4 font-mono text-xs tracking-[0.14em] text-muted-foreground uppercase">
               {place ? `${place} · ` : ""}on OpenChat

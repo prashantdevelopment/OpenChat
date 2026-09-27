@@ -36,3 +36,9 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      # Cloudflare Realtime TURN key (relays calls that can't connect directly;
+      # optional, see docs/DEPLOY.md)
+      - key: CLOUDFLARE_TURN_KEY_ID
+        sync: false
+      - key: CLOUDFLARE_TURN_KEY_API_TOKEN
+        sync: false

@@ -26,7 +26,7 @@ const AuthCard = ({ title, description, children, footer, tagline = ["Private le
       <Link to="/" className="mb-10 font-heading text-2xl text-foreground no-underline lg:hidden">
         Open<span className="text-brand italic">chat</span>
       </Link>
-      <h1 className="text-[40px] leading-none sm:text-[44px]">{title}</h1>
+      <h1 className="text-[32px] leading-none sm:text-[44px]">{title}</h1>
       {description ? <p className="mt-3 text-muted-foreground">{description}</p> : null}
       <div className="mt-8">{children}</div>
       {footer ? <div className="mt-8 border-t border-border pt-5 text-sm text-muted-foreground">{footer}</div> : null}
