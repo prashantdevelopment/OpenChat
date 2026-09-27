@@ -268,7 +268,7 @@ const Discover = () => {
     <div className="min-h-dvh bg-background lg:relative lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden">
       <Masthead discover={false} />
 
-      <div className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[440px_minmax(0,1fr)] xl:grid-cols-[480px_minmax(0,1fr)]">
+      <main id="main" className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[440px_minmax(0,1fr)] xl:grid-cols-[480px_minmax(0,1fr)]">
         <section
           aria-labelledby="discover-heading"
           className="relative flex flex-col gap-6 px-5 pt-8 pb-8 md:px-10 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-border lg:pt-10"
@@ -301,7 +301,7 @@ const Discover = () => {
               placeholder="Kerala, Goa, Punjab…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="mt-1 h-10 w-full rounded-none border-0 border-b border-foreground bg-transparent px-0 focus-visible:outline-none"
+              className="mt-1 h-10 w-full rounded-none border-0 border-b border-foreground bg-transparent px-0 focus-line focus-visible:outline-none"
             />
           </div>
 
@@ -320,7 +320,7 @@ const Discover = () => {
                       isChosen ? "text-brand" : "text-foreground",
                     )}
                   >
-                    <span aria-hidden="true" className="w-5 font-mono text-xs opacity-60">
+                    <span aria-hidden="true" className="w-5 font-mono text-xs text-muted-foreground">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <span className={cn("min-w-0 truncate font-heading text-[26px] leading-tight", isChosen && "italic")}>{state.name}</span>
@@ -384,7 +384,7 @@ const Discover = () => {
 
           {isWide ? null : <div className="mx-auto mt-12 max-w-2xl">{people}</div>}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

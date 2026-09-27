@@ -50,6 +50,11 @@ const Chat = () => {
   // phones; only one copy is rendered. The margin notes need a wide screen.
   const isWide = useMediaQuery("(min-width: 768px)");
   const isExtraWide = useMediaQuery("(min-width: 1280px)");
+  // Phone: one pane at a time. The list is the main content when no
+  // conversation is open, and the conversation's name is the page heading.
+  const listIsMain = !isWide && !conversationId;
+  const ListTag = listIsMain ? "main" : "aside";
+  const PeerHeading = isWide ? "h2" : "h1";
   const [photos, setPhotos] = useState([]);
 
   // Fetch conversations
@@ -254,7 +259,11 @@ const Chat = () => {
       >
         {/* The list. Desktop: always visible. Mobile: only when no conversation
             is open (the URL decides, so the phone's back button just works). */}
-        <aside aria-label="Chats" className={cn("min-h-0 flex-col md:flex md:border-r md:border-border", conversationId ? "hidden" : "flex")}>
+        <ListTag
+          id={listIsMain ? "main" : undefined}
+          aria-label="Chats"
+          className={cn("min-h-0 flex-col md:flex md:border-r md:border-border", conversationId ? "hidden" : "flex")}
+        >
           <div className="px-5 pt-6 pb-4 md:px-7">
             <div className="flex items-baseline justify-between gap-3">
               <h1 className="text-[44px] leading-none">Chats</h1>
@@ -308,13 +317,15 @@ const Chat = () => {
               </ul>
             )}
           </nav>
-        </aside>
+        </ListTag>
 
         {/* Open conversation. Mobile: shown instead of the list. */}
-        <main className={cn("min-h-0 min-w-0 flex-col md:flex", conversationId ? "flex" : "hidden")}>
+        <main id={listIsMain ? undefined : "main"} className={cn("min-h-0 min-w-0 flex-col md:flex", conversationId ? "flex" : "hidden")}>
           {conversationId ? (
             <>
-              <header className="flex items-end gap-3 border-b border-border px-5 pt-5 pb-4 md:gap-4.5 md:px-9 md:pt-6.5">
+              {/* Grid: on phones the status line gets its own full-width row under
+                  the name and buttons; from 768px it sits under the name. */}
+              <header className="grid grid-flow-row-dense grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-2 border-b border-border px-5 pt-5 pb-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end md:gap-x-4.5 md:gap-y-0 md:px-9 md:pt-6.5">
                 <Button
                   render={<Link to="/chat" />}
                   variant="ghost"
@@ -324,9 +335,8 @@ const Chat = () => {
                 >
                   <ArrowLeftIcon aria-hidden="true" strokeWidth={1.4} />
                 </Button>
-                <div className="min-w-0 flex-1">
-                  {/* The name set large, in the italic serif, like a byline. */}
-                  <h2 className="truncate pb-1 font-heading text-4xl leading-[0.95] italic md:text-[52px]">
+                {/* The name set large, in the italic serif, like a byline. */}
+                <PeerHeading className="min-w-0 truncate pb-1 font-heading text-4xl leading-[0.95] italic md:text-[52px]">
                     {peer ? (
                       <Link to={`/u/${peer.username}`} className="text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
                         {peer.username}
@@ -334,8 +344,8 @@ const Chat = () => {
                     ) : (
                       "Conversation"
                     )}
-                  </h2>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11.5px] tracking-[0.14em] text-muted-foreground uppercase">
+                  </PeerHeading>
+                  <div className="col-span-full flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11.5px] tracking-[0.14em] text-muted-foreground uppercase md:col-span-1 md:col-start-1 md:mt-2">
                     {peer?.online ? (
                       <span className="text-success">
                         <span aria-hidden="true">● </span>Online
@@ -357,11 +367,10 @@ const Chat = () => {
                       className="font-mono text-[11.5px] tracking-[0.14em] uppercase"
                     />
                   </div>
-                </div>
                 <Button
                   variant="outline"
                   size="icon-xl"
-                  className="size-11.5 rounded-full border-foreground sm:size-11.5"
+                  className="size-11.5 rounded-full border-foreground sm:size-11.5 md:row-span-2 md:self-end"
                   aria-label={`Voice call ${peer?.username ?? ""}`.trim()}
                   disabled={!peer?.publicKey || !isConnected || isInCall}
                   onClick={() => startCall({ conversationId, peer, media: "audio" })}
@@ -370,7 +379,7 @@ const Chat = () => {
                 </Button>
                 <Button
                   size="icon-xl"
-                  className="size-11.5 rounded-full sm:size-11.5"
+                  className="size-11.5 rounded-full sm:size-11.5 md:row-span-2 md:self-end"
                   aria-label={`Video call ${peer?.username ?? ""}`.trim()}
                   disabled={!peer?.publicKey || !isConnected || isInCall}
                   onClick={() => startCall({ conversationId, peer, media: "video" })}

@@ -360,6 +360,17 @@
   }
 }
 
+/* Keyboard focus on the inputs drawn as a plain ink line (composer, people
+   search, Discover filter): the line turns focus-ring red and 2px thick.
+   On a wrapper, when the wrapper draws the line (the search box). */
+@utility focus-line {
+  &:focus-visible,
+  &:has(:focus-visible) {
+    border-bottom-color: var(--ring);
+    box-shadow: 0 1px 0 0 var(--ring);
+  }
+}
+
 /* An on/off switch drawn on a real checkbox (role="switch" in the markup),
    so the keyboard, screen readers and forms keep working. The knob is a
    background circle that slides; on = the brand red track. Border and

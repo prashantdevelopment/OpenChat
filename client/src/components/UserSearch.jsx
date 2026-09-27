@@ -58,7 +58,7 @@ const UserSearch = ({ onMessageUser, inMasthead = false }) => {
       <label htmlFor="user-search" className={cn("mb-1.5 block text-sm font-medium", inMasthead && "sr-only")}>
         Find people
       </label>
-      <div className={cn("flex items-center gap-2.5 border-b border-foreground", !inMasthead && "border-input")}>
+      <div className={cn("flex items-center gap-2.5 border-b border-foreground focus-line", !inMasthead && "border-input")}>
         <SearchIcon aria-hidden="true" strokeWidth={1.3} className="size-4 shrink-0 text-muted-foreground" />
         <input
         id="user-search"

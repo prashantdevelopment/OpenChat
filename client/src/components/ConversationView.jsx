@@ -8,6 +8,7 @@ import { encryptFile } from "../crypto/files.js";
 import { formatDuration, formatFileSize, prepareAttachment } from "../lib/attachments.js";
 import { rememberFile } from "../lib/encryptedFiles.js";
 import { canRecordVoice, useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
+import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import MessageBubble from "./MessageBubble.jsx";
 import { buildTimeline } from "../lib/timeline.js";
 import { usePeerTyping, useTypingSender } from "../socket/useTyping.js";
@@ -87,6 +88,8 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   const [attachError, setAttachError] = useState("");
   // At the time limit the recording is sent (sendVoice is defined below).
   const voice = useVoiceRecorder({ onLimit: () => sendVoice() });
+  // From 1024px the composer is wide enough for "Write a note to <name>…" on one line.
+  const roomyComposer = useMediaQuery("(min-width: 1024px)");
   const isRecording = voice.status !== "idle";
   const voiceSendRef = useRef(null);
   // The mic button disappears when recording starts and the recording bar when
@@ -699,10 +702,10 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             ref={inputRef}
             rows={1}
             // An underline to write on; the placeholder in the serif italic.
-            className="max-h-40 min-h-11 min-w-0 flex-1 resize-none rounded-none border-0 border-b border-foreground bg-transparent px-0 py-2.5 placeholder:font-heading placeholder:text-base placeholder:italic sm:placeholder:text-xl focus-visible:outline-none"
+            className="max-h-40 min-h-11 min-w-0 flex-1 resize-none rounded-none border-0 border-b border-foreground bg-transparent px-0 py-2.5 placeholder:font-heading placeholder:text-base placeholder:italic sm:placeholder:text-xl focus-line focus-visible:outline-none"
             aria-label="Message"
             aria-describedby="composer-hint"
-            placeholder={attachment ? "Add a caption..." : `Write a note to ${peerName ?? "them"}…`}
+            placeholder={attachment ? "Add a caption..." : roomyComposer ? `Write a note to ${peerName ?? "them"}…` : "Write a note…"}
             maxLength={MAX_MESSAGE_LENGTH}
             enterKeyHint={enterSends() ? "send" : "enter"}
             value={messageInput}

@@ -13,6 +13,13 @@ const Masthead = ({ children, discover = true }) => {
   const { logout } = useAuth();
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-4 md:h-18 md:gap-6 md:px-9">
+      {/* Every page with this bar has its main content at #main. */}
+      <a
+        href="#main"
+        className="sr-only z-50 rounded-full bg-primary px-4 py-2 text-primary-foreground no-underline focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
+        Skip to content
+      </a>
       <Link to="/chat" className="font-heading text-2xl text-foreground no-underline md:text-[30px]">
         Open<span className="text-brand italic">chat</span>
       </Link>

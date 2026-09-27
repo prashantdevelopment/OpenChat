@@ -540,7 +540,7 @@ const AccountSection = () => {
 const Settings = () => (
   <div className="min-h-dvh bg-background">
     <Masthead discover={false} />
-    <main className="mx-auto max-w-5xl px-5 pt-10 pb-16 md:px-10 md:pt-14">
+    <main id="main" className="mx-auto max-w-5xl px-5 pt-10 pb-16 md:px-10 md:pt-14">
       <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Your account</p>
       <h1 className="mt-2 mb-10 text-[56px] leading-none md:text-[72px]">Settings</h1>
       <ProfileSection />

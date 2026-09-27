@@ -67,7 +67,7 @@ const Profile = () => {
   return (
     <div className="min-h-dvh bg-background">
       <Masthead />
-      <main className="mx-auto max-w-3xl px-5 py-10 md:px-10 md:py-16">
+      <main id="main" className="mx-auto max-w-3xl px-5 py-10 md:px-10 md:py-16">
         <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Profile</p>
         {state.status === "loading" ? (
           <div role="status" className="mt-6 space-y-4">

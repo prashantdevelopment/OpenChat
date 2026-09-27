@@ -34,7 +34,7 @@ Implemented as CSS variables in `client/src/index.css`; the `dark` class on `<ht
 | `--destructive` / `-foreground` | `#B42318` / `#A61B0F` | `#B8321D` / `#FF8A70` | danger |
 | `--border` | `#DCD2C1` | `#2E2822` | hairline rules, decorative |
 | `--input` | `#8C8173` | `#7D7366` | form borders (3.3 / 4.0) |
-| `--ring` | `#B42C16` | `#FF6A4A` | focus (5.4) |
+| `--ring` | `#B42C16` | `#FF6A4A` | focus (5.4); line-style inputs without an outline use `focus-line` (the line turns ring red, 2px) |
 | `--stage` / `-foreground` | `#15120F` / `#EFE7DA` | same | video calls, always dark (15.2); End call keeps the brand red |
 
 ### Typography (self-hosted with `@fontsource`, no Google requests)
