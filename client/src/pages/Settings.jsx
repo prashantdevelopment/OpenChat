@@ -15,6 +15,7 @@ import StateSelect from "../components/StateSelect.jsx";
 import Avatar from "../components/Avatar.jsx";
 import { makeAvatar } from "../lib/images.js";
 import Masthead from "../components/Masthead.jsx";
+import PageMeta from "../components/PageMeta.jsx";
 import { Button } from "@/components/ui/button";
 
 const MAX_BIO_LENGTH = 160; // same limit as the server
@@ -606,6 +607,7 @@ const AccountSection = () => {
 
 const Settings = () => (
   <div className="min-h-dvh bg-background">
+    <PageMeta title="Settings" noindex />
     <Masthead discover={false} />
     <main id="main" className="mx-auto max-w-5xl px-5 pt-10 pb-16 md:px-10 md:pt-14">
       <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Your account</p>

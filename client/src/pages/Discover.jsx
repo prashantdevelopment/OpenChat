@@ -7,6 +7,7 @@ import { useStatePresence } from "../hooks/useStatePresence.js";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import Avatar from "../components/Avatar.jsx";
 import Masthead from "../components/Masthead.jsx";
+import PageMeta from "../components/PageMeta.jsx";
 import { Button } from "@/components/ui/button";
 import { toastManager } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -266,6 +267,7 @@ const Discover = () => {
     // (relative: screen-reader-only text, which is position: absolute, stays
     // inside the scrolling column instead of making the page taller.)
     <div className="min-h-dvh bg-background lg:relative lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden">
+      <PageMeta title="Discover India" noindex />
       <Masthead discover={false} />
 
       <main id="main" className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[440px_minmax(0,1fr)] xl:grid-cols-[480px_minmax(0,1fr)]">

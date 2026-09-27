@@ -85,12 +85,6 @@ const Chat = () => {
 
   // Unread messages in the tab title, e.g. "(3) OpenChat", seen from other tabs.
   const totalUnread = conversations.reduce((sum, conversation) => sum + (conversation.unreadCount ?? 0), 0);
-  useEffect(() => {
-    document.title = titleWithUnread(totalUnread);
-  }, [totalUnread]);
-  useEffect(() => () => {
-    document.title = titleWithUnread(0); // leaving the chat (settings, logout)
-  }, []);
 
   const retryConversations = () => {
     setListStatus("loading");
@@ -272,6 +266,9 @@ const Chat = () => {
     // The whole app fits the screen (dvh also follows mobile browser bars):
     // the page never scrolls, only the list and the messages do.
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
+      {/* React keeps the title in the head (and hands it to the next page). */}
+      <title>{titleWithUnread(totalUnread)}</title>
+      <meta name="robots" content="noindex" />
       {/* The status region is always there; screen readers announce the text
           when it is added. */}
       <div role="status" className="shrink-0">

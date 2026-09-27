@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import AuthCard, { SubmitButton } from "../components/AuthCard.jsx";
+import PageMeta from "../components/PageMeta.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +18,7 @@ const Unlock = () => {
   if (!currentUser.encryptedPrivateKey) {
     return (
       <AuthCard title="Encryption is not set up">
+        <PageMeta title="Unlock" noindex />
         <p role="alert" className="text-sm">
           This account was created before OpenChat had end-to-end encryption, so it has no keys.
           Please log out and create a new account.
@@ -55,6 +57,7 @@ const Unlock = () => {
         </>
       }
     >
+      <PageMeta title="Unlock" noindex />
       <form onSubmit={handleSubmit} className="space-y-6">
         {error ? (
           <p role="alert" className="border border-destructive-foreground/40 px-3 py-2 text-sm text-destructive-foreground">

@@ -7,6 +7,7 @@ import { computeSafetyNumber } from "../crypto/safetyNumber.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
 import Avatar from "../components/Avatar.jsx";
 import Masthead from "../components/Masthead.jsx";
+import PageMeta from "../components/PageMeta.jsx";
 import PersonActions from "../components/PersonActions.jsx";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,6 +70,7 @@ const Profile = () => {
 
   return (
     <div className="min-h-dvh bg-background">
+      <PageMeta title={state.status === "ready" ? user.username : "Profile"} noindex />
       <Masthead />
       <main id="main" className="mx-auto max-w-3xl px-5 py-10 md:px-10 md:py-16">
         <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Profile</p>

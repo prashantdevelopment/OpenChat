@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { createKeyBundle } from "../crypto/keys.js";
 import { KeyRoundIcon } from "lucide-react";
 import AuthCard, { SubmitButton } from "../components/AuthCard.jsx";
+import PageMeta from "../components/PageMeta.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
 
@@ -79,6 +80,7 @@ const Register = () => {
         </>
       }
     >
+      <PageMeta title="Create account" />
       <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {formError ? (
           <p role="alert" className="border border-destructive-foreground/40 px-3 py-2 text-sm text-destructive-foreground">

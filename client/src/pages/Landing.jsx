@@ -107,6 +107,20 @@ const ChatPreview = ({ className = "" }) => (
 
 // Public landing page at "/". Someone already logged in goes straight to
 // their chats, like /login and /register do.
+// The site's own address, set at deploy (vite.config.js).
+const SITE_URL = import.meta.env.VITE_SITE_URL?.replace(/\/+$/, "");
+const STRUCTURED_DATA = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "OpenChat",
+  description: "Private, end-to-end encrypted messages, photos, voice notes and calls with people across India.",
+  applicationCategory: "CommunicationApplication",
+  operatingSystem: "Any (web browser)",
+  inLanguage: ["en-IN", "hi-IN"],
+  offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
+  ...(SITE_URL ? { url: `${SITE_URL}/` } : {}),
+});
+
 const Landing = () => {
   const { currentUser } = useAuth();
   const root = useRef(null);
@@ -116,6 +130,9 @@ const Landing = () => {
   return (
     <div ref={root} className="min-h-dvh bg-background text-foreground">
       <title>OpenChat: private, end-to-end encrypted chat for India</title>
+      {SITE_URL ? <link rel="canonical" href={`${SITE_URL}/`} /> : null}
+      {/* What search engines show about the app (schema.org). Static data. */}
+      <script type="application/ld+json">{STRUCTURED_DATA}</script>
       <a
         href="#main"
         className="sr-only z-50 rounded-full bg-primary px-4 py-2 text-primary-foreground no-underline focus:not-sr-only focus:fixed focus:top-3 focus:left-3"

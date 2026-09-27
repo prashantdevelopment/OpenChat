@@ -8,8 +8,22 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-title" content="OpenChat" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OpenChat</title>
+    <title>OpenChat: private, end-to-end encrypted chat for India</title>
     <meta name="description" content="OpenChat: private, end-to-end encrypted messages, photos, voice notes and calls with people across India." />
+    <!-- Link previews (WhatsApp, X, LinkedIn...): these read this file, not the
+         app. %SITE_URL% is filled in at build time from VITE_SITE_URL; without it
+         the two lines that need a full address are left out (vite.config.js). -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="OpenChat" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:title" content="OpenChat: private chats with people across India" />
+    <meta property="og:description" content="Messages, photos, voice notes and calls, end-to-end encrypted. Free, no phone number." />
+    <meta property="og:url" content="%SITE_URL%/" />
+    <meta property="og:image" content="%SITE_URL%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="OpenChat: private chats with people across India." />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" content="#F3EDE2" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#15120F" media="(prefers-color-scheme: dark)" />
     <script>

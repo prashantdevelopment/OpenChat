@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useLocation } from "react-router";
 import { useAuth } from "../auth/AuthContext.js";
 import AuthCard, { SubmitButton } from "../components/AuthCard.jsx";
+import PageMeta from "../components/PageMeta.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 
 const Login = () => {
@@ -41,6 +42,7 @@ const Login = () => {
         </>
       }
     >
+      <PageMeta title="Log in" />
       <form onSubmit={handleLogin} className="space-y-6">
         {sessionEnded && !error ? (
           <p role="status" className="border-l-2 border-brand pl-4 text-sm">
