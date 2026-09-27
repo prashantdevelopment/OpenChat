@@ -356,6 +356,33 @@
   }
 }
 
+/* An on/off switch drawn on a real checkbox (role="switch" in the markup),
+   so the keyboard, screen readers and forms keep working. The knob is a
+   background circle that slides; on = the brand red track. Border and
+   knob are 3:1 or more against the paper. */
+@utility switch {
+  --knob: var(--foreground);
+  appearance: none;
+  flex: none;
+  width: 2.75rem;
+  height: 1.5rem;
+  border: 1px solid var(--foreground);
+  border-radius: 999px;
+  cursor: pointer;
+  background: radial-gradient(circle, var(--knob) 0 7px, transparent 7.5px) no-repeat 2px 50% / 18px 18px;
+  transition: background-position 200ms var(--ease-out-soft), background-color 200ms var(--ease-out-soft);
+  &:checked {
+    --knob: var(--brand-foreground);
+    border-color: var(--brand);
+    background-color: var(--brand);
+    background-position: calc(100% - 2px) 50%;
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
 /* Form controls with an error (FormField sets aria-invalid). Red border
    (destructive text colour: 4.5:1 or more, above the 3:1 needed). */
 @layer base {

@@ -1,7 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { Link } from "react-router";
-import { ArrowLeftIcon, CircleCheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { CircleCheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { rewrapPrivateKey } from "../crypto/keys.js";
@@ -11,26 +10,38 @@ import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
 import Avatar from "../components/Avatar.jsx";
 import { makeAvatar } from "../lib/images.js";
+import Masthead from "../components/Masthead.jsx";
 import { Button } from "@/components/ui/button";
 
 const MAX_BIO_LENGTH = 160; // same limit as the server
 
-// One card on the page, with a heading that names the region for screen readers.
-const Section = ({ title, description, children }) => {
+// One part of the page, set like a chapter: its number, the title in the
+// serif and a line of explanation on the left (wide screens), the controls on
+// the right; hairline rules between chapters. The heading names the region
+// for screen readers.
+const Section = ({ number, title, description, children }) => {
   const headingId = useId();
   return (
-    <section aria-labelledby={headingId} className="rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-6">
-      <h2 id={headingId} className="text-lg">
-        {title}
-      </h2>
-      {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
-      <div className="mt-5">{children}</div>
+    <section aria-labelledby={headingId} className="border-t border-border py-10 md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-12">
+      <div>
+        <p aria-hidden="true" className="font-mono text-xs text-muted-foreground">
+          {number}
+        </p>
+        <h2 id={headingId} className="mt-1 text-[32px] leading-tight">
+          {title}
+        </h2>
+        {description ? <p className="mt-2 text-sm text-muted-foreground">{description}</p> : null}
+      </div>
+      <div className="mt-6 md:mt-2">{children}</div>
     </section>
   );
 };
 
+// Save buttons: an ink pill (keeps its size on desktop too).
+const PILL = "h-11 rounded-full px-6 sm:h-11";
+
 const FormAlert = ({ children }) => (
-  <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+  <p role="alert" className="border border-destructive-foreground/40 px-3 py-2 text-sm text-destructive-foreground">
     {children}
   </p>
 );
@@ -92,17 +103,17 @@ const ProfilePhoto = () => {
     }, "Photo removed.");
 
   return (
-    <div className="mb-5 flex items-center gap-4">
-      <Avatar name={currentUser.username} avatarId={currentUser.avatar} className="size-16 text-2xl" />
+    <div className="mb-8 flex items-center gap-5">
+      <Avatar name={currentUser.username} avatarId={currentUser.avatar} className="size-20 bg-brand text-4xl text-brand-foreground italic" />
       <div className="min-w-0 flex-1 space-y-2">
-        <p className="text-sm font-medium">Profile photo</p>
+        <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Profile photo</p>
         <div className="flex flex-wrap gap-2">
           <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={choose} />
-          <Button type="button" variant="outline" size="sm" loading={isSaving} onClick={() => fileInput.current?.click()}>
+          <Button type="button" variant="outline" size="sm" className="rounded-full border-foreground px-4" loading={isSaving} onClick={() => fileInput.current?.click()}>
             {currentUser.avatar ? "Change photo" : "Add photo"}
           </Button>
           {currentUser.avatar ? (
-            <Button type="button" variant="ghost" size="sm" disabled={isSaving} onClick={remove}>
+            <Button type="button" variant="ghost" size="sm" className="rounded-full px-4" disabled={isSaving} onClick={remove}>
               Remove photo
             </Button>
           ) : null}
@@ -159,9 +170,9 @@ const ProfileSection = () => {
   };
 
   return (
-    <Section title="Profile" description="Your photo, username, bio and state are visible to people who search for you.">
+    <Section number="01" title="Profile" description="Your photo, username, bio and state are visible to people who search for you.">
       <ProfilePhoto />
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {formError ? <FormAlert>{formError}</FormAlert> : null}
 
         <FormField
@@ -175,7 +186,7 @@ const ProfileSection = () => {
               {...props}
               name="username"
               type="text"
-              className="w-full"
+              className="field"
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
@@ -197,7 +208,7 @@ const ProfileSection = () => {
               name="bio"
               rows={2}
               maxLength={MAX_BIO_LENGTH}
-              className="block w-full resize-none"
+              className="field h-auto min-h-16 resize-none"
               value={form.bio}
               onChange={handleChange}
             />
@@ -209,7 +220,7 @@ const ProfileSection = () => {
         </FormField>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" loading={isSaving} disabled={!hasChanges}>
+          <Button type="submit" className={PILL} loading={isSaving} disabled={!hasChanges}>
             Save changes
           </Button>
           <SavedStatus>{savedMessage}</SavedStatus>
@@ -273,10 +284,11 @@ const PasswordSection = () => {
 
   return (
     <Section
+      number="02"
       title="Password"
       description="Your messages stay readable: your encryption key is re-locked with the new password, in this browser."
     >
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {formError ? <FormAlert>{formError}</FormAlert> : null}
         {/* Lets password managers link the change to this account. */}
         <input type="text" name="username" autoComplete="username" value={currentUser.username} readOnly hidden />
@@ -297,7 +309,7 @@ const PasswordSection = () => {
         </FormField>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" loading={isSaving} disabled={!form.current || !form.next || !form.confirm}>
+          <Button type="submit" className={PILL} loading={isSaving} disabled={!form.current || !form.next || !form.confirm}>
             Change password
           </Button>
           <SavedStatus>{savedMessage}</SavedStatus>
@@ -333,7 +345,13 @@ const SettingSwitch = ({ setting, label, hintId, children }) => {
 
   return (
     <div className="space-y-3">
-      <label className="flex cursor-pointer items-start gap-3">
+      <label className="flex cursor-pointer items-start justify-between gap-6">
+        <span>
+          <span className="block font-medium">{label}</span>
+          <span id={hintId} className="mt-1 block text-sm text-muted-foreground">
+            {children}
+          </span>
+        </span>
         <input
           type="checkbox"
           role="switch"
@@ -341,14 +359,8 @@ const SettingSwitch = ({ setting, label, hintId, children }) => {
           disabled={isSaving}
           onChange={handleChange}
           aria-describedby={hintId}
-          className="mt-0.5 size-4 shrink-0 accent-primary"
+          className="switch mt-0.5"
         />
-        <span>
-          <span className="block text-sm font-medium">{label}</span>
-          <span id={hintId} className="mt-0.5 block text-sm text-muted-foreground">
-            {children}
-          </span>
-        </span>
       </label>
       {error ? <FormAlert>{error}</FormAlert> : null}
     </div>
@@ -356,8 +368,8 @@ const SettingSwitch = ({ setting, label, hintId, children }) => {
 };
 
 const PrivacySection = () => (
-  <Section title="Privacy">
-    <div className="space-y-5">
+  <Section number="03" title="Privacy" description="Who can see what about you.">
+    <div className="divide-y divide-border [&>*]:py-5 [&>*:first-child]:pt-0">
       <SettingSwitch setting="readReceipts" label="Read receipts" hintId="read-receipts-hint">
         Let people see when you&apos;ve read their messages. If you turn this off, you won&apos;t see when
         others read yours either. Delivered ticks are always shown.
@@ -394,21 +406,21 @@ const NotificationsSection = () => {
   };
 
   return (
-    <Section title="Notifications" description="Get a notification for new messages while OpenChat is open in a tab you aren't looking at.">
+    <Section number="04" title="Notifications" description="Get a notification for new messages while OpenChat is open in a tab you aren't looking at.">
       {!isSupported ? (
         <p className="text-sm text-muted-foreground">This browser doesn&apos;t support notifications.</p>
       ) : (
         <div className="space-y-4">
-          <label className="flex cursor-pointer items-start gap-3">
+          <label className="flex cursor-pointer items-center justify-between gap-6">
+            <span className="font-medium">Desktop notifications</span>
             <input
               type="checkbox"
               role="switch"
               checked={isOn}
               disabled={permission === "denied"}
               onChange={handleToggle}
-              className="mt-0.5 size-4 shrink-0 accent-primary"
+              className="switch"
             />
-            <span className="text-sm font-medium">Desktop notifications</span>
           </label>
           {permission === "denied" ? (
             <p role="status" className="text-sm text-muted-foreground">
@@ -422,10 +434,10 @@ const NotificationsSection = () => {
               disabled={!isOn}
               onChange={(e) => save({ preview: e.target.checked })}
               aria-describedby="notification-preview-hint"
-              className="mt-0.5 size-4 shrink-0 accent-primary"
+              className="mt-1 size-4.5 shrink-0 accent-brand"
             />
             <span>
-              <span className="block text-sm font-medium">Show message text</span>
+              <span className="block font-medium">Show message text</span>
               <span id="notification-preview-hint" className="mt-0.5 block text-sm text-muted-foreground">
                 Messages are decrypted on this device. Turn this off if others can see your screen: the notification
                 will only say &quot;New message&quot;.
@@ -452,15 +464,15 @@ const AppearanceSection = () => {
   };
 
   return (
-    <Section title="Appearance">
+    <Section number="05" title="Appearance" description="Paper by day, ink by night.">
       {/* Real radio buttons: arrow keys move between them. */}
       <fieldset>
-        <legend className="mb-2 text-sm font-medium">Theme</legend>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <legend className="mb-3 font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Theme</legend>
+        <div className="flex flex-wrap gap-2">
           {THEMES.map(({ value, label, Icon }) => (
             <label
               key={value}
-              className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-input p-3 text-sm has-checked:border-primary has-checked:bg-primary/5"
+              className="relative flex h-11 cursor-pointer items-center gap-2.5 rounded-full border border-border px-4 has-checked:border-foreground has-checked:bg-foreground has-checked:text-background has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring"
             >
               <input
                 type="radio"
@@ -468,9 +480,9 @@ const AppearanceSection = () => {
                 value={value}
                 checked={choice === value}
                 onChange={() => choose(value)}
-                className="size-4 accent-primary"
+                className="absolute inset-0 cursor-pointer appearance-none rounded-full opacity-0"
               />
-              <Icon aria-hidden="true" className="size-4 text-muted-foreground" />
+              <Icon aria-hidden="true" strokeWidth={1.4} className="size-4" />
               {label}
             </label>
           ))}
@@ -483,12 +495,12 @@ const AppearanceSection = () => {
 const AccountSection = () => {
   const { currentUser, logout } = useAuth();
   return (
-    <Section title="Account">
-      <dl className="text-sm">
-        <dt className="text-muted-foreground">Email</dt>
-        <dd className="mt-0.5 font-medium break-all">{currentUser.email}</dd>
+    <Section number="06" title="Account">
+      <dl>
+        <dt className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Email</dt>
+        <dd className="mt-1 break-all">{currentUser.email}</dd>
       </dl>
-      <Button variant="outline" className="mt-5" onClick={logout}>
+      <Button variant="outline" className={`mt-6 border-foreground ${PILL}`} onClick={logout}>
         Log out
       </Button>
     </Section>
@@ -497,15 +509,10 @@ const AccountSection = () => {
 
 const Settings = () => (
   <div className="min-h-dvh bg-background">
-    <header className="border-b border-border">
-      <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
-        <Button render={<Link to="/chat" />} variant="ghost" size="icon" className="-ml-2" aria-label="Back to chats">
-          <ArrowLeftIcon aria-hidden="true" />
-        </Button>
-        <h1 className="text-lg">Settings</h1>
-      </div>
-    </header>
-    <main className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+    <Masthead discover={false} />
+    <main className="mx-auto max-w-5xl px-5 pt-10 pb-16 md:px-10 md:pt-14">
+      <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Your account</p>
+      <h1 className="mt-2 mb-10 text-[56px] leading-none md:text-[72px]">Settings</h1>
       <ProfileSection />
       <PasswordSection />
       <PrivacySection />
