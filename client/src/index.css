@@ -68,6 +68,8 @@
     --color-brand: var(--brand);
     --color-print: var(--print);
     --color-print-foreground: var(--print-foreground);
+    --color-stage: var(--stage);
+    --color-stage-foreground: var(--stage-foreground);
     --color-brand-foreground: var(--brand-foreground);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
@@ -206,6 +208,8 @@
     --map-disputed: #E3D8C5;    /* small inter-state disputed areas (Survey of India) */
     --print: #FBF8F2;           /* photo prints: always light paper */
     --print-foreground: #1B1714;
+    --stage: #15120F;           /* video calls: always ink night */
+    --stage-foreground: #EFE7DA; /* 15.2:1 */
     --grain-opacity: 0.3;
 }
 
