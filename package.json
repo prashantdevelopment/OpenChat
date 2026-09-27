@@ -13,7 +13,7 @@
     "start": "npm start --workspace=server"
   },
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "keywords": [],
   "author": "Prashant Kumar",
