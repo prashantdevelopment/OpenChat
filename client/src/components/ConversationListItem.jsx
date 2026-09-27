@@ -1,4 +1,5 @@
 import { NavLink } from "react-router";
+import { useSlideOnMove } from "../hooks/useSlideOnMove.js";
 import { useConversationKey, useDecryptedText } from "../crypto/hooks.js";
 import { formatConversationTime, formatFullDateTime } from "../lib/time.js";
 import { cn } from "@/lib/utils";
@@ -22,8 +23,9 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
     preview = isMine && lastMessage.messageType !== "call" ? `You: ${body}` : body;
   }
 
+  const slideRef = useSlideOnMove(); // moves to the top smoothly
   return (
-    <li>
+    <li ref={slideRef}>
       {/* NavLink marks the open conversation with aria-current="page". */}
       <NavLink
         to={`/chat/${conversation._id}`}

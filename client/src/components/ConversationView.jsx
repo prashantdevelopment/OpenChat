@@ -67,6 +67,10 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   // shown at the end of the chat. Each has a clientId: sending it again after
   // a failure can never create a second copy (the server checks the id).
   const [outbox, setOutbox] = useState([]);
+  // Messages that arrived or were sent while this chat was open: only these
+  // animate in (never the history loaded when opening or scrolling up).
+  const [freshKeys, setFreshKeys] = useState(() => new Set());
+  const markFresh = (key) => setFreshKeys((keys) => new Set(keys).add(key));
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   // A photo, video or file chosen to send (see lib/attachments.js, plus a
@@ -109,6 +113,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     const handleNewMessage = (message) => {
       // Sirf currently selected conversation ka message add karo
       if (message.conversationId === conversationId) {
+        markFresh(message.clientId ?? message._id);
         setHistory((prev) => ({ ...prev, messages: mergeMessages(prev.messages, [message]) }));
         if (message.sender !== currentUserId && !isAtBottom.current) {
           setUnseenCount((count) => count + 1);
@@ -388,6 +393,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       encrypted,
       status: "sending",
     };
+    markFresh(clientId);
     setOutbox((prev) => [...prev, item]);
     deliver(item);
   };
@@ -447,6 +453,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       encrypted,
       status: "sending",
     };
+    markFresh(clientId);
     setOutbox((prev) => [...prev, item]);
     deliver(item);
   };
@@ -544,6 +551,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
                   isLastInGroup={item.isLastInGroup}
                   receipts={receipts}
                   onRetry={item.message.status ? () => deliver(item.message) : undefined}
+                  animateIn={freshKeys.has(item.key)}
                 />
               ),
             )}

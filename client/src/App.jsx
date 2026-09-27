@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
+import { m } from "motion/react";
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import PublicLayout from "./components/PublicLayout.jsx";
 import Login from "./pages/Login.jsx";
@@ -19,6 +20,16 @@ const PageSpinner = () => (
   </div>
 );
 
+// A short fade when a page appears (chats, Discover, Settings). Inside the
+// Suspense of lazy pages, so it runs when the page is really there, not while
+// its file loads. Opacity only: a transform would change how fixed elements
+// in the page are positioned. Switching conversations keeps the Chat page.
+const PageFade = ({ children }) => (
+  <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, ease: "easeOut" }}>
+    {children}
+  </m.div>
+);
+
 const App = () => {
   return (
     <Routes>
@@ -33,12 +44,21 @@ const App = () => {
       <Route element={<ProtectedRoute />}>
         {/* One route for both /chat and /chat/:id, so the page (and its
             conversation list) stays mounted while switching conversations. */}
-        <Route path="/chat/:conversationId?" element={<Chat />} />
+        <Route
+          path="/chat/:conversationId?"
+          element={
+            <PageFade>
+              <Chat />
+            </PageFade>
+          }
+        />
         <Route
           path="/discover"
           element={
             <Suspense fallback={<PageSpinner />}>
-              <Discover />
+              <PageFade>
+                <Discover />
+              </PageFade>
             </Suspense>
           }
         />
@@ -46,7 +66,9 @@ const App = () => {
           path="/settings"
           element={
             <Suspense fallback={<PageSpinner />}>
-              <Settings />
+              <PageFade>
+                <Settings />
+              </PageFade>
             </Suspense>
           }
         />

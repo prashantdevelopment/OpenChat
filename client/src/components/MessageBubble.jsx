@@ -1,3 +1,4 @@
+import { m } from "motion/react";
 import { AlertCircleIcon, CheckCheckIcon, CheckIcon, PhoneIcon, PhoneMissedIcon, RotateCwIcon, VideoIcon } from "lucide-react";
 import { useDecryptedText } from "../crypto/hooks.js";
 import { formatFullDateTime, formatTimeOfDay } from "../lib/time.js";
@@ -26,7 +27,7 @@ const RECEIPTS = {
   read: { Icon: CheckCheckIcon, label: "Read", className: "text-primary" },
 };
 
-const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, receipts, onRetry }) => {
+const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, receipts, onRetry, animateIn }) => {
   const { text, failed } = useDecryptedText(conversationKey, message, message.sender);
 
   const kind = ["image", "video", "audio", "file"].includes(message.messageType) ? message.messageType : null;
@@ -54,7 +55,14 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
   const progress = message.status === "sending" && message.progress < 1 ? message.progress : null;
 
   return (
-    <div className={cn("flex flex-col", isOwnMessage ? "items-end" : "items-start", isFirstInGroup ? "mt-3" : "mt-0.5")}>
+    // animateIn: a message that just arrived or was just sent rises in (only
+    // transform + opacity, so the list's height and scroll never jump).
+    <m.div
+      initial={animateIn ? { opacity: 0, y: 8 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className={cn("flex flex-col", isOwnMessage ? "items-end" : "items-start", isFirstInGroup ? "mt-3" : "mt-0.5")}
+    >
       <div
         className={cn(
           // relative: keeps the sr-only label (position: absolute) inside the
@@ -131,7 +139,7 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
           {isOwnMessage ? <ReceiptTicks status={receiptStatus(message, receipts)} /> : null}
         </div>
       ) : null}
-    </div>
+    </m.div>
   );
 };
 

@@ -41,6 +41,13 @@ describe("buildTimeline", () => {
     const items = buildTimeline([msg("a", at(20, 10)), msg("b", at(21, 10)), msg("a", at(22, 10))]);
     expect(new Set(items.map((item) => item.key)).size).toBe(items.length);
   });
+
+  it("keeps a message's key from 'sending' to 'saved' (same bubble, no remount)", () => {
+    const sending = { _id: "pending-c1", clientId: "c1", sender: "a", createdAt: at(20, 10) };
+    const saved = { _id: "server-id", clientId: "c1", sender: "a", createdAt: at(20, 10) };
+    expect(buildTimeline([sending]).at(-1).key).toBe(buildTimeline([saved]).at(-1).key);
+    expect(buildTimeline([msg("b", at(20, 10))]).at(-1).key).toMatch(/^m\d+$/); // no clientId: _id
+  });
 });
 
 describe("day and time labels", () => {

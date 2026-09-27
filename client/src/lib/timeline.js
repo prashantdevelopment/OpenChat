@@ -14,17 +14,21 @@ const continuesGroup = (earlier, later) =>
 // { type: "day", key, date } whenever the calendar day changes, and
 // { type: "message", key, message, isFirstInGroup, isLastInGroup }.
 // A pure function (no React), so it is easy to test.
+// One key for a message's whole life: while sending it only has a clientId,
+// once saved an _id too. Same key = React keeps the same bubble (no remount).
+const keyOf = (message) => message.clientId ?? message._id;
+
 export const buildTimeline = (messages) => {
   const items = [];
   messages.forEach((message, i) => {
     const previous = messages[i - 1];
     const next = messages[i + 1];
     if (!previous || !isSameDay(previous.createdAt, message.createdAt)) {
-      items.push({ type: "day", key: `day-${message._id}`, date: message.createdAt });
+      items.push({ type: "day", key: `day-${keyOf(message)}`, date: message.createdAt });
     }
     items.push({
       type: "message",
-      key: message._id,
+      key: keyOf(message),
       message,
       isFirstInGroup: !continuesGroup(previous, message),
       isLastInGroup: !continuesGroup(message, next),

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { getConversationKey } from "../crypto/hooks.js";
@@ -385,7 +386,7 @@ const CallProvider = ({ children }) => {
       {children}
       {/* The other person's voice (for video calls too: video elements are muted). */}
       <audio ref={remoteAudio} autoPlay hidden />
-      {call ? <CallOverlay /> : null}
+      <AnimatePresence>{call ? <CallOverlay key="call" call={call} /> : null}</AnimatePresence>
     </CallContext>
   );
 };

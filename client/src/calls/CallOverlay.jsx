@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { m } from "motion/react";
 import { MicIcon, MicOffIcon, PhoneIcon, PhoneOffIcon, SwitchCameraIcon, VideoIcon, VideoOffIcon } from "lucide-react";
 import { useCall } from "./CallContext.js";
 import Avatar from "../components/Avatar.jsx";
@@ -69,8 +70,19 @@ const StreamVideo = ({ stream, className }) => {
   return <video ref={ref} autoPlay playsInline muted className={className} />;
 };
 
-const Controls = ({ dark }) => {
-  const { call, endCall, toggleMute, toggleCamera, switchCamera } = useCall();
+// Rises in and sinks away (the call panel appearing and closing).
+const PANEL_MOTION = {
+  initial: { opacity: 0, y: 16, scale: 0.98 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: 16, scale: 0.98 },
+  transition: { duration: 0.2, ease: "easeOut" },
+};
+// The video call fills a phone's screen: it only fades (a full-screen panel
+// that grows or slides looks odd, and would sit off its edges meanwhile).
+const FADE_MOTION = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: PANEL_MOTION.transition };
+
+const Controls = ({ call, dark }) => {
+  const { endCall, toggleMute, toggleCamera, switchCamera } = useCall();
   const round = cn("rounded-full", dark && "border-white/30 bg-white/10 text-white hover:bg-white/20");
   return (
     <div className="flex justify-center gap-4">
@@ -102,7 +114,8 @@ const VideoCall = ({ call }) => {
   const name = call.peer.username;
   const showRemote = call.remoteStream && !call.peerCameraOff;
   return (
-    <section
+    <m.section
+      {...FADE_MOTION}
       aria-label={`Video call with ${name}`}
       className="fixed inset-0 z-40 flex flex-col bg-neutral-950 text-white sm:inset-auto sm:right-6 sm:bottom-6 sm:h-120 sm:w-160 sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl"
     >
@@ -138,16 +151,17 @@ const VideoCall = ({ call }) => {
         ) : null}
       </div>
       <div className="shrink-0 p-4">
-        <Controls dark />
+        <Controls call={call} dark />
       </div>
-    </section>
+    </m.section>
   );
 };
 
 // The call card, floating above whatever page is open (a call survives
-// moving between chats and settings).
-const CallOverlay = () => {
-  const { call, acceptCall, declineCall } = useCall();
+// moving between chats and settings). `call` comes as a prop: while the card
+// animates away after the call, it keeps showing the call that just ended.
+const CallOverlay = ({ call }) => {
+  const { acceptCall, declineCall } = useCall();
   const name = call.peer.username;
   const { status } = call;
 
@@ -156,7 +170,8 @@ const CallOverlay = () => {
   }
 
   return (
-    <section
+    <m.section
+      {...PANEL_MOTION}
       aria-label={`${call.media === "video" ? "Video" : "Voice"} call with ${name}`}
       className="fixed inset-x-4 bottom-24 z-40 rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-xl sm:right-6 sm:left-auto sm:w-80"
     >
@@ -187,10 +202,10 @@ const CallOverlay = () => {
         </div>
       ) : status === "ended" ? null : (
         <div className="mt-4">
-          <Controls />
+          <Controls call={call} />
         </div>
       )}
-    </section>
+    </m.section>
   );
 };
 
