@@ -52,6 +52,18 @@ const RESERVED_USERNAMES = new Set([
     "moderator", "mod", "staff", "official", "security", "openchat", "team",
 ]);
 
+const USERNAME_RULES = [
+    { validator: (v) => /^[a-z0-9._]+$/.test(v), message: "Username can only contain letters, numbers, dots and underscores" },
+    { validator: (v) => /^[a-z0-9]/.test(v), message: "Username must start with a letter or a number" },
+    { validator: (v) => !v.endsWith("."), message: "Username cannot end with a dot" },
+    { validator: (v) => !v.includes(".."), message: "Username cannot contain two dots in a row" },
+    { validator: (v) => !RESERVED_USERNAMES.has(v.replace(/[._]/g, "")), message: "This username is reserved" },
+];
+
+// The same rules as the schema, for usernames the server makes up itself
+// (suggested from a Google address).
+export const isAllowedUsername = (v) => v.length >= 3 && v.length <= 30 && USERNAME_RULES.every((rule) => rule.validator(v));
+
 // Characters a display name may not contain: control characters, invisible
 // ones (zero-width, word joiner, BOM) and the ones that flip the text
 // direction. With these, a name could hide text or pose as someone else.
@@ -83,13 +95,7 @@ const userSchema =  new mongoose.Schema({
         maxlength: [30, "Username must be at most 30 characters long"],
         trim: true,
         // Each rule has its own message; Mongoose reports the first one that fails.
-        validate: [
-            { validator: (v) => /^[a-z0-9._]+$/.test(v), message: "Username can only contain letters, numbers, dots and underscores" },
-            { validator: (v) => /^[a-z0-9]/.test(v), message: "Username must start with a letter or a number" },
-            { validator: (v) => !v.endsWith("."), message: "Username cannot end with a dot" },
-            { validator: (v) => !v.includes(".."), message: "Username cannot contain two dots in a row" },
-            { validator: (v) => !RESERVED_USERNAMES.has(v.replace(/[._]/g, "")), message: "This username is reserved" },
-        ]
+        validate: USERNAME_RULES
 
     },
     email: {
@@ -106,12 +112,19 @@ const userSchema =  new mongoose.Schema({
         required: [true, "Please select your state"],
         enum: { values: INDIAN_STATE_CODES, message: "Please select a valid state" },
     },
+    // bcrypt hash. Accounts made with Google have none: they sign in with
+    // Google, and their private key is locked with a separate encryption
+    // password that never reaches the server.
     password: {
         type: String,
-        required: true,
+        required: function () { return !this.googleId; },
         select: false,
-
-
+    },
+    // Google's stable id for the person ("sub"), set when they sign in with
+    // Google or connect it. Private: never sent to other users.
+    googleId: {
+        type: String,
+        select: false,
     },
     // Public by design: others use it to encrypt messages for this user.
     publicKey: {
@@ -168,6 +181,7 @@ const userSchema =  new mongoose.Schema({
         toJSON: {
             transform: (_doc, ret) => {
                 delete ret.password;
+                delete ret.googleId;
                 return ret;
             }
         }
@@ -179,6 +193,9 @@ const userSchema =  new mongoose.Schema({
 // key is public by design: others need it to encrypt messages for this user.
 // Discover: people of one state, in username order.
 userSchema.index({ state: 1, username: 1 });
+
+// One account per Google account. Partial: most users have none.
+userSchema.index({ googleId: 1 }, { unique: true, partialFilterExpression: { googleId: { $type: "string" } } });
 
 // Serving a profile photo checks that its id belongs to someone: an index on
 // the users that have one (most don't).

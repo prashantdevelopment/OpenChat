@@ -17,9 +17,11 @@ const loginUser = async (identifier, password) => {
             { username: normalizedIdentifier }, 
             { email: normalizedIdentifier }
         ]
-    }).select("+password +encryptedPrivateKey");
+    }).select("+password +encryptedPrivateKey +googleId");
 
-    if (!findUser) {
+    // No such account, or one made with Google (no password to check): the
+    // same answer either way, so the form doesn't reveal which accounts exist.
+    if (!findUser || !findUser.password) {
         throw new AppError("Invalid username/email or password", 401);
     }
 

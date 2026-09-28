@@ -39,6 +39,18 @@ setInterval(() => {
 // socket.js listens: "revoked" (jti) -> close that session's sockets.
 export const sessionEvents = new EventEmitter();
 
+// The login cookie (httpOnly: JavaScript can't read it; Strict: never sent
+// with requests started by other sites).
+export const sessionCookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+};
+
+export const setSessionCookie = (res, token) => {
+    res.cookie("token", token, { ...sessionCookieOptions, maxAge: SESSION_HOURS * 60 * 60 * 1000 });
+};
+
 export const signSessionToken = (userId) => {
     const jti = randomUUID();
     const token = JWT.sign({ userId }, JWT_SECRET, { algorithm: ALGORITHM, expiresIn: `${SESSION_HOURS}h`, jwtid: jti });

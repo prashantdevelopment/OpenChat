@@ -257,7 +257,23 @@ const ProfileSection = () => {
 
 const PASSWORD_ORDER = ["current-password", "new-password", "confirm-password"];
 
+// Accounts made with Google have no login password; their encryption
+// password never reaches the server, so it can't be changed here yet.
+const GoogleAccountNote = () => (
+  <Section number="02" title="Password" description="You sign in with Google.">
+    <p className="max-w-xl text-sm text-muted-foreground">
+      Your messages are locked with the encryption password you chose when you joined. You&apos;ll be asked for it when you sign in on a new
+      device. Keep it safe: nobody can recover it for you.
+    </p>
+  </Section>
+);
+
 const PasswordSection = () => {
+  const { currentUser } = useAuth();
+  return currentUser.hasPassword === false ? <GoogleAccountNote /> : <PasswordForm />;
+};
+
+const PasswordForm = () => {
   const { currentUser, updateCurrentUser } = useAuth();
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });
   const [fieldErrors, setFieldErrors] = useState({});

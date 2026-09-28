@@ -28,3 +28,7 @@ process.env.RATE_LIMITS = "off";
 // again. tests/iceServers.test.js sets a fake key for itself.
 process.env.CLOUDFLARE_TURN_KEY_ID = "";
 process.env.CLOUDFLARE_TURN_KEY_API_TOKEN = "";
+// The same for Sign in with Google: never the real OAuth client from
+// server/.env. tests/google.test.js sets a fake one and fakes Google.
+process.env.GOOGLE_CLIENT_ID = "";
+process.env.GOOGLE_CLIENT_SECRET = "";

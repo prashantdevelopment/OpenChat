@@ -1,24 +1,27 @@
 import { loginUser } from "../services/auth.service.js";
 import { getCurrentUser } from "../services/user.service.js";
-import { endSession, SESSION_HOURS } from "../session.js";
-
+import { linkGoogleAfterLogin } from "../services/google.service.js";
+import { endSession, sessionCookieOptions, setSessionCookie } from "../session.js";
+import { PENDING_COOKIE, pendingCookieOptions } from "./google.controller.js";
 
 const loginUserController = async (req, res) => {
     const { identifier, password } = req.body;
     const { user, token } = await loginUser(identifier, password);
+    setSessionCookie(res, token);
 
-    const { password: userPassword, ...userWithoutPassword } = user.toObject();
+    // Came from "Continue with Google" with this account's email: the right
+    // password connects that Google account (google.service.js).
+    let linkedGoogle = false;
+    if (req.cookies[PENDING_COOKIE]) {
+        linkedGoogle = await linkGoogleAfterLogin(user, req.cookies[PENDING_COOKIE]).catch(() => false);
+        res.clearCookie(PENDING_COOKIE, { ...pendingCookieOptions, maxAge: undefined });
+    }
 
-    res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: SESSION_HOURS * 60 * 60 * 1000
-    });
-
+    const { password: _hash, googleId, ...userWithoutPassword } = user.toObject();
     res.status(200).json({
-        success: true, 
-        user: userWithoutPassword
+        success: true,
+        user: { ...userWithoutPassword, hasPassword: true, google: linkedGoogle || Boolean(googleId) },
+        linkedGoogle,
     });
 }
 
@@ -36,11 +39,7 @@ const getCurrentUserController = async (req, res) => {
 // sockets close), then deletes the cookie.
 const logoutUserController = (req, res) => {
     if (req.cookies.token) endSession(req.cookies.token);
-    res.clearCookie("token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict"
-    });
+    res.clearCookie("token", sessionCookieOptions);
 
     res.status(200).json({
         success: true,

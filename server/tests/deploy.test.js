@@ -9,7 +9,7 @@ const ENV_JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "sr
 const BASE = { PORT: "5000", MONGO_URI: "mongodb://localhost:27017/x", JWT_SECRET: "x".repeat(40), PATH: process.env.PATH, SystemRoot: process.env.SystemRoot };
 
 const load = (env) => {
-    const script = `const env = await import(${JSON.stringify("file://" + ENV_JS.replaceAll("\\", "/"))}); console.log(JSON.stringify({ CLIENT_URL: env.CLIENT_URL, STORAGE_DRIVER: env.STORAGE_DRIVER }));`;
+    const script = `const env = await import(${JSON.stringify("file://" + ENV_JS.replaceAll("\\", "/"))}); console.log(JSON.stringify({ CLIENT_URL: env.CLIENT_URL, STORAGE_DRIVER: env.STORAGE_DRIVER, GOOGLE: env.GOOGLE }));`;
     const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], { env: { ...BASE, ...env }, cwd: path.dirname(ENV_JS), encoding: "utf8" });
     return result.status === 0 ? { ok: JSON.parse(result.stdout.trim().split("\n").at(-1)) } : { error: result.stderr };
 };
@@ -32,5 +32,17 @@ describe("production settings (env.js)", () => {
     it("production refuses RATE_LIMITS=off", () => {
         expect(load({ NODE_ENV: "production", CLIENT_URL: "https://a.example", STORAGE_DRIVER: "cloudinary", CLOUDINARY_CLOUD_NAME: "c", CLOUDINARY_API_KEY: "k", CLOUDINARY_API_SECRET: "s", RATE_LIMITS: "off" }).error)
             .toMatch(/can't be off in production/);
+    });
+
+    it("Sign in with Google: both values or neither, a real-looking client id, test stand-ins never in production", () => {
+        const dev = { CLIENT_URL: "http://localhost:5173" };
+        const id = "123-abc.apps.googleusercontent.com";
+        expect(load(dev).ok.GOOGLE).toBeNull();
+        expect(load({ ...dev, GOOGLE_CLIENT_ID: id }).error).toMatch(/needs both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET/);
+        expect(load({ ...dev, GOOGLE_CLIENT_ID: "not-a-client-id", GOOGLE_CLIENT_SECRET: "s" }).error).toMatch(/GOOGLE_CLIENT_ID looks wrong/);
+        expect(load({ ...dev, GOOGLE_CLIENT_ID: id, GOOGLE_CLIENT_SECRET: "s" }).ok.GOOGLE.redirectUri).toBe("http://localhost:5000/api/auth/google/callback");
+        const prod = { NODE_ENV: "production", RENDER_EXTERNAL_URL: "https://openchat.onrender.com", STORAGE_DRIVER: "cloudinary", CLOUDINARY_CLOUD_NAME: "c", CLOUDINARY_API_KEY: "k", CLOUDINARY_API_SECRET: "s", GOOGLE_CLIENT_ID: id, GOOGLE_CLIENT_SECRET: "s" };
+        expect(load(prod).ok.GOOGLE.redirectUri).toBe("https://openchat.onrender.com/api/auth/google/callback");
+        expect(load({ ...prod, GOOGLE_TOKEN_URL: "http://localhost:9/token" }).error).toMatch(/tests only, never in production/);
     });
 });

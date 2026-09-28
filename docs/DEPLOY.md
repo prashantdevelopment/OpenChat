@@ -46,6 +46,22 @@ A call goes straight from one browser to the other. Often that works, but not wh
 
 The server then hands each call short-lived relay credentials; the token itself never leaves the server. Without these two values calls still try STUN (direct) only. Usage above 1,000 GB a month is billed by Cloudflare ($0.05/GB); an hour of video call through the relay is roughly 1–2 GB (a voice call far less, about 50–100 MB), and only calls that can't connect directly use it.
 
+## 3c. Sign in with Google (free)
+
+The "Continue with Google" button appears once the server has an OAuth client. No Google script runs on OpenChat's pages: the browser goes to Google and comes back to the server.
+
+1. Open https://console.cloud.google.com, create a project (e.g. "OpenChat").
+2. **APIs & Services → OAuth consent screen** (Google Auth Platform → Branding / Audience): app name "OpenChat", your support email, **External** users; the scopes are only `openid`, `email` and `profile` (no review needed for these). Add yourself as a test user while it is in "Testing", then **Publish app** so anyone can sign in.
+3. **Credentials → Create credentials → OAuth client ID → Web application.**
+   - **Authorised redirect URIs**, exactly:
+     - `https://<your-address>/api/auth/google/callback` (Render)
+     - `http://localhost:5000/api/auth/google/callback` (your computer)
+   - No "Authorised JavaScript origins" are needed.
+4. Copy the **Client ID** (ends in `.apps.googleusercontent.com`) and the **Client secret**.
+5. Put them in `server/.env` for your computer and in Render → **Environment** for the live site: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Never in `client/.env`, never in git.
+
+How it works for people: someone new picks a username, name, state and an **encryption password** (it locks their messages in the browser; Google never sees it, and it is asked on a new device). Someone whose email already has an OpenChat account logs in with its password once, and from then on Google logs them in.
+
 ## 4. Check it
 
 1. `https://<your-address>/api/health` answers `{"status":"ok"}`.

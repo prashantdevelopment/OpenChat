@@ -389,3 +389,10 @@ describe("unknown routes", () => {
         expectError(await request(app).post("/api/messages").send({}), 404);
     });
 });
+
+describe("Sign in with Google when it isn't set up", () => {
+    it("the button isn't offered and the route doesn't exist", async () => {
+        expect((await request(app).get("/api/auth/providers")).body).toMatchObject({ google: false });
+        expect((await request(app).get("/api/auth/google")).status).toBe(404);
+    });
+});

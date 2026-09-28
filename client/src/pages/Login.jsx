@@ -4,6 +4,16 @@ import { useAuth } from "../auth/AuthContext.js";
 import AuthCard, { SubmitButton } from "../components/AuthCard.jsx";
 import PageMeta from "../components/PageMeta.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
+import GoogleButton from "../components/GoogleButton.jsx";
+import { toastManager } from "@/components/ui/toast";
+
+// What the Google sign-in's way back (server: google.controller.js) says.
+const GOOGLE_NOTES = {
+  link: "This email already has an OpenChat account. Log in with its password once to connect Google; after that, Google logs you in.",
+  cancelled: "Google sign-in was cancelled.",
+  error: "Couldn't sign in with Google. Please try again.",
+  taken: "This email's OpenChat account is connected to a different Google account.",
+};
 
 const Login = () => {
   const [identifier, setIdentifier] = useState("");
@@ -13,6 +23,7 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { currentUser, sessionEnded, login } = useAuth();
   const location = useLocation();
+  const googleNote = GOOGLE_NOTES[new URLSearchParams(location.search).get("google")];
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -20,7 +31,8 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      await login(identifier, password);
+      const { linkedGoogle } = await login(identifier, password);
+      if (linkedGoogle) toastManager.add({ type: "success", title: "Google is connected", description: "Next time, “Continue with Google” logs you in." });
     } catch (error) {
       setError(error.response?.data?.message ?? "Could not reach the server. Please try again.");
       setIsSubmitting(false);
@@ -43,7 +55,13 @@ const Login = () => {
       }
     >
       <PageMeta title="Log in" />
+      <GoogleButton />
       <form onSubmit={handleLogin} className="space-y-6">
+        {googleNote && !error ? (
+          <p role="status" className="border-l-2 border-brand pl-4 text-sm">
+            {googleNote}
+          </p>
+        ) : null}
         {sessionEnded && !error ? (
           <p role="status" className="border-l-2 border-brand pl-4 text-sm">
             Your session ended. Log in again to carry on where you were.

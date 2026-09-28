@@ -97,8 +97,13 @@ const AuthProvider = ({ children }) => {
   // never can).
   const login = async (identifier, password) => {
     const response = await api.post("/auth/login", { identifier, password });
-    const user = response.data.user;
+    await startSession(response.data.user, password);
+    return response.data;
+  };
 
+  // A new session: unlock the key with the password (the login password, or a
+  // Google account's encryption password), then show the app.
+  const startSession = async (user, password) => {
     let key = null;
     if (user.encryptedPrivateKey) {
       key = await unlockAndStore(user, password).catch((error) => {
@@ -156,7 +161,7 @@ const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext value={{ currentUser, privateKey, sessionEnded, login, unlock, logout, updateCurrentUser }}>
+    <AuthContext value={{ currentUser, privateKey, sessionEnded, login, startSession, unlock, logout, updateCurrentUser }}>
       {children}
     </AuthContext>
   );

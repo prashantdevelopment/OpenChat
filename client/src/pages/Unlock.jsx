@@ -14,6 +14,8 @@ const Unlock = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isUnlocking, setIsUnlocking] = useState(false);
+  // Accounts made with Google lock their key with a separate encryption password.
+  const passwordName = currentUser.hasPassword === false ? "encryption password" : "password";
 
   // Accounts created before end-to-end encryption existed have no keys.
   if (!currentUser.encryptedPrivateKey) {
@@ -39,7 +41,7 @@ const Unlock = () => {
       await unlock(password);
     } catch {
       // AES-GCM refuses to open the key with a wrong password.
-      setError("Incorrect password. Please try again.");
+      setError(`Incorrect ${passwordName}. Please try again.`);
       setIsUnlocking(false);
     }
   };
@@ -48,7 +50,7 @@ const Unlock = () => {
     <AuthCard
       title="Unlock your messages"
       tagline={["Your key", "stays with you."]}
-      description={`Hi ${displayName(currentUser)}, your messages are end-to-end encrypted. Enter your password to unlock them on this device.`}
+      description={`Hi ${displayName(currentUser)}, your messages are end-to-end encrypted. Enter your ${passwordName} to unlock them on this device.`}
       footer={
         <>
           Not you?{" "}
@@ -66,7 +68,7 @@ const Unlock = () => {
           </p>
         ) : null}
 
-        <FormField id="unlock-password" label="Password">
+        <FormField id="unlock-password" label={passwordName === "password" ? "Password" : "Encryption password"}>
           {(props) => (
             <PasswordInput
               {...props}
@@ -81,7 +83,7 @@ const Unlock = () => {
       </form>
 
       <p className="mt-6 text-sm text-muted-foreground">
-        <strong className="font-semibold text-foreground">Forgot your password?</strong> Your messages are
+        <strong className="font-semibold text-foreground">Forgot your {passwordName}?</strong> Your messages are
         end-to-end encrypted, so nobody, not even OpenChat, can recover them without it. You can log out and
         create a new account, but the old messages will stay locked.
       </p>

@@ -96,7 +96,34 @@ const TURN = process.env.CLOUDFLARE_TURN_KEY_ID || process.env.CLOUDFLARE_TURN_K
                 throw new Error("CLOUDFLARE_TURN_KEY_ID looks wrong (letters, digits, - and _ only)");
             }
 
+// Sign in with Google (OAuth 2.0 / OpenID Connect): the OAuth client's id and
+// secret from Google Cloud. Optional: without them the button isn't shown.
+// Both or neither. Google sends people back to GOOGLE_REDIRECT_URI, which must
+// be listed on the OAuth client exactly: by default /api/auth/google/callback
+// on the site (production, where the server serves the app) or on this server.
+const GOOGLE = process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_SECRET
+    ? {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri: process.env.GOOGLE_REDIRECT_URI
+            ?? (process.env.NODE_ENV === "production" ? `${CLIENT_URL}/api/auth/google/callback` : `http://localhost:${PORT}/api/auth/google/callback`),
+        // Only the browser tests point these at a stand-in for Google.
+        authUrl: process.env.GOOGLE_AUTH_URL ?? "https://accounts.google.com/o/oauth2/v2/auth",
+        tokenUrl: process.env.GOOGLE_TOKEN_URL ?? "https://oauth2.googleapis.com/token",
+    }
+    : null;
+            if (GOOGLE && (!GOOGLE.clientId || !GOOGLE.clientSecret)) {
+                throw new Error("Sign in with Google needs both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET");
+            }
+            if (GOOGLE && !/^[\w.-]+\.apps\.googleusercontent\.com$/.test(GOOGLE.clientId)) {
+                throw new Error("GOOGLE_CLIENT_ID looks wrong (it ends in .apps.googleusercontent.com)");
+            }
+            if ((process.env.GOOGLE_AUTH_URL || process.env.GOOGLE_TOKEN_URL) && process.env.NODE_ENV === "production") {
+                throw new Error("GOOGLE_AUTH_URL / GOOGLE_TOKEN_URL are for tests only, never in production");
+            }
+
 export {
+    GOOGLE,
     TURN,
     TRUST_PROXY,
     RATE_LIMITS,

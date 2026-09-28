@@ -5,6 +5,7 @@ import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import PublicLayout from "./components/PublicLayout.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
+import GoogleSignup from "./pages/GoogleSignup.jsx";
 import Chat from "./pages/Chat.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import Landing from "./pages/Landing.jsx";
@@ -39,6 +40,7 @@ const App = () => {
       <Route element={<PublicLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/register/google" element={<GoogleSignup />} />
         <Route path="*" element={<NotFound />} />
       </Route>
 

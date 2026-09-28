@@ -48,12 +48,15 @@ const createUser = async (userData) => {
 
 // The logged-in user's own profile, including their locked private key: after
 // a refresh the browser may need it to unlock the key again. Only for the owner.
+// hasPassword / google: how this account signs in (Google accounts unlock
+// with an encryption password and have no login password to change).
 const getCurrentUser = async (userId) => {
-    const user = await User.findById(userId).select("+encryptedPrivateKey");
+    const user = await User.findById(userId).select("+encryptedPrivateKey +password +googleId");
     if (!user) {
         throw new AppError("User not found", 404);
     }
-    return user;
+    const { password, googleId, ...rest } = user.toObject();
+    return { ...rest, hasPassword: Boolean(password), google: Boolean(googleId) };
 }
 
 const MAX_SEARCH_RESULTS = 20;
@@ -180,6 +183,9 @@ const changePassword = async (userId, currentPassword, newPassword, encryptedPri
     const user = await User.findById(userId).select("+password");
     if (!user) {
         throw new AppError("User not found", 404);
+    }
+    if (!user.password) {
+        throw new AppError("This account signs in with Google and has no password to change", 400);
     }
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
