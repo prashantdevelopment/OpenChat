@@ -32,3 +32,8 @@ process.env.CLOUDFLARE_TURN_KEY_API_TOKEN = "";
 // server/.env. tests/google.test.js sets a fake one and fakes Google.
 process.env.GOOGLE_CLIENT_ID = "";
 process.env.GOOGLE_CLIENT_SECRET = "";
+// Accounts in tests have no mailbox: no email codes (tests/emailCode.test.js
+// switches them on for itself), and never the real Brevo key.
+process.env.EMAIL_VERIFICATION = "off";
+process.env.BREVO_API_KEY = "";
+process.env.EMAIL_FROM = "";

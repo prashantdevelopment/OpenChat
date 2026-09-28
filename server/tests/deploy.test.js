@@ -9,7 +9,7 @@ const ENV_JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "sr
 const BASE = { PORT: "5000", MONGO_URI: "mongodb://localhost:27017/x", JWT_SECRET: "x".repeat(40), PATH: process.env.PATH, SystemRoot: process.env.SystemRoot };
 
 const load = (env) => {
-    const script = `const env = await import(${JSON.stringify("file://" + ENV_JS.replaceAll("\\", "/"))}); console.log(JSON.stringify({ CLIENT_URL: env.CLIENT_URL, STORAGE_DRIVER: env.STORAGE_DRIVER, GOOGLE: env.GOOGLE }));`;
+    const script = `const env = await import(${JSON.stringify("file://" + ENV_JS.replaceAll("\\", "/"))}); console.log(JSON.stringify({ CLIENT_URL: env.CLIENT_URL, STORAGE_DRIVER: env.STORAGE_DRIVER, GOOGLE: env.GOOGLE, EMAIL: env.EMAIL }));`;
     const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], { env: { ...BASE, ...env }, cwd: path.dirname(ENV_JS), encoding: "utf8" });
     return result.status === 0 ? { ok: JSON.parse(result.stdout.trim().split("\n").at(-1)) } : { error: result.stderr };
 };
@@ -44,5 +44,15 @@ describe("production settings (env.js)", () => {
         const prod = { NODE_ENV: "production", RENDER_EXTERNAL_URL: "https://openchat.onrender.com", STORAGE_DRIVER: "cloudinary", CLOUDINARY_CLOUD_NAME: "c", CLOUDINARY_API_KEY: "k", CLOUDINARY_API_SECRET: "s", GOOGLE_CLIENT_ID: id, GOOGLE_CLIENT_SECRET: "s" };
         expect(load(prod).ok.GOOGLE.redirectUri).toBe("https://openchat.onrender.com/api/auth/google/callback");
         expect(load({ ...prod, GOOGLE_TOKEN_URL: "http://localhost:9/token" }).error).toMatch(/tests only, never in production/);
+    });
+
+    it("email codes: Brevo key and sender together, a real sender address, never switched off in production", () => {
+        const dev = { CLIENT_URL: "http://localhost:5173" };
+        expect(load(dev).ok.EMAIL).toBeNull();
+        expect(load({ ...dev, BREVO_API_KEY: "k" }).error).toMatch(/need both BREVO_API_KEY and EMAIL_FROM/);
+        expect(load({ ...dev, BREVO_API_KEY: "k", EMAIL_FROM: "not an address" }).error).toMatch(/EMAIL_FROM must be an email address/);
+        expect(load({ ...dev, BREVO_API_KEY: "k", EMAIL_FROM: "me@gmail.com" }).ok.EMAIL).toMatchObject({ from: "me@gmail.com", fromName: "OpenChat" });
+        const prod = { NODE_ENV: "production", CLIENT_URL: "https://a.example", STORAGE_DRIVER: "cloudinary", CLOUDINARY_CLOUD_NAME: "c", CLOUDINARY_API_KEY: "k", CLOUDINARY_API_SECRET: "s" };
+        expect(load({ ...prod, EMAIL_VERIFICATION: "off" }).error).toMatch(/can't be off in production/);
     });
 });

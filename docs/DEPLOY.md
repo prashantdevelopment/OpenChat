@@ -62,6 +62,16 @@ The "Continue with Google" button appears once the server has an OAuth client. N
 
 How it works for people: someone new picks a username, name, state and an **encryption password** (it locks their messages in the browser; Google never sees it, and it is asked on a new device). Someone whose email already has an OpenChat account logs in with its password once, and from then on Google logs them in.
 
+## 3d. Sign-up codes by email: Brevo (free, 300 emails a day)
+
+New accounts made with email and password must enter a 6-digit code sent to that address. Render's free plan blocks email (SMTP) ports, so the code goes out through Brevo's web API. Until this is set up, the live site offers only "Continue with Google" for new accounts (logins keep working).
+
+1. Create a free account at https://www.brevo.com.
+2. **Senders, domains & dedicated IPs → Senders → Add a sender**: name "OpenChat", email = your own Gmail address. Brevo emails a confirmation link/code to it: confirm it.
+3. **SMTP & API → API keys → Generate a new API key** (name it "openchat"). Copy it (shown once).
+4. In Render → **Environment**: `BREVO_API_KEY` = the key, `EMAIL_FROM` = the Gmail address you verified. (On your computer you can leave them out: the code is printed in the server's console.)
+5. Try it: register with a real address you can open. If the code lands in Spam, mark it "Not spam" once. Without a domain of your own, some providers are stricter with mail "from" a Gmail address sent by Brevo; if codes don't arrive at all, tell me (the fallback is sending through the Gmail API).
+
 ## 4. Check it
 
 1. `https://<your-address>/api/health` answers `{"status":"ok"}`.

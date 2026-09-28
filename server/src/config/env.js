@@ -122,7 +122,32 @@ const GOOGLE = process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_SECRET
                 throw new Error("GOOGLE_AUTH_URL / GOOGLE_TOKEN_URL are for tests only, never in production");
             }
 
+// Email codes at registration (a real inbox behind every new account), sent
+// through Brevo's HTTPS API: Render's free plan blocks SMTP. Sender = an
+// address verified in Brevo (e.g. your Gmail). Both or neither. Without them:
+// in development the code is printed in the server's console; in production
+// sign-up by email is switched off (Google still works).
+const EMAIL = process.env.BREVO_API_KEY || process.env.EMAIL_FROM
+    ? { brevoApiKey: process.env.BREVO_API_KEY, from: process.env.EMAIL_FROM, fromName: process.env.EMAIL_FROM_NAME || "OpenChat" }
+    : null;
+            if (EMAIL && (!EMAIL.brevoApiKey || !EMAIL.from)) {
+                throw new Error("Email codes need both BREVO_API_KEY and EMAIL_FROM");
+            }
+            if (EMAIL && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(EMAIL.from)) {
+                throw new Error("EMAIL_FROM must be an email address (the sender verified in Brevo)");
+            }
+// "on", or "off" for the test suites (they create accounts without a mailbox);
+// read on every request (services/emailCode.service.js). Never off in production.
+const EMAIL_VERIFICATION = process.env.EMAIL_VERIFICATION ?? "on";
+            if (!["on", "off"].includes(EMAIL_VERIFICATION)) {
+                throw new Error(`EMAIL_VERIFICATION must be "on" or "off", not "${EMAIL_VERIFICATION}"`);
+            }
+            if (EMAIL_VERIFICATION === "off" && process.env.NODE_ENV === "production") {
+                throw new Error("EMAIL_VERIFICATION can't be off in production");
+            }
+
 export {
+    EMAIL,
     GOOGLE,
     TURN,
     TRUST_PROXY,

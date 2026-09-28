@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { changePasswordController, createUserController, discoverUsersController, getProfileController, searchUsersController, updateUserController } from "../controllers/user.controller.js";
+import { changePasswordController, createUserController, emailCodeController, discoverUsersController, getProfileController, searchUsersController, updateUserController } from "../controllers/user.controller.js";
 import { validateNewPassword, validatePassword } from "../middleware/validation.middleware.js";
 import express from "express";
 import authMiddleware from "../middleware/auth.middleware.js";
@@ -7,6 +7,9 @@ import { readAvatarController, removeAvatarController, setAvatarController } fro
 import { MAX_AVATAR_BYTES } from "../services/avatar.service.js";
 import { byIp, byUser, rateLimit } from "../rateLimit.js";
 
+// Each code is an email sent from our Brevo account: per network, on top of
+// the per-address limits in emailCode.service.js.
+const emailCodeLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, keys: byIp("email-code"), message: "Too many codes from this network" });
 const registerLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, keys: byIp("register"), message: "Too many new accounts from this network" });
 // Changing the password checks the current one: no guessing it with a stolen session.
 const passwordLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, keys: byUser("password"), message: "Too many password changes" });
@@ -14,6 +17,7 @@ const searchLimit = rateLimit({ windowMs: 60 * 1000, max: 60, keys: byUser("sear
 const avatarLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 10, keys: byUser("avatar"), message: "Too many photo changes" });
 const router = Router();
 
+router.post("/users/email-code", emailCodeLimit, emailCodeController);
 router.post("/users", registerLimit, validatePassword, createUserController);
 router.get("/users/search", authMiddleware, searchLimit, searchUsersController);
 router.get("/users/discover", authMiddleware, searchLimit, discoverUsersController);

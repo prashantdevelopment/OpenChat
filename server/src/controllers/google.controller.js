@@ -8,6 +8,7 @@ import {
     resolveGoogleAccount,
     startGoogleLogin,
 } from "../services/google.service.js";
+import { emailSignupAvailable, emailVerificationOn } from "../services/emailCode.service.js";
 
 const secure = process.env.NODE_ENV === "production";
 // The login in progress. Lax: it must come along when Google sends the browser
@@ -21,9 +22,9 @@ export const pendingCookieOptions = { httpOnly: true, secure, sameSite: "strict"
 // Where the browser lands in the app after the callback.
 const toApp = (res, path) => res.redirect(303, new URL(path, CLIENT_URL).toString());
 
-// GET /api/auth/providers: which sign-in buttons to show.
+// GET /api/auth/providers: which ways to sign up / in to show.
 const providersController = (req, res) => {
-    res.status(200).json({ success: true, google: googleEnabled() });
+    res.status(200).json({ success: true, google: googleEnabled(), emailSignup: emailSignupAvailable(), emailCode: emailVerificationOn() });
 };
 
 // GET /api/auth/google: off to Google.

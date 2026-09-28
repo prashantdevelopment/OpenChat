@@ -48,7 +48,8 @@ const errorMiddleware = (err, req, res, next) => {
     if(err instanceof AppError) {
         return res.status(err.statusCode).json({
             success: false,
-            message: err.message
+            message: err.message,
+            ...(err.field ? { errors: { [err.field]: err.message } } : {})
         });
     }
 

@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import AppError from "../utils/AppError.js";
 import { INDIAN_STATE_CODES } from "../../../shared/indian-states.js";
 import { blockRelations, hasBlocked } from "./block.service.js";
+import { checkEmailCode, emailSignupAvailable, useUpEmailCode } from "./emailCode.service.js";
 
 // Text that goes into a regex: escape every special character, otherwise ".*"
 // would match everyone and patterns like "(a+)+$" could make the database
@@ -22,8 +23,13 @@ const createUser = async (userData) => {
     // body would let a client set anything else on the user (mass assignment),
     // e.g. isOnline, createdAt or its own _id.
     // The two key fields are created in the browser (end-to-end encryption).
-    const { name, username, email, password, state, publicKey, encryptedPrivateKey } = userData;
+    const { name, username, email, password, state, publicKey, encryptedPrivateKey, code } = userData;
     if (name !== undefined) checkName(name);
+    // A new account needs the code that was emailed to its address.
+    if (!emailSignupAvailable()) {
+        throw new AppError("Sign-up by email isn't available right now. Use Continue with Google.", 503);
+    }
+    await checkEmailCode(email, code);
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const createdUser = await User.create({
@@ -37,6 +43,8 @@ const createUser = async (userData) => {
         publicKey,
         encryptedPrivateKey
     });
+
+    await useUpEmailCode(email);
 
     // The locked private key is only handed out at login (to its owner).
     const { password: _hashedPassword, encryptedPrivateKey: _lockedKey, ...UserWithoutPassword } = createdUser.toObject();

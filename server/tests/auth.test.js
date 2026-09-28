@@ -396,3 +396,19 @@ describe("Sign in with Google when it isn't set up", () => {
         expect((await request(app).get("/api/auth/google")).status).toBe(404);
     });
 });
+
+describe("sign-up by email in production without Brevo", () => {
+    it("is switched off (Google still works): the app is told, and registering answers 503", async () => {
+        const saved = { NODE_ENV: process.env.NODE_ENV, EMAIL_VERIFICATION: process.env.EMAIL_VERIFICATION };
+        process.env.NODE_ENV = "production";
+        process.env.EMAIL_VERIFICATION = "on";
+        try {
+            expect((await request(app).get("/api/auth/providers")).body).toMatchObject({ emailSignup: false });
+            const res = await request(app).post("/api/users").send({ username: "no_mail_prod", email: "no_mail_prod@test.dev", password: PASSWORD, state: "delhi", ...TEST_KEYS });
+            expect(res.status).toBe(503);
+            expect((await request(app).post("/api/users/email-code").send({ email: "x@test.dev" })).status).toBe(503);
+        } finally {
+            Object.assign(process.env, saved);
+        }
+    });
+});

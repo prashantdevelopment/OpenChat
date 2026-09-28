@@ -1,12 +1,5 @@
-import { useEffect, useState } from "react";
-import api, { API_URL } from "../api/api.js";
-
-// Asked once per page load: is Sign in with Google set up on the server?
-let availability;
-const googleAvailable = () => {
-  availability ??= api.get("/auth/providers").then((res) => res.data.google === true, () => false);
-  return availability;
-};
+import { API_URL } from "../api/api.js";
+import { useProviders } from "../lib/providers.js";
 
 // Google's "G" in its four colours (Google's sign-in branding guidelines).
 const GoogleLogo = () => (
@@ -22,17 +15,7 @@ const GoogleLogo = () => (
 // A plain link: the browser goes to our server, which sends it on to Google
 // (no Google script on our pages). Nothing is shown if Google isn't set up.
 const GoogleButton = () => {
-  const [available, setAvailable] = useState(false);
-
-  useEffect(() => {
-    let ignore = false;
-    googleAvailable().then((yes) => !ignore && setAvailable(yes));
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  if (!available) return null;
+  if (!useProviders()?.google) return null;
   return (
     <div className="mb-8">
       <a
