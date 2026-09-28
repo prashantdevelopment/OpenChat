@@ -11,3 +11,9 @@ CLAUDE.md
 AGENTS.md
 .claude/
 
+
+# Local agent skills and launch-video output (never pushed)
+.agents/
+skills-lock.json
+brag-output/
+brag-output-*/
