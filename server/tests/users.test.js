@@ -54,7 +54,7 @@ describe("GET /api/users/search", () => {
 
     it("returns only public fields (no email, no password)", async () => {
         const [user] = (await search("priya")).body.users;
-        expect(Object.keys(user).sort()).toEqual(["_id", "avatar", "bio", "publicKey", "state", "username"]);
+        expect(Object.keys(user).sort()).toEqual(["_id", "avatar", "bio", "name", "publicKey", "state", "username"]);
     });
 
     it("returns at most 20 users", async () => {

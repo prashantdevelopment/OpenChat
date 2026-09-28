@@ -67,7 +67,7 @@ describe("call signaling", () => {
         expect(toB1).toHaveLength(1);
         expect(toB2).toHaveLength(1);
         expect(toB1[0]).toMatchObject({ callId, conversationId, media: "audio", offer });
-        expect(Object.keys(toB1[0].from).sort()).toEqual(["_id", "avatar", "bio", "publicKey", "state", "username"]);
+        expect(Object.keys(toB1[0].from).sort()).toEqual(["_id", "avatar", "bio", "name", "publicKey", "state", "username"]);
         expect(toB1[0].from.username).toBe("alice_call");
         expect(toA).toEqual([]);
         expect(toC).toEqual([]);

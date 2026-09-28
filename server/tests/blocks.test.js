@@ -65,7 +65,7 @@ describe("blocking: the API", () => {
         await block(alice, bob); // twice is fine
         const list = (await api(alice).get("/api/blocks").expect(200)).body.users;
         expect(list.map((user) => user.username)).toEqual(["bob_blk"]);
-        expect(Object.keys(list[0]).sort()).toEqual(["_id", "avatar", "bio", "publicKey", "state", "username"]);
+        expect(Object.keys(list[0]).sort()).toEqual(["_id", "avatar", "bio", "name", "publicKey", "state", "username"]);
         expect(await Block.countDocuments()).toBe(1);
         // Bob's own list is empty: a block is only listed for the blocker
         expect((await api(bob).get("/api/blocks").expect(200)).body.users).toEqual([]);

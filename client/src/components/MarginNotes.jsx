@@ -6,6 +6,7 @@ import { parseAttachmentContent } from "../lib/messageContent.js";
 import { loadDecrypted } from "../lib/encryptedFiles.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
 import Avatar from "./Avatar.jsx";
+import { displayName } from "../lib/people.js";
 
 const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name;
 const SHOWN_PHOTOS = 6;
@@ -57,10 +58,10 @@ const MarginNotes = ({ peer, myPublicKey, conversationKey, photos }) => {
   const shown = photos.slice(-SHOWN_PHOTOS).reverse();
 
   return (
-    <aside aria-label={`About ${peer.username}`} className="flex min-h-0 flex-col gap-6 overflow-y-auto border-l border-border px-7 py-6">
+    <aside aria-label={`About ${displayName(peer)}`} className="flex min-h-0 flex-col gap-6 overflow-y-auto border-l border-border px-7 py-6">
       <h2 className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Margin notes</h2>
       <div className="flex flex-col gap-2">
-        <Avatar name={peer.username} avatarId={peer.avatar} className="size-18 bg-brand text-3xl text-brand-foreground italic" />
+        <Avatar name={displayName(peer)} avatarId={peer.avatar} className="size-18 bg-brand text-3xl text-brand-foreground italic" />
         {peer.bio ? <p className="mt-2 font-heading text-[1.375rem] leading-snug">“{peer.bio}”</p> : null}
         <p className="text-sm text-muted-foreground">{place ? `${place} · ` : ""}on OpenChat</p>
         <Link to={`/u/${peer.username}`} className="mt-1 self-start text-sm text-foreground underline-offset-4">
@@ -71,7 +72,7 @@ const MarginNotes = ({ peer, myPublicKey, conversationKey, photos }) => {
         <div className="border-t border-border pt-5">
           <p className="flex items-baseline justify-between text-sm">
             <span className="font-medium">Safety number</span>
-            <span className="text-xs text-muted-foreground" title={`Compare it with ${peer.username} to be sure nobody is in the middle`}>
+            <span className="text-xs text-muted-foreground" title={`Compare it with ${displayName(peer)} to be sure nobody is in the middle`}>
               Compare
             </span>
           </p>

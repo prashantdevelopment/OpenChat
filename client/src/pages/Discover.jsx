@@ -11,6 +11,7 @@ import PageMeta from "../components/PageMeta.jsx";
 import { Button } from "@/components/ui/button";
 import { toastManager } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { displayName, handle } from "../lib/people.js";
 
 // The map's drawing (~60 kB) is loaded only here, after the page itself.
 const IndiaMap = lazy(() => import("../components/IndiaMap.jsx"));
@@ -43,7 +44,7 @@ const useStartChat = () => {
       navigate(`/chat/${res.data.conversation._id}`);
     } catch (error) {
       setOpeningId(null);
-      toastManager.add({ type: "error", title: `Couldn't open the chat with ${user.username}`, description: error.response?.data?.message ?? "Check your connection and try again." });
+      toastManager.add({ type: "error", title: `Couldn't open the chat with ${displayName(user)}`, description: error.response?.data?.message ?? "Check your connection and try again." });
     }
   };
   return { start, openingId };
@@ -93,12 +94,12 @@ const MapPopup = ({ state, online, onClose, onSeeEveryone, className, style }) =
         <ul className="mt-3">
           {users.map((user) => (
             <li key={user._id} className="flex items-center gap-3 border-t border-border py-2.5">
-              <Avatar name={user.username} avatarId={user.avatar} className="size-9.5 border border-foreground bg-transparent text-lg text-foreground italic" />
+              <Avatar name={displayName(user)} avatarId={user.avatar} className="size-9.5 border border-foreground bg-transparent text-lg text-foreground italic" />
               <span className="min-w-0 flex-1">
                 <Link to={`/u/${user.username}`} className="block truncate text-sm font-semibold text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
-                  {user.username}
+                  {displayName(user)}
                 </Link>
-                {user.bio ? <span className="block truncate text-[12.5px] text-muted-foreground">{user.bio}</span> : null}
+                <span className="block truncate text-[12.5px] text-muted-foreground">{[handle(user), user.bio].filter(Boolean).join(" · ")}</span>
               </span>
               <Button size="sm" className="rounded-full px-3.5" loading={openingId === user._id} onClick={() => start(user)}>
                 Write
@@ -201,12 +202,12 @@ const StatePeople = ({ state, scrollOnChange }) => {
         <ul className="mt-2 border-b border-border">
           {page.users.map((user) => (
             <li key={user._id} className="flex items-center gap-3 border-t border-border py-3">
-              <Avatar name={user.username} avatarId={user.avatar} className="bg-foreground text-lg text-background italic" />
+              <Avatar name={displayName(user)} avatarId={user.avatar} className="bg-foreground text-lg text-background italic" />
               <span className="min-w-0 flex-1">
                 <Link to={`/u/${user.username}`} className="block truncate font-semibold text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
-                  {user.username}
+                  {displayName(user)}
                 </Link>
-                {user.bio ? <span className="block truncate text-sm text-muted-foreground">{user.bio}</span> : null}
+                <span className="block truncate text-sm text-muted-foreground">{[handle(user), user.bio].filter(Boolean).join(" · ")}</span>
               </span>
               <Button size="sm" className="rounded-full px-4" loading={openingId === user._id} onClick={() => start(user)}>
                 Message

@@ -27,7 +27,7 @@ const Avatar = ({ name, avatarId, online = false, className }) => {
           onError={() => setFailedId(avatarId)}
         />
       ) : (
-        (name?.[0]?.toUpperCase() ?? "?")
+        ([...(name ?? "")][0]?.toUpperCase() ?? "?")
       )}
       {online ? (
         <span data-online className="absolute right-0 bottom-0 size-3 rounded-full bg-success ring-2 ring-background" />

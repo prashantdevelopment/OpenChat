@@ -4,6 +4,7 @@ import { useConversationKey, useDecryptedText } from "../crypto/hooks.js";
 import { formatConversationTime, formatFullDateTime } from "../lib/time.js";
 import { cn } from "@/lib/utils";
 import { describeMessage } from "../lib/messageContent.js";
+import { displayName } from "../lib/people.js";
 
 // One conversation in the list, set like a line in a magazine's contents:
 // the name in the serif, time in mono, a one-line preview and a red unread
@@ -40,7 +41,7 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
         {({ isActive }) => (
           <>
             <span className="flex min-w-0 items-center gap-2 font-heading text-[1.3125rem] leading-tight">
-              <span className="truncate">{otherParticipant?.username}</span>
+              <span className="truncate">{displayName(otherParticipant)}</span>
               {otherParticipant?.online ? (
                 <>
                   <span data-online aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", isActive ? "bg-[#9be7b9]" : "bg-success")} />

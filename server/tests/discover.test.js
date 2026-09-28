@@ -53,7 +53,7 @@ describe("Discover: people by state", () => {
 
     it("shows only public profile fields, never online status or email", async () => {
         const [user] = (await discover({ state: "goa" })).body.users;
-        expect(Object.keys(user).sort()).toEqual(["_id", "avatar", "bio", "publicKey", "state", "username"]);
+        expect(Object.keys(user).sort()).toEqual(["_id", "avatar", "bio", "name", "publicKey", "state", "username"]);
     });
 
     it("rejects bad input and needs a login", async () => {

@@ -4,6 +4,7 @@ import { MAX_REPORT_DETAILS, REPORT_REASONS, reportUser } from "../lib/blocks.js
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogPanel, DialogPopup, DialogTitle } from "@/components/ui/dialog";
 import { toastManager } from "@/components/ui/toast";
+import { displayName } from "../lib/people.js";
 
 // Report someone: a reason, the reporter's own words (we can't read their
 // messages, they are end-to-end encrypted), and "Also block" (on by default).
@@ -30,7 +31,7 @@ const ReportDialog = ({ user, conversationId, open, onOpenChange, canBlock, befo
       const block = canBlock && alsoBlock;
       if (block) await beforeBlock?.();
       const { blocked } = await reportUser({ userId: user._id, reason, details, conversationId, alsoBlock: block });
-      toastManager.add({ type: "success", title: blocked ? `Reported and blocked ${user.username}` : `Reported ${user.username}`, description: "Thank you. We'll look into it." });
+      toastManager.add({ type: "success", title: blocked ? `Reported and blocked ${displayName(user)}` : `Reported ${displayName(user)}`, description: "Thank you. We'll look into it." });
       onOpenChange(false);
       setReason("");
       setDetails("");
@@ -48,9 +49,9 @@ const ReportDialog = ({ user, conversationId, open, onOpenChange, canBlock, befo
         {/* contents: the popup lays out header, panel and footer itself. */}
         <form onSubmit={submit} noValidate className="contents">
           <DialogHeader>
-            <DialogTitle className="font-heading text-3xl font-normal">Report {user.username}</DialogTitle>
+            <DialogTitle className="font-heading text-3xl font-normal">Report {displayName(user)}</DialogTitle>
             <DialogDescription>
-              Your messages are end-to-end encrypted, so we can&apos;t read them. Tell us what happened. {user.username} won&apos;t be told who reported them.
+              Your messages are end-to-end encrypted, so we can&apos;t read them. Tell us what happened. {displayName(user)} won&apos;t be told who reported them.
             </DialogDescription>
           </DialogHeader>
           <DialogPanel className="space-y-6">
@@ -94,7 +95,7 @@ const ReportDialog = ({ user, conversationId, open, onOpenChange, canBlock, befo
             {canBlock ? (
               <label className="flex cursor-pointer items-start justify-between gap-6">
                 <span>
-                  <span className="block font-medium">Also block {user.username}</span>
+                  <span className="block font-medium">Also block {displayName(user)}</span>
                   <span className="mt-1 block text-sm text-muted-foreground">You won&apos;t be able to message or call each other.</span>
                 </span>
                 <input type="checkbox" role="switch" checked={alsoBlock} onChange={(e) => setAlsoBlock(e.target.checked)} className="switch mt-0.5" />

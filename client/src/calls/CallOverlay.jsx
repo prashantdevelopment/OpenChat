@@ -7,6 +7,7 @@ import VoiceOrb from "./VoiceOrb.jsx";
 import { formatDuration } from "../lib/attachments.js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { displayName } from "../lib/people.js";
 
 // Why a call ended, in words (the key is the reason from CallProvider).
 const endMessage = (reason, name) =>
@@ -43,7 +44,7 @@ const CallStatus = ({ call, className }) => {
     calling: call.ringing ? "Ringing..." : "Calling...",
     ringing: video ? "Incoming video call" : "Incoming voice call",
     connecting: "Connecting...",
-    ended: endMessage(call.endReason, call.peer.username),
+    ended: endMessage(call.endReason, displayName(call.peer)),
   }[call.status];
   return (
     <p role="status" className={className}>
@@ -125,7 +126,7 @@ const Kicker = ({ children, className }) => (
 // Video call: the other person large, me small in the corner (mirrored, like
 // a mirror). Full screen on phones, a large panel on bigger screens.
 const VideoCall = ({ call }) => {
-  const name = call.peer.username;
+  const name = displayName(call.peer);
   const showRemote = call.remoteStream && !call.peerCameraOff;
   return (
     <m.section
@@ -181,7 +182,7 @@ const VideoCall = ({ call }) => {
 // animates away after the call, it keeps showing the call that just ended.
 const CallOverlay = ({ call }) => {
   const { acceptCall, declineCall } = useCall();
-  const name = call.peer.username;
+  const name = displayName(call.peer);
   const { status } = call;
 
   if (call.media === "video" && ["calling", "connecting", "connected"].includes(status)) {

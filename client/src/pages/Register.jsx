@@ -10,10 +10,10 @@ import PageMeta from "../components/PageMeta.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
 
-const FIELD_ORDER = ["username", "email", "password", "state"];
+const FIELD_ORDER = ["name", "username", "email", "password", "state"];
 
 const Register = () => {
-  const [form, setForm] = useState({ username: "", email: "", password: "", state: "" });
+  const [form, setForm] = useState({ name: "", username: "", email: "", password: "", state: "" });
   // Per-field messages from the server ({ username: "...", state: "..." })
   const [fieldErrors, setFieldErrors] = useState({});
   // Messages that belong to no single field (e.g. "Username already exists")
@@ -88,10 +88,17 @@ const Register = () => {
           </p>
         ) : null}
 
+        {/* Always sent, also empty: the server then says the name is missing. */}
+        <FormField id="name" label="Name" hint="Shown in chats. Any language, up to 40 characters." error={fieldErrors.name}>
+          {(props) => (
+            <input {...props} name="name" type="text" className="field" autoComplete="name" maxLength={40} value={form.name} onChange={handleChange} />
+          )}
+        </FormField>
+
         <FormField
           id="username"
           label="Username"
-          hint="3–30 characters: letters, numbers, dots and underscores. Must start with a letter or number."
+          hint="How people find you. 3–30 characters: letters, numbers, dots and underscores; starts with a letter or number."
           error={fieldErrors.username}
         >
           {(props) => (

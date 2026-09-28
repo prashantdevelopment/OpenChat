@@ -12,6 +12,7 @@ import PersonActions from "../components/PersonActions.jsx";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastManager } from "@/components/ui/toast";
+import { displayName, handle } from "../lib/people.js";
 
 const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name;
 
@@ -59,7 +60,7 @@ const Profile = () => {
       navigate(`/chat/${res.data.conversation._id}`);
     } catch (error) {
       setOpening(false);
-      toastManager.add({ type: "error", title: `Couldn't open the chat with ${user.username}`, description: error.response?.data?.message ?? "Check your connection and try again." });
+      toastManager.add({ type: "error", title: `Couldn't open the chat with ${displayName(user)}`, description: error.response?.data?.message ?? "Check your connection and try again." });
     }
   };
 
@@ -70,7 +71,8 @@ const Profile = () => {
 
   return (
     <div className="min-h-dvh bg-background">
-      <PageMeta title={state.status === "ready" ? user.username : "Profile"} noindex />
+      {/* "Riya Nair (@riya_k)"; just the username when there is no other name. */}
+      <PageMeta title={state.status !== "ready" ? "Profile" : user.name && user.name !== user.username ? `${user.name} (${handle(user)})` : user.username} noindex />
       <Masthead />
       <main id="main" className="mx-auto max-w-3xl px-5 py-10 md:px-10 md:py-16">
         <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Profile</p>
@@ -93,8 +95,9 @@ const Profile = () => {
           </div>
         ) : (
           <article className="mt-6">
-            <Avatar name={user.username} avatarId={user.avatar} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
-            <h1 className="mt-6 text-[2.375rem] leading-none wrap-break-word italic md:text-7xl">{user.username}</h1>
+            <Avatar name={displayName(user)} avatarId={user.avatar} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
+            <h1 className="mt-6 text-[2.375rem] leading-none wrap-break-word italic md:text-7xl">{displayName(user)}</h1>
+            <p className="mt-3 text-muted-foreground">{handle(user)}</p>
             {user.bio ? <p className="mt-6 max-w-xl font-heading text-2xl leading-snug md:text-3xl">“{user.bio}”</p> : null}
             <p className="mt-4 font-mono text-xs tracking-[0.14em] text-muted-foreground uppercase">
               {place ? `${place} · ` : ""}on OpenChat
@@ -107,7 +110,7 @@ const Profile = () => {
                 </Button>
               ) : (
                 <Button onClick={message} loading={opening} className="h-12.5 gap-3 rounded-full pr-1.5 pl-6 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]">
-                  Message {user.username}
+                  Message {displayName(user)}
                   <span className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
                     <ArrowUpRightIcon aria-hidden="true" strokeWidth={1.7} />
                   </span>
@@ -117,7 +120,7 @@ const Profile = () => {
 
             {user.blockedByMe ? (
               <p role="status" className="mt-6 max-w-xl border-l-2 border-brand pl-4 text-sm">
-                You blocked {user.username}. Neither of you can message or call the other until you unblock them.
+                You blocked {displayName(user)}. Neither of you can message or call the other until you unblock them.
               </p>
             ) : null}
 
@@ -127,7 +130,7 @@ const Profile = () => {
                   Safety number
                 </h2>
                 <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-                  Your chats with {user.username} are end-to-end encrypted. To be sure nobody is in the middle, compare this
+                  Your chats with {displayName(user)} are end-to-end encrypted. To be sure nobody is in the middle, compare this
                   number with them in person or on a call. It must be the same on both screens.
                 </p>
                 <p className="mt-4 grid max-w-md grid-cols-4 gap-x-4 gap-y-2 font-mono text-base tracking-wider">
@@ -142,7 +145,7 @@ const Profile = () => {
                   Block or report
                 </h2>
                 <p className="mt-2 mb-5 max-w-xl text-sm text-muted-foreground">
-                  If {user.username} bothers you, block them. Report them if they break the rules; they won&apos;t know who reported them.
+                  If {displayName(user)} bothers you, block them. Report them if they break the rules; they won&apos;t know who reported them.
                 </p>
                 <PersonActions user={user} blocked={Boolean(user.blockedByMe)} onBlockedChange={setBlocked} />
               </section>

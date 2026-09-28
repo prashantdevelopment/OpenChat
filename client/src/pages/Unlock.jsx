@@ -4,6 +4,7 @@ import AuthCard, { SubmitButton } from "../components/AuthCard.jsx";
 import PageMeta from "../components/PageMeta.jsx";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import { Button } from "@/components/ui/button";
+import { displayName } from "../lib/people.js";
 
 // Shown instead of the app when the user is logged in (valid cookie) but the
 // private key is not available on this device, e.g. after clearing site data.
@@ -47,7 +48,7 @@ const Unlock = () => {
     <AuthCard
       title="Unlock your messages"
       tagline={["Your key", "stays with you."]}
-      description={`Hi ${currentUser.username}, your messages are end-to-end encrypted. Enter your password to unlock them on this device.`}
+      description={`Hi ${displayName(currentUser)}, your messages are end-to-end encrypted. Enter your password to unlock them on this device.`}
       footer={
         <>
           Not you?{" "}

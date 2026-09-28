@@ -52,8 +52,28 @@ const RESERVED_USERNAMES = new Set([
     "moderator", "mod", "staff", "official", "security", "openchat", "team",
 ]);
 
+// Characters a display name may not contain: control characters, invisible
+// ones (zero-width, word joiner, BOM) and the ones that flip the text
+// direction. With these, a name could hide text or pose as someone else.
+const HIDDEN_CHARACTERS = /[\p{Cc}\u200B-\u200F\u2028-\u202E\u2060-\u2069\uFEFF]/u;
+
 const userSchema =  new mongoose.Schema({
 
+    // The name shown in chats (Instagram-style: the name big, @username small
+    // below it). Any script, not unique; people are still found only by
+    // username. Accounts from before names existed have none: the app shows
+    // their username instead.
+    name: {
+        type: String,
+        // One form for the same letters (typed on different keyboards), single
+        // spaces, no spaces at the ends.
+        set: (v) => (typeof v === "string" ? v.normalize("NFC").replace(/\s+/g, " ").trim() : v),
+        maxlength: [40, "Name must be at most 40 characters long"],
+        validate: [
+            { validator: (v) => !HIDDEN_CHARACTERS.test(v), message: "Name contains characters that aren't allowed" },
+            { validator: (v) => /[\p{L}\p{N}]/u.test(v), message: "Name must contain a letter or a number" },
+        ]
+    },
     username: {
         type: String,
         required: [true, "Username is required"],
@@ -164,7 +184,7 @@ userSchema.index({ state: 1, username: 1 });
 // the users that have one (most don't).
 userSchema.index({ avatar: 1 }, { partialFilterExpression: { avatar: { $gt: "" } } });
 
-export const PUBLIC_USER_FIELDS = "username avatar bio state publicKey";
+export const PUBLIC_USER_FIELDS = "name username avatar bio state publicKey";
 
 const User = mongoose.model("User", userSchema);
 

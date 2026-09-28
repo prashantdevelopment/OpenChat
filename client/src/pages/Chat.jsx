@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
+import { displayName, handle } from "../lib/people.js";
 
 const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name;
 
@@ -115,7 +116,7 @@ const Chat = () => {
         // Can't decrypt: keep "New message".
       }
     }
-    const notification = new Notification(sender?.username ?? "OpenChat", { body, tag: update._id, icon: "/icon-192.png" });
+    const notification = new Notification(displayName(sender) || "OpenChat", { body, tag: update._id, icon: "/icon-192.png" });
     notification.onclick = () => {
       window.focus();
       navigate(`/chat/${update._id}`);
@@ -221,7 +222,7 @@ const Chat = () => {
       console.error("Could not start the conversation:", error);
       toastManager.add({
         type: "error",
-        title: `Couldn't open the chat with ${user.username}`,
+        title: `Couldn't open the chat with ${displayName(user)}`,
         description: error.response?.data?.message ?? "Check your connection and try again.",
       });
     }
@@ -256,7 +257,7 @@ const Chat = () => {
     try {
       await unblockUser(peer._id);
       setConversations((prev) => prev.map((conversation) => (conversation._id === conversationId ? { ...conversation, blockedByMe: false } : conversation)));
-      toastManager.add({ type: "success", title: `Unblocked ${peer.username}` });
+      toastManager.add({ type: "success", title: `Unblocked ${displayName(peer)}` });
     } catch (error) {
       toastManager.add({ type: "error", title: "Couldn't unblock", description: error.response?.data?.message ?? "Check your connection and try again." });
     }
@@ -368,13 +369,19 @@ const Chat = () => {
                 <PeerHeading className="min-w-0 truncate pb-1 font-heading text-[1.75rem] leading-[0.95] italic md:text-[3.25rem]">
                     {peer ? (
                       <Link to={`/u/${peer.username}`} className="text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
-                        {peer.username}
+                        {displayName(peer)}
                       </Link>
                     ) : (
                       "Conversation"
                     )}
                   </PeerHeading>
                   <div className="col-span-full flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11.5px] tracking-[0.14em] text-muted-foreground uppercase md:col-span-1 md:col-start-1 md:mt-2">
+                    {peer ? (
+                      <>
+                        <span className="normal-case tracking-normal">{handle(peer)}</span>
+                        <span aria-hidden="true">·</span>
+                      </>
+                    ) : null}
                     {peer?.online ? (
                       <span className="text-success">
                         <span aria-hidden="true">● </span>Online
@@ -392,7 +399,7 @@ const Chat = () => {
                     <SafetyNumber
                       myPublicKey={currentUser.publicKey}
                       peerPublicKey={peer?.publicKey}
-                      peerName={peer?.username}
+                      peerName={displayName(peer)}
                       className="font-mono text-[11.5px] tracking-[0.14em] uppercase"
                     />
                   </div>
@@ -400,7 +407,7 @@ const Chat = () => {
                   variant="outline"
                   size="icon-xl"
                   className="size-11.5 rounded-full border-foreground sm:size-11.5 md:row-span-2 md:self-end"
-                  aria-label={`Voice call ${peer?.username ?? ""}`.trim()}
+                  aria-label={`Voice call ${displayName(peer)}`.trim()}
                   disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe || keyChanged}
                   onClick={() => startCall({ conversationId, peer, media: "audio" })}
                 >
@@ -409,7 +416,7 @@ const Chat = () => {
                 <Button
                   size="icon-xl"
                   className="size-11.5 rounded-full sm:size-11.5 md:row-span-2 md:self-end"
-                  aria-label={`Video call ${peer?.username ?? ""}`.trim()}
+                  aria-label={`Video call ${displayName(peer)}`.trim()}
                   disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe || keyChanged}
                   onClick={() => startCall({ conversationId, peer, media: "video" })}
                 >
@@ -421,7 +428,7 @@ const Chat = () => {
                 conversationId={conversationId}
                 currentUser={currentUser}
                 peerPublicKey={peer?.publicKey}
-                peerName={peer?.username}
+                peerName={displayName(peer)}
                 receipts={openConversation?.receipts}
                 onPhotosChange={setPhotos}
                 blocked={blockedByMe}

@@ -6,6 +6,7 @@ import ReportDialog from "./ReportDialog.jsx";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogPanel, DialogPopup, DialogTitle } from "@/components/ui/dialog";
 import { toastManager } from "@/components/ui/toast";
+import { displayName } from "../lib/people.js";
 
 // Block / Unblock and Report for one person (their profile page). Blocking
 // asks first and says what it does; unblocking doesn't need to.
@@ -31,7 +32,7 @@ const PersonActions = ({ user, blocked, conversationId, onBlockedChange }) => {
         await unblockUser(user._id);
       }
       setConfirming(false);
-      toastManager.add({ type: "success", title: block ? `Blocked ${user.username}` : `Unblocked ${user.username}` });
+      toastManager.add({ type: "success", title: block ? `Blocked ${displayName(user)}` : `Unblocked ${displayName(user)}` });
       onBlockedChange?.(block);
     } catch (error) {
       toastManager.add({ type: "error", title: block ? "Couldn't block" : "Couldn't unblock", description: error.response?.data?.message ?? "Check your connection and try again." });
@@ -45,7 +46,7 @@ const PersonActions = ({ user, blocked, conversationId, onBlockedChange }) => {
     <div className="flex flex-wrap gap-3">
       {blocked ? (
         <Button variant="outline" className={OUTLINE} loading={busy} onClick={() => setBlocked(false)}>
-          Unblock {user.username}
+          Unblock {displayName(user)}
         </Button>
       ) : (
         <Button variant="outline" className={OUTLINE} onClick={() => setConfirming(true)}>
@@ -61,7 +62,7 @@ const PersonActions = ({ user, blocked, conversationId, onBlockedChange }) => {
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogPopup>
           <DialogHeader>
-            <DialogTitle className="font-heading text-3xl font-normal">Block {user.username}?</DialogTitle>
+            <DialogTitle className="font-heading text-3xl font-normal">Block {displayName(user)}?</DialogTitle>
             <DialogDescription>They won&apos;t be told.</DialogDescription>
           </DialogHeader>
           <DialogPanel>

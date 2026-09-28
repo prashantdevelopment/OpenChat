@@ -17,6 +17,7 @@ import { makeAvatar } from "../lib/images.js";
 import Masthead from "../components/Masthead.jsx";
 import PageMeta from "../components/PageMeta.jsx";
 import { Button } from "@/components/ui/button";
+import { displayName } from "../lib/people.js";
 
 const MAX_BIO_LENGTH = 160; // same limit as the server
 
@@ -109,7 +110,7 @@ const ProfilePhoto = () => {
 
   return (
     <div className="mb-8 flex items-center gap-5">
-      <Avatar name={currentUser.username} avatarId={currentUser.avatar} className="size-20 bg-brand text-4xl text-brand-foreground italic" />
+      <Avatar name={displayName(currentUser)} avatarId={currentUser.avatar} className="size-20 bg-brand text-4xl text-brand-foreground italic" />
       <div className="min-w-0 flex-1 space-y-2">
         <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Profile photo</p>
         <div className="flex flex-wrap gap-2">
@@ -130,11 +131,14 @@ const ProfilePhoto = () => {
 };
 
 // Field ids match the server's field names, so its errors map straight on.
-const PROFILE_ORDER = ["username", "bio", "state"];
+const PROFILE_ORDER = ["name", "username", "bio", "state"];
+const MAX_NAME_LENGTH = 40;
 
 const ProfileSection = () => {
   const { currentUser, updateCurrentUser } = useAuth();
-  const [form, setForm] = useState({ username: currentUser.username, bio: currentUser.bio ?? "", state: currentUser.state ?? "" });
+  // Accounts from before names existed show their username as the name.
+  const saved = { name: displayName(currentUser), username: currentUser.username, bio: currentUser.bio ?? "", state: currentUser.state ?? "" };
+  const [form, setForm] = useState(saved);
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
@@ -142,7 +146,7 @@ const ProfileSection = () => {
 
   // Only what changed is sent.
   const changes = Object.fromEntries(
-    Object.entries(form).filter(([field, value]) => value !== (currentUser[field] ?? "")),
+    Object.entries(form).filter(([field, value]) => value !== saved[field]),
   );
   const hasChanges = Object.keys(changes).length > 0;
 
@@ -158,10 +162,11 @@ const ProfileSection = () => {
     setFormError("");
     try {
       const res = await api.patch("/users/me", changes);
-      const { username, bio, state } = res.data.updatedUser;
-      updateCurrentUser({ username, bio, state });
-      // The server tidies values (lowercase username, trimmed bio): show what was saved.
-      setForm({ username, bio, state });
+      const { name, username, bio, state } = res.data.updatedUser;
+      updateCurrentUser({ name, username, bio, state });
+      // The server tidies values (single spaces in the name, lowercase username,
+      // trimmed bio): show what was saved.
+      setForm({ name: name || username, username, bio, state });
       setSavedMessage("Profile saved.");
     } catch (error) {
       const data = error.response?.data;
@@ -175,10 +180,25 @@ const ProfileSection = () => {
   };
 
   return (
-    <Section number="01" title="Profile" description="Your photo, username, bio and state are visible to people who search for you.">
+    <Section number="01" title="Profile" description="Your photo, name, username, bio and state are visible to people who search for you. People find you by your username.">
       <ProfilePhoto />
       <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {formError ? <FormAlert>{formError}</FormAlert> : null}
+
+        <FormField id="name" label="Name" hint="Shown in chats. Any language, up to 40 characters." error={fieldErrors.name}>
+          {(props) => (
+            <input
+              {...props}
+              name="name"
+              type="text"
+              className="field"
+              autoComplete="name"
+              maxLength={MAX_NAME_LENGTH}
+              value={form.name}
+              onChange={handleChange}
+            />
+          )}
+        </FormField>
 
         <FormField
           id="username"
@@ -394,7 +414,7 @@ const BlockedPeople = () => {
     try {
       await unblockUser(user._id);
       setUsers((list) => list.filter((item) => item._id !== user._id));
-      toastManager.add({ type: "success", title: `Unblocked ${user.username}` });
+      toastManager.add({ type: "success", title: `Unblocked ${displayName(user)}` });
     } catch (err) {
       toastManager.add({ type: "error", title: "Couldn't unblock", description: err.response?.data?.message ?? "Check your connection and try again." });
     } finally {
@@ -420,12 +440,12 @@ const BlockedPeople = () => {
         <ul aria-label="Blocked people" className="mt-3 divide-y divide-border border-y border-border">
           {users.map((user) => (
             <li key={user._id} className="flex items-center gap-3 py-3">
-              <Avatar name={user.username} avatarId={user.avatar} className="size-9 text-base" />
+              <Avatar name={displayName(user)} avatarId={user.avatar} className="size-9 text-base" />
               <Link to={`/u/${user.username}`} className="min-w-0 flex-1 truncate font-heading text-lg text-foreground no-underline hover:underline">
-                {user.username}
+                {displayName(user)}
               </Link>
               <Button variant="outline" loading={busyId === user._id} onClick={() => unblock(user)} className="h-11 rounded-full border-foreground/25 px-5 sm:h-11">
-                Unblock<span className="sr-only"> {user.username}</span>
+                Unblock<span className="sr-only"> {displayName(user)}</span>
               </Button>
             </li>
           ))}

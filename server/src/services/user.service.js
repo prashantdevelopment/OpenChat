@@ -9,16 +9,27 @@ import { blockRelations, hasBlocked } from "./block.service.js";
 // work very hard (ReDoS).
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// A name must be text: null or an object would slip past the schema's checks.
+const checkName = (name) => {
+    if (typeof name !== "string") {
+        throw new AppError("Name must be text", 400);
+    }
+};
+
 const createUser = async (userData) => {
 
     // Only these fields can be set at registration. Spreading the whole request
     // body would let a client set anything else on the user (mass assignment),
     // e.g. isOnline, createdAt or its own _id.
     // The two key fields are created in the browser (end-to-end encryption).
-    const { username, email, password, state, publicKey, encryptedPrivateKey } = userData;
+    const { name, username, email, password, state, publicKey, encryptedPrivateKey } = userData;
+    if (name !== undefined) checkName(name);
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const createdUser = await User.create({
+        // The app always sends a name; an older app still open in someone's
+        // browser during a deploy doesn't, and then the username stands in.
+        name: name === undefined ? username : name,
         username,
         email,
         password: hashedPassword,
@@ -129,6 +140,10 @@ const getPublicProfile = async (username, viewerId) => {
 // (leaking their IP address). Photos come with uploads (plan step 36).
 const updateUser = async (userId, updateData) => {
     const allowedUpdates = {}
+    if (updateData.name !== undefined) {
+        checkName(updateData.name);
+        allowedUpdates.name = updateData.name;
+    }
     if (updateData.username !== undefined) allowedUpdates.username = updateData.username;
     if (updateData.bio !== undefined) allowedUpdates.bio = updateData.bio;
     if (updateData.state !== undefined) allowedUpdates.state = updateData.state;
