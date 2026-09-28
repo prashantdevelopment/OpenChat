@@ -1,19 +1,18 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeftIcon, ArrowUpRightIcon, PhoneIcon, VideoIcon, WifiOffIcon } from "lucide-react";
+import { ArrowUpRightIcon, WifiOffIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
 import ConversationListItem from "../components/ConversationListItem.jsx";
 import ConversationView from "../components/ConversationView.jsx";
-import SafetyNumber from "../components/SafetyNumber.jsx";
+import ChatHeader from "../components/ChatHeader.jsx";
 import Masthead from "../components/Masthead.jsx";
 import MarginNotes from "../components/MarginNotes.jsx";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastManager } from "@/components/ui/toast";
 import { useIsConnected } from "../socket/useIsConnected.js";
-import { formatLastSeen } from "../lib/time.js";
 import { mergeReceipts } from "../lib/receipts.js";
 import { useCall } from "../calls/CallContext.js";
 import { getNotificationPrefs, shouldNotify, titleWithUnread } from "../lib/notifications.js";
@@ -25,10 +24,7 @@ import { checkPeerKey, trustPeerKey } from "../crypto/keyPins.js";
 import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
-import { INDIAN_STATES } from "../../../shared/indian-states.js";
-import { displayName, handle } from "../lib/people.js";
-
-const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name;
+import { displayName } from "../lib/people.js";
 
 const getConversations = async () => (await api.get("/conversations")).data.conversations;
 
@@ -234,7 +230,6 @@ const Chat = () => {
   const openConversation = conversations.find((conversation) => conversation._id === conversationId);
   const peer = openConversation?.participants.find((participant) => participant._id !== currentUser._id);
   const conversationKey = useConversationKey(conversationId, peer?.publicKey);
-  const place = stateName(peer?.state);
   // Is this the key this device saw for them before? (crypto/keyPins.js)
   const [keyCheck, setKeyCheck] = useState({ publicKey: null, status: null });
   useEffect(() => {
@@ -280,7 +275,9 @@ const Chat = () => {
           </p>
         ) : null}
       </div>
-      <Masthead>{isWide ? <UserSearch inMasthead onMessageUser={handleMessageUser} /> : null}</Masthead>
+      {/* Phones: an open chat gets the whole screen with its own top bar (like
+          WhatsApp); the app bar is back on the list. */}
+      {isWide || !conversationId ? <Masthead>{isWide ? <UserSearch inMasthead onMessageUser={handleMessageUser} /> : null}</Masthead> : null}
       <div
         className={cn(
           "grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]",
@@ -353,76 +350,14 @@ const Chat = () => {
         <main id={listIsMain ? undefined : "main"} className={cn("min-h-0 min-w-0 flex-col md:flex", conversationId ? "flex" : "hidden")}>
           {conversationId ? (
             <>
-              {/* Grid: on phones the status line gets its own full-width row under
-                  the name and buttons; from 768px it sits under the name. */}
-              <header className="grid grid-flow-row-dense grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-2 border-b border-border px-5 pt-5 pb-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end md:gap-x-4.5 md:gap-y-0 md:px-9 md:pt-6.5">
-                <Button
-                  render={<Link to="/chat" />}
-                  variant="ghost"
-                  size="icon"
-                  className="-ml-2 self-center md:hidden"
-                  aria-label="Back to conversations"
-                >
-                  <ArrowLeftIcon aria-hidden="true" strokeWidth={1.4} />
-                </Button>
-                {/* The name set large, in the italic serif, like a byline. */}
-                <PeerHeading className="min-w-0 truncate pb-1 font-heading text-[1.75rem] leading-[0.95] italic md:text-[3.25rem]">
-                    {peer ? (
-                      <Link to={`/u/${peer.username}`} className="text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
-                        {displayName(peer)}
-                      </Link>
-                    ) : (
-                      "Conversation"
-                    )}
-                  </PeerHeading>
-                  <div className="col-span-full flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11.5px] tracking-[0.14em] text-muted-foreground uppercase md:col-span-1 md:col-start-1 md:mt-2">
-                    {peer ? (
-                      <>
-                        <span className="normal-case tracking-normal">{handle(peer)}</span>
-                        <span aria-hidden="true">·</span>
-                      </>
-                    ) : null}
-                    {peer?.online ? (
-                      <span className="text-success">
-                        <span aria-hidden="true">● </span>Online
-                      </span>
-                    ) : peer?.lastSeen ? (
-                      <span>{formatLastSeen(peer.lastSeen)}</span>
-                    ) : null}
-                    {place ? (
-                      <>
-                        {peer?.online || peer?.lastSeen ? <span aria-hidden="true">·</span> : null}
-                        <span>{place}</span>
-                      </>
-                    ) : null}
-                    {peer?.online || peer?.lastSeen || place ? <span aria-hidden="true">·</span> : null}
-                    <SafetyNumber
-                      myPublicKey={currentUser.publicKey}
-                      peerPublicKey={peer?.publicKey}
-                      peerName={displayName(peer)}
-                      className="font-mono text-[11.5px] tracking-[0.14em] uppercase"
-                    />
-                  </div>
-                <Button
-                  variant="outline"
-                  size="icon-xl"
-                  className="size-11.5 rounded-full border-foreground sm:size-11.5 md:row-span-2 md:self-end"
-                  aria-label={`Voice call ${displayName(peer)}`.trim()}
-                  disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe || keyChanged}
-                  onClick={() => startCall({ conversationId, peer, media: "audio" })}
-                >
-                  <PhoneIcon aria-hidden="true" strokeWidth={1.3} />
-                </Button>
-                <Button
-                  size="icon-xl"
-                  className="size-11.5 rounded-full sm:size-11.5 md:row-span-2 md:self-end"
-                  aria-label={`Video call ${displayName(peer)}`.trim()}
-                  disabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe || keyChanged}
-                  onClick={() => startCall({ conversationId, peer, media: "video" })}
-                >
-                  <VideoIcon aria-hidden="true" strokeWidth={1.3} />
-                </Button>
-              </header>
+              <ChatHeader
+                peer={peer}
+                currentUser={currentUser}
+                conversationId={conversationId}
+                headingLevel={PeerHeading}
+                callDisabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe || keyChanged}
+                onCall={(media) => startCall({ conversationId, peer, media })}
+              />
               <ConversationView
                 key={conversationId}
                 conversationId={conversationId}

@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { LockIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { computeSafetyNumber } from "../crypto/safetyNumber.js";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,12 +10,11 @@ import {
   DialogPanel,
   DialogPopup,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 
-// "End-to-end encrypted" in the chat header. Opens a dialog with the safety
-// number, to be compared with the other person (see crypto/safetyNumber.js).
-const SafetyNumber = ({ myPublicKey, peerPublicKey, peerName, className }) => {
+// The safety number dialog, to be compared with the other person (see
+// crypto/safetyNumber.js). Opened from the chat header's menu.
+const SafetyNumber = ({ myPublicKey, peerPublicKey, peerName, open, onOpenChange }) => {
   const [result, setResult] = useState({ forKeys: null, number: null });
   const keys = `${myPublicKey}|${peerPublicKey}`;
 
@@ -38,19 +35,7 @@ const SafetyNumber = ({ myPublicKey, peerPublicKey, peerName, className }) => {
   const number = result.forKeys === keys ? result.number : null;
 
   return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <button
-            type="button"
-            className={cn("inline-flex cursor-pointer items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground", className)}
-          />
-        }
-      >
-        <LockIcon aria-hidden="true" className="size-3" />
-        End-to-end encrypted
-      </DialogTrigger>
-
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPopup>
         <DialogHeader>
           <DialogTitle>Verify encryption with {peerName}</DialogTitle>

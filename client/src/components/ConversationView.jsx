@@ -579,17 +579,11 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
               ),
             )}
 
-            {/* "... is writing" in italics while the other person types. Read
-                out by the status region below. */}
-            {isPeerTyping ? (
-              <p aria-hidden="true" data-typing className="mt-3 font-heading text-[0.9375rem] text-muted-foreground italic">
-                {peerName ?? "They"} {peerName ? "is" : "are"} writing…
-              </p>
-            ) : null}
           </div>
         </div>
 
-        {/* Always present, so screen readers announce the text when it appears. */}
+        {/* "writing…" is shown in the chat header; this says it to screen
+            readers. Always present, so they announce the text when it appears. */}
         <p role="status" className="sr-only">
           {isPeerTyping ? `${peerName ?? "The other person"} is typing` : ""}
         </p>
@@ -713,7 +707,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             className="max-h-40 min-h-11 min-w-0 flex-1 resize-none rounded-none border-0 border-b border-foreground bg-transparent px-0 py-2.5 placeholder:font-heading placeholder:text-base placeholder:italic sm:placeholder:text-xl focus-line focus-visible:outline-none"
             aria-label="Message"
             aria-describedby="composer-hint"
-            placeholder={attachment ? "Add a caption..." : roomyComposer ? `Write a note to ${peerName ?? "them"}…` : "Write a note…"}
+            placeholder={attachment ? "Add a caption..." : roomyComposer ? `Write a note to ${peerName?.split(" ")[0] ?? "them"}…` : "Write a note…"}
             maxLength={MAX_MESSAGE_LENGTH}
             enterKeyHint={enterSends() ? "send" : "enter"}
             value={messageInput}
@@ -778,7 +772,7 @@ const KeyChangedNote = ({ peerName, onTrust }) => (
   <div role="alert" className="shrink-0 border-t-2 border-brand px-5 pt-4 pb-5 md:px-9 md:pb-6">
     <p className="font-heading text-xl italic">{peerName}&apos;s security key has changed.</p>
     <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-      Someone may be trying to read this chat. Open &ldquo;End-to-end encrypted&rdquo; above and compare the safety number with {peerName} in
+      Someone may be trying to read this chat. Open the menu (⋮) above, choose &ldquo;Safety number&rdquo; and compare it with {peerName} in
       person or on another app. Only if it matches, trust the new key. (Older messages may no longer open.)
     </p>
     <Button variant="outline" onClick={onTrust} className="mt-3 h-11 rounded-full border-foreground px-5 sm:h-11">
