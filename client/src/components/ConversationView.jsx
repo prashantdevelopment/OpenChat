@@ -61,7 +61,7 @@ const withFigureNumbers = (items) => {
 // mounts a fresh instance and all of this state starts empty.
 // peerPublicKey: the other participant's public key, needed to derive the
 // conversation's encryption key (undefined until the conversation list loads).
-// onPhotosChange(messages): the photo messages loaded so far (for the margin notes).
+// onPhotosChange(messages): the photo messages loaded so far (for the contact sheet).
 // blocked: the user blocked this person (the composer gives way to a note
 // with Unblock); onUnblock unblocks them. keyChanged: their public key isn't
 // the one this device saw before (crypto/keyPins.js); onTrustKey accepts it.

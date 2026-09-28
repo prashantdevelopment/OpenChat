@@ -8,7 +8,6 @@ import ConversationListItem from "../components/ConversationListItem.jsx";
 import ConversationView from "../components/ConversationView.jsx";
 import ChatHeader from "../components/ChatHeader.jsx";
 import Masthead from "../components/Masthead.jsx";
-import MarginNotes from "../components/MarginNotes.jsx";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastManager } from "@/components/ui/toast";
@@ -46,9 +45,8 @@ const Chat = () => {
   if (isConnected && isOfflineLong) setIsOfflineLong(false); // reset for the next drop
   const navigate = useNavigate();
   // The search sits in the top bar on wider screens and above the list on
-  // phones; only one copy is rendered. The margin notes need a wide screen.
+  // phones; only one copy is rendered.
   const isWide = useMediaQuery("(min-width: 768px)");
-  const isExtraWide = useMediaQuery("(min-width: 1280px)");
   // Phone: one pane at a time. The list is the main content when no
   // conversation is open, and the conversation's name is the page heading.
   const listIsMain = !isWide && !conversationId;
@@ -248,10 +246,12 @@ const Chat = () => {
 
   // Only the blocker is told about a block (server: conversation.service.js).
   const blockedByMe = Boolean(openConversation?.blockedByMe);
+  const setBlockedByMe = (id, blocked) =>
+    setConversations((prev) => prev.map((conversation) => (conversation._id === id ? { ...conversation, blockedByMe: blocked } : conversation)));
   const handleUnblock = async () => {
     try {
       await unblockUser(peer._id);
-      setConversations((prev) => prev.map((conversation) => (conversation._id === conversationId ? { ...conversation, blockedByMe: false } : conversation)));
+      setBlockedByMe(conversationId, false);
       toastManager.add({ type: "success", title: `Unblocked ${displayName(peer)}` });
     } catch (error) {
       toastManager.add({ type: "error", title: "Couldn't unblock", description: error.response?.data?.message ?? "Check your connection and try again." });
@@ -279,10 +279,7 @@ const Chat = () => {
           WhatsApp); the app bar is back on the list. */}
       {isWide || !conversationId ? <Masthead>{isWide ? <UserSearch inMasthead onMessageUser={handleMessageUser} /> : null}</Masthead> : null}
       <div
-        className={cn(
-          "grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]",
-          isExtraWide && peer && "xl:grid-cols-[360px_minmax(0,1fr)_290px]",
-        )}
+        className="grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]"
       >
         {/* The list. Desktop: always visible. Mobile: only when no conversation
             is open (the URL decides, so the phone's back button just works). */}
@@ -354,6 +351,10 @@ const Chat = () => {
                 peer={peer}
                 currentUser={currentUser}
                 conversationId={conversationId}
+                conversationKey={conversationKey}
+                photos={photos}
+                blocked={blockedByMe}
+                onBlockedChange={(blocked) => setBlockedByMe(conversationId, blocked)}
                 headingLevel={PeerHeading}
                 callDisabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe || keyChanged}
                 onCall={(media) => startCall({ conversationId, peer, media })}
@@ -380,9 +381,6 @@ const Chat = () => {
           )}
         </main>
 
-        {isExtraWide && conversationId && peer ? (
-          <MarginNotes peer={peer} myPublicKey={currentUser.publicKey} conversationKey={conversationKey} photos={photos} />
-        ) : null}
       </div>
     </div>
   );
