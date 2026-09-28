@@ -70,6 +70,7 @@ New accounts made with email and password must enter a 6-digit code sent to that
 2. **Senders, domains & dedicated IPs → Senders → Add a sender**: name "OpenChat", email = your own Gmail address. Brevo emails a confirmation link/code to it: confirm it.
 3. **SMTP & API → API keys → Generate a new API key** (name it "openchat"). Copy it (shown once).
 4. In Render → **Environment**: `BREVO_API_KEY` = the key, `EMAIL_FROM` = the Gmail address you verified. (On your computer you can leave them out: the code is printed in the server's console.)
+   Brevo only accepts API calls from **authorised IPs**: at https://app.brevo.com/security/authorised_ips add Render's outbound addresses (Render → the service → **Connect** → **Outbound**). Otherwise Brevo answers 401 "unrecognised IP address" and no code is sent.
 5. Try it: register with a real address you can open. If the code lands in Spam, mark it "Not spam" once. Without a domain of your own, some providers are stricter with mail "from" a Gmail address sent by Brevo; if codes don't arrive at all, tell me (the fallback is sending through the Gmail API).
 
 ## 4. Check it
