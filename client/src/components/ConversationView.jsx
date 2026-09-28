@@ -113,6 +113,9 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   const [unseenCount, setUnseenCount] = useState(0);
   // Distance from the bottom saved before older messages are added on top.
   const distanceFromBottom = useRef(null);
+  // The item at the top of the view when older messages were asked for, and
+  // where it was: it is put back exactly there (see the layout effect).
+  const scrollAnchor = useRef(null);
   const lastScrollTop = useRef(0);
   // The id comes from the URL now, so it can be wrong or belong to someone else.
   const [joinError, setJoinError] = useState(null);
@@ -233,13 +236,19 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     return () => observer.disconnect();
   }, []);
 
-  // Older messages were added above: keep the same distance from the bottom,
-  // so the message being read stays where it was instead of jumping down.
+  // Older messages were added above: the message being read stays exactly
+  // where it was instead of jumping down. React keeps each item's element, so
+  // it is moved back by however far it moved (a day heading or the grouping
+  // above it may change too, e.g. around midnight). If it is gone, the same
+  // distance from the bottom is kept instead.
   useLayoutEffect(() => {
     if (distanceFromBottom.current === null) return;
     const log = logRef.current;
-    log.scrollTop = log.scrollHeight - distanceFromBottom.current;
+    const anchor = scrollAnchor.current;
+    if (anchor?.element.isConnected) log.scrollTop += anchor.element.getBoundingClientRect().top - anchor.top;
+    else log.scrollTop = log.scrollHeight - distanceFromBottom.current;
     distanceFromBottom.current = null;
+    scrollAnchor.current = null;
   }, [history.messages]);
 
   // Only scrolling UP leaves the bottom. The browser also scrolls on its own
@@ -273,6 +282,13 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       });
       const log = logRef.current;
       distanceFromBottom.current = log.scrollHeight - log.scrollTop;
+      // The first message still (partly) in view. Not a day heading: when the
+      // older messages are of the same day, its heading moves up above them.
+      const viewTop = log.getBoundingClientRect().top;
+      const element = [...contentRef.current.children].find(
+        (child) => !["H2", "H3"].includes(child.tagName) && !child.hasAttribute("data-older") && child.getBoundingClientRect().bottom > viewTop,
+      );
+      scrollAnchor.current = element ? { element, top: element.getBoundingClientRect().top } : null;
       setHistory((prev) => ({
         messages: mergeMessages(res.data.messages, prev.messages),
         hasOlder: res.data.hasMore,
@@ -515,7 +531,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             <h2 className="sr-only">Messages</h2>
 
             {history.hasOlder ? (
-              <div className="mb-3 flex justify-center">
+              <div data-older className="mb-3 flex justify-center">
                 <Button variant="outline" size="sm" onClick={loadOlderMessages} loading={isLoadingOlder}>
                   Load older messages
                 </Button>

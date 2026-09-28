@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { m } from "motion/react";
-import { MicIcon, MicOffIcon, PhoneIcon, PhoneOffIcon, SwitchCameraIcon, VideoIcon, VideoOffIcon } from "lucide-react";
+import { Minimize2Icon, MicIcon, MicOffIcon, PhoneIcon, PhoneOffIcon, PictureInPicture2Icon, SwitchCameraIcon, VideoIcon, VideoOffIcon } from "lucide-react";
 import { useCall } from "./CallContext.js";
 import Avatar from "../components/Avatar.jsx";
 import VoiceOrb from "./VoiceOrb.jsx";
@@ -23,12 +23,15 @@ const endMessage = (reason, name) =>
     microphone: "Microphone access is blocked. Allow it in your browser's site settings.",
     camera: "Camera or microphone access is blocked. Allow them in your browser's site settings.",
     failed: "The call couldn't connect",
+    lost: "The connection was lost",
     "key-changed": `${name}'s security key has changed. Open your chat with them to check it.`,
   })[reason] ?? "Call ended";
 
 // Seconds since the call connected, updated every second.
 const CallTimer = ({ since }) => {
-  const [now, setNow] = useState(since); // 0:00 at first, then every second
+  // The real time from the start: after "Reconnecting…" the timer is drawn
+  // again and must not show 0:00 for a second.
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -48,7 +51,9 @@ const CallStatus = ({ call, className }) => {
   }[call.status];
   return (
     <p role="status" className={className}>
-      {call.status === "connected" ? (
+      {call.status === "connected" && call.reconnecting ? (
+        "Reconnecting…"
+      ) : call.status === "connected" ? (
         <>
           <span className="sr-only">Connected, </span>
           <span className="font-mono text-[13px] tracking-wide not-italic tabular-nums">
@@ -64,12 +69,25 @@ const CallStatus = ({ call, className }) => {
 
 // A <video> showing a MediaStream (srcObject can't be set as an attribute).
 // Muted: the voice plays through the provider's <audio> element.
-const StreamVideo = ({ stream, className }) => {
-  const ref = useRef(null);
+const StreamVideo = ({ stream, className, videoRef }) => {
+  const ownRef = useRef(null);
+  const ref = videoRef ?? ownRef;
   useEffect(() => {
     if (ref.current) ref.current.srcObject = stream;
-  }, [stream]);
+  }, [ref, stream]);
   return <video ref={ref} autoPlay playsInline muted className={className} />;
+};
+
+// Picture-in-picture: the other person's video in a small window that floats
+// over other apps and tabs (Android Chrome, iPhone Safari, desktop browsers).
+const canFloat = () => typeof document !== "undefined" && document.pictureInPictureEnabled === true;
+const floatVideo = async (video) => {
+  try {
+    if (document.pictureInPictureElement) await document.exitPictureInPicture();
+    else await video?.requestPictureInPicture();
+  } catch (error) {
+    console.error("Picture-in-picture didn't open:", error);
+  }
 };
 
 // Rises in and sinks away (the call panel appearing and closing).
@@ -123,11 +141,68 @@ const Kicker = ({ children, className }) => (
   <p className={cn("font-mono text-[11px] tracking-[0.16em] uppercase", className)}>{children}</p>
 );
 
+// Minimised video call: a small tile in the corner while you use the rest of
+// the app (other chats, settings). Tap it to open the call again.
+const MiniVideoCall = ({ call, onOpen }) => {
+  const { endCall } = useCall();
+  const name = displayName(call.peer);
+  const showRemote = call.remoteStream && !call.peerCameraOff;
+  return (
+    <m.section
+      {...PANEL_MOTION}
+      aria-label={`Video call with ${name}`}
+      className="fixed right-4 bottom-24 z-40 w-32 overflow-hidden rounded-2xl bg-stage text-stage-foreground shadow-2xl sm:right-6 sm:bottom-6 sm:w-44"
+    >
+      <button type="button" data-slot="call-tile" onClick={onOpen} className="block w-full cursor-pointer text-left" aria-label={`Open the video call with ${name}`}>
+        <div className="aspect-[3/4] bg-black">
+          {showRemote ? (
+            <StreamVideo stream={call.remoteStream} className="size-full object-cover" />
+          ) : (
+            <div className="flex size-full items-center justify-center">
+              <Avatar name={name} avatarId={call.peer.avatar} className="size-14 bg-brand text-2xl text-brand-foreground italic" />
+            </div>
+          )}
+        </div>
+        <span className="block truncate px-2 pt-1.5 font-heading text-sm">{name}</span>
+      </button>
+      <div className="flex items-center justify-between gap-2 px-2 pb-2">
+        <CallStatus call={call} className="min-w-0 truncate text-[11px] text-stage-foreground/75" />
+        <Button size="icon-lg" className="size-9 shrink-0 rounded-full border-0 bg-brand text-brand-foreground shadow-none hover:bg-brand/90 sm:size-9" aria-label="End call" onClick={endCall}>
+          <PhoneOffIcon aria-hidden="true" strokeWidth={1.5} />
+        </Button>
+      </div>
+    </m.section>
+  );
+};
+
 // Video call: the other person large, me small in the corner (mirrored, like
 // a mirror). Full screen on phones, a large panel on bigger screens.
 const VideoCall = ({ call }) => {
   const name = displayName(call.peer);
   const showRemote = call.remoteStream && !call.peerCameraOff;
+  const [minimised, setMinimised] = useState(false);
+  const remoteVideo = useRef(null);
+
+  // Leaving the app during a video call: browsers that support it float the
+  // other person's video by themselves (Media Session "enterpictureinpicture").
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !showRemote || minimised) return;
+    try {
+      navigator.mediaSession.setActionHandler("enterpictureinpicture", () => floatVideo(remoteVideo.current));
+    } catch {
+      return; // not supported here
+    }
+    return () => {
+      try {
+        navigator.mediaSession.setActionHandler("enterpictureinpicture", null);
+      } catch {
+        // not supported here
+      }
+    };
+  }, [showRemote, minimised]);
+
+  if (minimised) return <MiniVideoCall call={call} onOpen={() => setMinimised(false)} />;
+  const topButton = "size-11 shrink-0 rounded-full border-stage-foreground/30 bg-stage/60 text-stage-foreground shadow-none hover:bg-stage-foreground/20 sm:size-10";
   return (
     <m.section
       {...FADE_MOTION}
@@ -136,7 +211,7 @@ const VideoCall = ({ call }) => {
     >
       <div className="relative min-h-0 flex-1">
         {showRemote ? (
-          <StreamVideo stream={call.remoteStream} className="size-full bg-black object-cover" />
+          <StreamVideo stream={call.remoteStream} videoRef={remoteVideo} className="size-full bg-black object-cover" />
         ) : (
           <div className="flex size-full flex-col items-center justify-center gap-3">
             <Avatar name={name} avatarId={call.peer.avatar} className="size-24 bg-brand text-4xl text-brand-foreground italic" />
@@ -155,6 +230,14 @@ const VideoCall = ({ call }) => {
               Muted
             </span>
           ) : null}
+          {showRemote && canFloat() ? (
+            <Button variant="outline" size="icon-lg" className={topButton} aria-label="Picture in picture" onClick={() => floatVideo(remoteVideo.current)}>
+              <PictureInPicture2Icon aria-hidden="true" strokeWidth={1.5} />
+            </Button>
+          ) : null}
+          <Button variant="outline" size="icon-lg" className={topButton} aria-label="Minimise call" onClick={() => setMinimised(true)}>
+            <Minimize2Icon aria-hidden="true" strokeWidth={1.5} />
+          </Button>
         </div>
         {/* My own picture, as a small print pinned in the corner. */}
         {call.localStream ? (

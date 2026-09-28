@@ -184,3 +184,37 @@ describe("call signaling", () => {
         expect((await emitWithAck(a, "joinConversation", conversationId)).success).toBe(true);
     });
 });
+
+describe("reconnecting a dropped call (ICE restart)", () => {
+    it("relays a new encrypted offer/answer, and a restart request, to the other person only", async () => {
+        const [a, b, c] = await Promise.all([connectAs(alice), connectAs(bob), connectAs(carol)]);
+        const toBob = collect(b, "callRestart");
+        const toAlice = collect(a, "callRestart");
+        const toCarol = collect(c, "callRestart");
+        const callId = randomUUID();
+        const offer = signal();
+        expect(await emitWithAck(a, "callRestart", { conversationId, callId, description: offer })).toMatchObject({ success: true });
+        expect(await emitWithAck(b, "callRestart", { conversationId, callId, request: true })).toMatchObject({ success: true });
+        await settle();
+        expect(toBob).toEqual([{ callId, conversationId, description: offer }]);
+        expect(toAlice).toEqual([{ callId, conversationId, request: true }]);
+        expect(toCarol).toEqual([]);
+    });
+
+    it("refuses a bad call id, a signal that isn't encrypted-looking, or nothing to restart with", async () => {
+        const a = await connectAs(alice);
+        expect((await emitWithAck(a, "callRestart", { conversationId, callId: "x", request: true })).success).toBe(false);
+        expect((await emitWithAck(a, "callRestart", { conversationId, callId: randomUUID(), description: { ciphertext: "not base64!", iv: "x" } })).success).toBe(false);
+        expect((await emitWithAck(a, "callRestart", { conversationId, callId: randomUUID() })).success).toBe(false);
+        expect((await emitWithAck(a, "callRestart", { conversationId, callId: randomUUID(), request: "yes" })).success).toBe(false);
+    });
+
+    it("an outsider can't send restart signals into someone else's call", async () => {
+        const [b, c] = await Promise.all([connectAs(bob), connectAs(carol)]);
+        const toBob = collect(b, "callRestart");
+        const res = await emitWithAck(c, "callRestart", { conversationId, callId: randomUUID(), request: true });
+        await settle();
+        expect(res.success).toBe(false);
+        expect(toBob).toEqual([]);
+    });
+});

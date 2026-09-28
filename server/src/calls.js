@@ -94,6 +94,20 @@ const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
         io.to(userRoom(peerId)).emit("iceCandidate", { callId, conversationId: conversation._id, candidate: encryptedCandidate });
     });
 
+    // A connected call whose network dropped (the app went to the background,
+    // WiFi → mobile data): the browsers set it up again on new routes (ICE
+    // restart). Either a new encrypted offer/answer, or `request: true` (the
+    // callee, back online, asks the caller to restart).
+    on("callRestart", async ({ conversationId, callId, description, request }) => {
+        checkCallId(callId);
+        const payload = { callId };
+        if (description !== undefined) payload.description = checkSignal(description);
+        else if (request === true) payload.request = true;
+        else throw new AppError("Nothing to restart with", 400);
+        const { conversation, peerId } = await callPeer(conversationId);
+        io.to(userRoom(peerId)).emit("callRestart", { ...payload, conversationId: conversation._id });
+    });
+
     on("endCall", async ({ conversationId, callId, reason }) => {
         checkCallId(callId);
         if (!END_REASONS.includes(reason)) {

@@ -30,6 +30,8 @@ const EVENT_LIMITS = {
     answerCall: { windowMs: 60_000, max: 20 },
     endCall: { windowMs: 60_000, max: 30 },
     iceCandidate: { windowMs: 10_000, max: 200 },
+    // Reconnecting a dropped call: a couple of offers/answers a minute is plenty.
+    callRestart: { windowMs: 60_000, max: 30 },
 };
 // New connections per IP address a minute (each tab reconnects on its own).
 const CONNECTIONS_PER_MINUTE = 60;

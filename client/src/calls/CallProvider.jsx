@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import socket from "../socket/socket.js";
 import api from "../api/api.js";
@@ -8,6 +8,7 @@ import { decryptMessage, encryptMessage } from "../crypto/messages.js";
 import { checkPeerKey } from "../crypto/keyPins.js";
 import { CallContext } from "./CallContext.js";
 import CallOverlay from "./CallOverlay.jsx";
+import { displayName } from "../lib/people.js";
 
 // How the two browsers find each other: the server hands out STUN (each
 // browser's public address) and, when configured, TURN relay credentials for
@@ -26,6 +27,13 @@ const ENDED_VISIBLE_MS = 3000;
 const RING_TIMEOUT_MS = 30_000;
 const INCOMING_TIMEOUT_MS = 45_000;
 const CAMERA = { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } };
+// A connected call whose network drops (the phone put the app in the
+// background, WiFi → mobile data) isn't hung up: it says "Reconnecting…" and
+// the two browsers look for a new route (ICE restart). Only if that doesn't
+// work within this time does the call end.
+const RECONNECT_GRACE_MS = 30_000;
+// "disconnected" often comes back by itself within a few seconds; "failed" doesn't.
+const DISCONNECTED_WAIT_MS = 3000;
 
 // One call at a time, voice or video. The media goes directly between the two
 // browsers (WebRTC, encrypted with DTLS-SRTP). The server only relays the
@@ -37,7 +45,8 @@ const CAMERA = { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 72
 // call: null, or { callId, conversationId, peer, media: "audio" | "video",
 // direction: "outgoing" | "incoming", status: "calling" | "ringing" |
 // "connecting" | "connected" | "ended", endReason, connectedAt, muted,
-// cameraOff, peerMuted, peerCameraOff, canSwitchCamera, localStream, remoteStream }
+// cameraOff, peerMuted, peerCameraOff, canSwitchCamera, localStream, remoteStream,
+// reconnecting }
 const CallProvider = ({ children }) => {
   const { currentUser, privateKey } = useAuth();
   const [call, setCall] = useState(null);
@@ -54,6 +63,8 @@ const CallProvider = ({ children }) => {
   const endedTimer = useRef(null);
   const ringTimer = useRef(null);
   const offerSent = useRef(false); // the other side was really called: worth a call record
+  const reconnectTimer = useRef(null); // gives up reconnecting after RECONNECT_GRACE_MS
+  const restartTimer = useRef(null); // the next ICE restart
 
   const update = (changes) => {
     callRef.current = changes === null ? null : { ...callRef.current, ...changes };
@@ -88,6 +99,8 @@ const CallProvider = ({ children }) => {
 
   const cleanUp = () => {
     clearTimeout(ringTimer.current);
+    clearTimeout(reconnectTimer.current);
+    clearTimeout(restartTimer.current);
     stateChannel.current?.close();
     stateChannel.current = null;
     peerConnection.current?.close();
@@ -174,16 +187,64 @@ const CallProvider = ({ children }) => {
     pc.ondatachannel = (event) => attachStateChannel(event.channel);
     pc.onconnectionstatechange = () => {
       if (pc !== peerConnection.current) return;
-      if (pc.connectionState === "connected" && callRef.current?.status !== "connected") {
+      const state = pc.connectionState;
+      if (state === "connected") {
         clearTimeout(ringTimer.current);
-        update({ status: "connected", connectedAt: Date.now() });
-      } else if (pc.connectionState === "failed") {
-        hangUp("failed");
+        clearTimeout(reconnectTimer.current);
+        clearTimeout(restartTimer.current);
+        const now = callRef.current;
+        if (now && (now.status !== "connected" || now.reconnecting)) {
+          update({ status: "connected", connectedAt: now.connectedAt ?? Date.now(), reconnecting: false });
+        }
+      } else if (state === "disconnected" || state === "failed") {
+        connectionLost(pc);
       }
     };
     localStream.current.getTracks().forEach((track) => pc.addTrack(track, localStream.current));
     peerConnection.current = pc;
     return pc;
+  };
+
+  // A new route for a call that was connected (ICE restart). Only the caller
+  // makes the new offer (both doing it at once would clash); the callee asks
+  // the caller to.
+  const restartConnection = async () => {
+    const current = callRef.current;
+    const pc = peerConnection.current;
+    if (!current || !pc || current.status === "ended" || !current.connectedAt) return;
+    const target = { conversationId: current.conversationId, callId: current.callId };
+    if (current.direction !== "outgoing") {
+      socket.emit("callRestart", { ...target, request: true });
+      return;
+    }
+    try {
+      const offer = await pc.createOffer({ iceRestart: true });
+      await pc.setLocalDescription(offer);
+      socket.emit("callRestart", { ...target, description: await seal(current, { type: offer.type, sdp: offer.sdp }) });
+    } catch (error) {
+      console.error("Could not restart the call's connection:", error);
+    }
+  };
+
+  // The network under a call dropped. Before it ever connected, that's a
+  // failed call; after, keep it and try new routes for a while.
+  const connectionLost = (pc) => {
+    const current = callRef.current;
+    if (!current || current.status === "ended") return;
+    if (!current.connectedAt) {
+      if (pc.connectionState === "failed") hangUp("failed");
+      return;
+    }
+    if (!current.reconnecting) {
+      update({ reconnecting: true });
+      clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = setTimeout(() => {
+        const now = callRef.current;
+        if (now?.callId === current.callId && now.reconnecting && now.status !== "ended") hangUp("failed", "lost");
+      }, RECONNECT_GRACE_MS);
+    }
+    clearTimeout(restartTimer.current);
+    restartTimer.current = setTimeout(restartConnection, pc.connectionState === "failed" ? 0 : DISCONNECTED_WAIT_MS);
   };
 
   const addCandidate = async (candidate) => {
@@ -388,7 +449,48 @@ const CallProvider = ({ children }) => {
     };
 
     const handleEnded = ({ callId, reason }) => {
-      if (isThisCall(callId)) finish(reason);
+      if (!isThisCall(callId)) return;
+      // A call that was connected and then failed lost its connection (the
+      // other side gave up reconnecting); it didn't fail to connect.
+      finish(reason === "failed" && callRef.current.connectedAt ? "lost" : reason);
+    };
+
+    // The other browser set the connection up again (see restartConnection).
+    const handleRestart = async ({ callId, description, request }) => {
+      const current = callRef.current;
+      const pc = peerConnection.current;
+      if (!isThisCall(callId) || !pc || !current.connectedAt) return;
+      try {
+        if (request) {
+          if (current.direction === "outgoing") restartConnection();
+          return;
+        }
+        const signal = await open(current, description);
+        if (signal.type === "offer" && current.direction === "incoming") {
+          await pc.setRemoteDescription(signal);
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socket.emit("callRestart", {
+            conversationId: current.conversationId,
+            callId,
+            description: await seal(current, { type: answer.type, sdp: answer.sdp }),
+          });
+        } else if (signal.type === "answer" && current.direction === "outgoing" && pc.signalingState === "have-local-offer") {
+          await pc.setRemoteDescription(signal);
+        }
+      } catch (error) {
+        // The grace period decides: a later restart may still work.
+        console.error("Could not restart the call's connection:", error);
+      }
+    };
+
+    // Back from the background, or the server connection is back: if the call
+    // lost its route meanwhile, set it up again at once.
+    const resume = () => {
+      const current = callRef.current;
+      const state = peerConnection.current?.connectionState;
+      if (document.visibilityState !== "visible" || !current?.connectedAt || current.status === "ended") return;
+      if (current.reconnecting || state === "disconnected" || state === "failed") restartConnection();
     };
 
     // Answered or declined in another of my tabs: stop ringing here.
@@ -404,7 +506,13 @@ const CallProvider = ({ children }) => {
     socket.on("iceCandidate", handleCandidate);
     socket.on("callEnded", handleEnded);
     socket.on("callHandledElsewhere", handleElsewhere);
+    socket.on("callRestart", handleRestart);
+    socket.on("connect", resume);
+    document.addEventListener("visibilitychange", resume);
     return () => {
+      socket.off("callRestart", handleRestart);
+      socket.off("connect", resume);
+      document.removeEventListener("visibilitychange", resume);
       socket.off("incomingCall", handleIncoming);
       socket.off("callAnswered", handleAnswered);
       socket.off("iceCandidate", handleCandidate);
@@ -426,6 +534,42 @@ const CallProvider = ({ children }) => {
       localStream.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+
+  // The phone's lock screen / notification shade and the browser's call
+  // controls (Media Session): who the call is with, mute, camera, hang up.
+  // Browsers that don't know an action simply skip it.
+  const onHangUp = useEffectEvent(() => endCall());
+  const onToggleMute = useEffectEvent(() => toggleMute());
+  const onToggleCamera = useEffectEvent(() => toggleCamera());
+  const live = call?.status === "connected" ? call : null;
+  const livePeer = live ? displayName(live.peer) : null;
+  useEffect(() => {
+    const session = "mediaSession" in navigator ? navigator.mediaSession : null;
+    if (!session || !livePeer) return;
+    const set = (action, handler) => {
+      try {
+        session.setActionHandler(action, handler);
+      } catch {
+        // Not supported here.
+      }
+    };
+    session.metadata = new MediaMetadata({ title: livePeer, artist: live.media === "video" ? "OpenChat video call" : "OpenChat voice call" });
+    set("hangup", () => onHangUp());
+    set("togglemicrophone", () => onToggleMute());
+    if (live.media === "video") set("togglecamera", () => onToggleCamera());
+    return () => {
+      set("hangup", null);
+      set("togglemicrophone", null);
+      set("togglecamera", null);
+      session.metadata = null;
+    };
+  }, [livePeer, live?.media]);
+  useEffect(() => {
+    const session = navigator.mediaSession;
+    if (!livePeer || !session) return;
+    session.setMicrophoneActive?.(!live.muted);
+    if (live.media === "video") session.setCameraActive?.(!live.cameraOff);
+  }, [livePeer, live?.muted, live?.cameraOff, live?.media]);
 
   const isBusy = Boolean(call && call.status !== "ended");
 
