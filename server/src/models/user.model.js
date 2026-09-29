@@ -67,7 +67,10 @@ export const isAllowedUsername = (v) => v.length >= 3 && v.length <= 30 && USERN
 // Characters a display name may not contain: control characters, invisible
 // ones (zero-width, word joiner, BOM) and the ones that flip the text
 // direction. With these, a name could hide text or pose as someone else.
-const HIDDEN_CHARACTERS = /[\p{Cc}\u200B-\u200F\u2028-\u202E\u2060-\u2069\uFEFF]/u;
+export const HIDDEN_CHARACTERS = /[\p{Cc}\u200B-\u200F\u2028-\u202E\u2060-\u2069\uFEFF]/u;
+// One form for the same letters (typed on different keyboards), single
+// spaces, no spaces at the ends. Also used for group names.
+export const normalizeName = (v) => (typeof v === "string" ? v.normalize("NFC").replace(/\s+/g, " ").trim() : v);
 
 const userSchema =  new mongoose.Schema({
 
@@ -77,9 +80,7 @@ const userSchema =  new mongoose.Schema({
     // their username instead.
     name: {
         type: String,
-        // One form for the same letters (typed on different keyboards), single
-        // spaces, no spaces at the ends.
-        set: (v) => (typeof v === "string" ? v.normalize("NFC").replace(/\s+/g, " ").trim() : v),
+        set: normalizeName,
         maxlength: [40, "Name must be at most 40 characters long"],
         validate: [
             { validator: (v) => !HIDDEN_CHARACTERS.test(v), message: "Name contains characters that aren't allowed" },

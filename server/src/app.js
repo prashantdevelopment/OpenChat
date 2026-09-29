@@ -16,6 +16,7 @@ import uploadRoutes from "./routes/upload.routes.js";
 import presenceRoutes from "./routes/presence.routes.js";
 import blockRoutes from "./routes/block.routes.js";
 import callRoutes from "./routes/call.routes.js";
+import groupRoutes from "./routes/group.routes.js";
 import { createClientApp } from "./clientApp.js";
 
 
@@ -54,6 +55,7 @@ app.use("/api", uploadRoutes);
 app.use("/api", presenceRoutes);
 app.use("/api", blockRoutes);
 app.use("/api", callRoutes);
+app.use("/api", groupRoutes);
 
 // Production: the built React app for every other path (clientApp.js).
 if (process.env.NODE_ENV === "production") {

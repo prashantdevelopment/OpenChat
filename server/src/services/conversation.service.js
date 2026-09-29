@@ -6,13 +6,19 @@ import Message from '../models/message.model.js';
 import { isOnline } from "../presence.js";
 import { assertNotBlocked, blockRelations } from "./block.service.js";
 
+// Everything here is about 1:1 chats. Groups (group.service.js) stay out of
+// these paths (messages, uploads, calls, the chat list, presence) until they
+// get their own encryption and screens (steps 68-69): chats from before groups
+// have no type, so a 1:1 chat is "not a group".
+const DIRECT = { type: { $ne: "group" } };
+
 
 const getConversationForParticipant = async (conversationId, userId) => {
     if (!mongoose.isValidObjectId(conversationId)) {
         throw new AppError("Invalid conversation id", 400);
     }
 
-    const conversation = await Conversation.findById(conversationId);
+    const conversation = await Conversation.findOne({ _id: conversationId, ...DIRECT });
     if (!conversation) {
         throw new AppError("Conversation not found", 404);
     }
@@ -93,7 +99,8 @@ const countUnread = (conversation, userId) => Message.countDocuments(unreadFilte
 
 const getUserConversations = async (userId) => {
     const conversations = await Conversation.find({
-        participants: userId
+        participants: userId,
+        ...DIRECT
     })
     // lastSeen only here: people you chat with may see it, strangers who
     // search for you may not (it is not in PUBLIC_USER_FIELDS).
@@ -160,7 +167,7 @@ const readReceiptsShared = async (conversation) =>
 // user comes online or goes offline.
 // Not across a block.
 const getContactIds = async (userId) => {
-    const [ids, { separated }] = await Promise.all([Conversation.distinct("participants", { participants: userId }), blockRelations(userId)]);
+    const [ids, { separated }] = await Promise.all([Conversation.distinct("participants", { participants: userId, ...DIRECT }), blockRelations(userId)]);
     return ids.map(String).filter((id) => id !== String(userId) && !separated.has(id));
 };
 
@@ -199,6 +206,7 @@ const markAllDelivered = async (userId) => {
     const deliveredAt = new Date();
     const candidates = await Conversation.find({
         participants: userId,
+        ...DIRECT,
         lastMessageAt: { $ne: null },
         "lastMessage.sender": { $ne: new mongoose.Types.ObjectId(userId) }
     });

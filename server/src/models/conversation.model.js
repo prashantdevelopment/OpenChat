@@ -1,4 +1,8 @@
 import mongoose from "mongoose";
+import { HIDDEN_CHARACTERS, normalizeName } from "./user.model.js";
+
+// A group has at most this many members (invites still pending count too).
+export const MAX_GROUP_MEMBERS = 50;
 
 const lastMessageSchema = new mongoose.Schema({
     ciphertext: { type: String, required: true },
@@ -19,6 +23,41 @@ const conversationSchema = new mongoose.Schema({
         }
     ],
 
+    // "direct" (1:1) or "group". Chats from before groups have no type: they
+    // are direct, so queries for 1:1 chats use { type: { $ne: "group" } }.
+    type: {
+        type: String,
+        enum: ["direct", "group"],
+        default: "direct"
+    },
+
+    // Groups only. Members are the participants (at most MAX_GROUP_MEMBERS,
+    // so the arrays stay small enough to embed); nobody becomes one without
+    // accepting an invite (groupInvite.model.js).
+    name: {
+        type: String,
+        set: normalizeName,
+        required: [function () { return this.type === "group"; }, "Group name is required"],
+        maxlength: [50, "Group name must be at most 50 characters long"],
+        validate: [
+            { validator: (v) => !HIDDEN_CHARACTERS.test(v), message: "Group name contains characters that aren't allowed" },
+            { validator: (v) => /[\p{L}\p{N}]/u.test(v), message: "Group name must contain a letter or a number" },
+        ]
+    },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    admins: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    // Admins invite; this switch lets every member invite (step 70).
+    membersCanInvite: { type: Boolean, default: false },
+    // When each member joined: { "<userId>": Date }. New members don't see
+    // what was written before they joined.
+    joinedAt: {
+        type: Map,
+        of: Date,
+        default: undefined
+    },
+
+    // 1:1: both user ids, sorted ("<a>_<b>"), so a pair has one chat.
+    // Group: "group_<its id>".
     conversationKey: {
         type: String,
         required: true,
@@ -78,6 +117,10 @@ const conversationSchema = new mongoose.Schema({
 // A user's conversation list: participants (equality, multikey because it is
 // an array) → lastMessageAt (sort, newest first).
 conversationSchema.index({ participants: 1, lastMessageAt: -1 });
+
+conversationSchema.pre("validate", function () {
+    if (this.type === "group" && !this.conversationKey) this.conversationKey = `group_${this._id}`;
+});
 
 const Conversation = mongoose.model("Conversation", conversationSchema);
 

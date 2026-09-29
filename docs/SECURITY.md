@@ -55,6 +55,8 @@ Severity is by exploitability in this app, not by pattern.
 
 - **Call pushes (step 65):** while a call rings (at most 35 s) the server keeps it in memory for the callee: the offer and the caller's network candidates, both still encrypted with the conversation key (the server can't read them), so an app opened from the notification can ring and answer. Only the callee's own sockets get it, never across a block (checked again at hand-over), and only the two participants can answer or end it (the conversation check in calls.js). The push says who is calling (unless turned off) and voice/video; its TTL is the ringing time, and an unanswered call turns it into "Missed …" (same tag and topic).
 
+- **Groups (step 66):** nobody is added to a group without accepting an invite. Only admins invite (unless the group lets all members), and only people the inviter already chats with, never across a block; a decline stops re-invites for 7 days; 50 members at most (enforced atomically on accept); 100 invites a day per person plus a route rate limit. A group is visible only to its members (others get 404, the same as a wrong id). Groups are kept out of all 1:1 code paths (messages, uploads, calls, presence) until group encryption exists (steps 68-69), so no plain or wrongly keyed message can be sent to a group.
+
 ## 4. Forward secrecy study
 
 **What it is.** Forward secrecy means that stealing a key today doesn't unlock messages from yesterday. OpenChat's conversation key comes from the two long-term keys, so anyone who later gets a user's private key (their password plus the locked blob from the server, or their unlocked device) and has recorded the ciphertext can read the **whole history** of that user's chats.
