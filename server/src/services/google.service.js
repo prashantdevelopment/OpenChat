@@ -37,8 +37,9 @@ const base64url = (bytes) => bytes.toString("base64url");
 
 export const googleEnabled = () => Boolean(GOOGLE);
 
-// Step 1: where to send the browser, and the cookie that remembers this login.
-export const startGoogleLogin = () => {
+// Step 1: where to send the browser, and the cookie that remembers this login
+// (and whether to keep the person logged in afterwards).
+export const startGoogleLogin = ({ remember = true } = {}) => {
     if (!GOOGLE) throw new AppError("Sign in with Google is not available", 404);
     const state = base64url(randomBytes(32));
     const nonce = base64url(randomBytes(32));
@@ -56,7 +57,7 @@ export const startGoogleLogin = () => {
         code_challenge_method: "S256",
         prompt: "select_account",
     }).toString();
-    return { url: url.toString(), flowCookie: signStep({ kind: "flow", state, nonce, verifier }, FLOW_MINUTES) };
+    return { url: url.toString(), flowCookie: signStep({ kind: "flow", state, nonce, verifier, remember }, FLOW_MINUTES) };
 };
 
 // The ID token's claims. Decoding is enough here: it came straight from Google's
@@ -114,7 +115,7 @@ export const finishGoogleLogin = async ({ code, state, flowCookie }) => {
     if (claims.email_verified !== true && claims.email_verified !== "true") {
         throw new AppError("Your Google account's email address isn't verified", 400);
     }
-    return { sub: claims.sub, email: claims.email.trim().toLowerCase(), name: typeof claims.name === "string" ? claims.name : "" };
+    return { sub: claims.sub, email: claims.email.trim().toLowerCase(), name: typeof claims.name === "string" ? claims.name : "", remember: flow.remember !== false };
 };
 
 // "Rahul.Kumar+news@gmail.com" → "rahul.kumar"; made to fit the username rules.

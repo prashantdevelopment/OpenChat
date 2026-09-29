@@ -1,7 +1,6 @@
 import User from "../models/user.model.js"
 import bcrypt from "bcrypt";
 import AppError from "../utils/AppError.js";
-import { signSessionToken } from "../session.js";
 
 const loginUser = async (identifier, password) => {
 
@@ -31,10 +30,7 @@ const loginUser = async (identifier, password) => {
     }
 
 
-    const token = signSessionToken(findUser._id);
-
-
-    return { user: findUser, token };
+    return { user: findUser };
 }  
 
 

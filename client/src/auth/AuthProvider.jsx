@@ -59,7 +59,8 @@ const AuthProvider = ({ children }) => {
     };
   }, [isLoggedIn]);
 
-  // The server no longer accepts this session: after an hour, or after
+  // The server no longer accepts this session: 60 days unused, logged out
+  // from another device (Settings), or after
   // logging out in another tab of this browser. Back to the login page (it
   // remembers where the user was). The stored key stays: it only ever
   // unlocks for this account, after its password.
@@ -95,8 +96,9 @@ const AuthProvider = ({ children }) => {
   // Used by Login and Register. The password is needed twice: the server
   // checks it, and the browser uses it to unlock the private key (the server
   // never can).
-  const login = async (identifier, password) => {
-    const response = await api.post("/auth/login", { identifier, password });
+  // remember: "Keep me logged in" (60 days while used; off: until the browser closes, a day at most).
+  const login = async (identifier, password, remember = true) => {
+    const response = await api.post("/auth/login", { identifier, password, remember });
     await startSession(response.data.user, password);
     return response.data;
   };

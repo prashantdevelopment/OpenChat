@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import {getCurrentUserController, loginUserController, logoutUserController } from '../controllers/auth.controller.js';
+import { endOtherSessionsController, endSessionController, getCurrentUserController, listSessionsController, loginUserController, logoutUserController } from '../controllers/auth.controller.js';
 import authMiddleware from '../middleware/auth.middleware.js';
 import { callbackController, completeController, pendingController, providersController, startController } from '../controllers/google.controller.js';
 import { byIp, rateLimit } from '../rateLimit.js';
@@ -24,6 +24,9 @@ const router = Router();
 router.get('/me', authMiddleware, getCurrentUserController);
 router.post('/login', loginIpLimit, loginLimit, loginUserController);
 router.post('/logout', logoutUserController);
+router.get('/sessions', authMiddleware, listSessionsController);
+router.post('/sessions/end-others', authMiddleware, endOtherSessionsController);
+router.delete('/sessions/:sessionId', authMiddleware, endSessionController);
 router.get('/providers', providersController);
 router.get('/google', googleLimit, startController);
 router.get('/google/callback', googleLimit, callbackController);

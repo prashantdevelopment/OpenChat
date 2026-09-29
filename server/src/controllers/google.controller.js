@@ -1,5 +1,5 @@
 import { CLIENT_URL } from "../config/env.js";
-import { setSessionCookie, signSessionToken } from "../session.js";
+import { createSession, setSessionCookie } from "../session.js";
 import {
     completeGoogleSignup,
     finishGoogleLogin,
@@ -28,8 +28,9 @@ const providersController = (req, res) => {
 };
 
 // GET /api/auth/google: off to Google.
+// ?remember=0 when "Keep me logged in" was unticked on the login page.
 const startController = (req, res) => {
-    const { url, flowCookie } = startGoogleLogin();
+    const { url, flowCookie } = startGoogleLogin({ remember: req.query.remember !== "0" });
     res.cookie(FLOW_COOKIE, flowCookie, flowCookieOptions);
     res.redirect(303, url);
 };
@@ -45,7 +46,7 @@ const callbackController = async (req, res) => {
         const profile = await finishGoogleLogin({ code: req.query.code, state: req.query.state, flowCookie });
         const outcome = await resolveGoogleAccount(profile);
         if (outcome.kind === "login") {
-            setSessionCookie(res, signSessionToken(outcome.user._id));
+            setSessionCookie(res, await createSession(outcome.user._id, { remember: profile.remember, userAgent: req.get("user-agent") }));
             return toApp(res, "/chat");
         }
         res.cookie(PENDING_COOKIE, outcome.pendingCookie, pendingCookieOptions);
@@ -66,7 +67,7 @@ const pendingController = async (req, res) => {
 const completeController = async (req, res) => {
     const user = await completeGoogleSignup(req.cookies[PENDING_COOKIE], req.body);
     res.clearCookie(PENDING_COOKIE, { ...pendingCookieOptions, maxAge: undefined });
-    setSessionCookie(res, signSessionToken(user._id));
+    setSessionCookie(res, await createSession(user._id, { remember: true, userAgent: req.get("user-agent") }));
     const { password: _password, googleId: _googleId, ...safe } = user.toObject();
     res.status(201).json({ success: true, user: { ...safe, hasPassword: false, google: true } });
 };

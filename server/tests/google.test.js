@@ -28,8 +28,8 @@ const unsigned = (claims) => `${Buffer.from('{"alg":"RS256"}').toString("base64u
 
 // Starts a login, then plays Google: the token endpoint answers with an ID
 // token built from `claims` (defaults: a valid one for this login).
-const googleLogin = async ({ claims = {}, tokenStatus = 200, tamper = {}, extraCookies = [] } = {}) => {
-    const start = await request(app).get("/api/auth/google");
+const googleLogin = async ({ claims = {}, tokenStatus = 200, tamper = {}, extraCookies = [], remember } = {}) => {
+    const start = await request(app).get("/api/auth/google").query(remember === false ? { remember: "0" } : {});
     const location = new URL(start.headers.location);
     const flow = valueOf(start, "google_flow");
     const { state, nonce } = Object.fromEntries(location.searchParams);
@@ -155,6 +155,13 @@ describe("Sign in with Google: a new person", () => {
         expect(where).toBe("/chat");
         const me = await request(app).get("/api/auth/me").set("Cookie", valueOf(callback, "token"));
         expect(me.body.user.username).toBe("rahul.k");
+    });
+
+    it("'keep me logged in' works the same through Google: 60 days by default, the browser session with ?remember=0", async () => {
+        expect(cookieOf((await googleLogin()).callback, "token")).toMatch(/Max-Age=5184000/);
+        const shortOne = cookieOf((await googleLogin({ remember: false })).callback, "token");
+        expect(shortOne).toMatch(/^token=/);
+        expect(shortOne).not.toMatch(/Max-Age|Expires/);
     });
 
     it("a Google account has no password to log in with or change", async () => {

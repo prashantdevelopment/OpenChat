@@ -35,7 +35,7 @@ const changePasswordController = async (req, res) => {
     const { currentPassword, newPassword, encryptedPrivateKey } = req.body;
     await changePassword(userId, currentPassword, newPassword, encryptedPrivateKey);
     // Other devices logged in with the old password are logged out.
-    endOtherSessions(userId, req.user.jti);
+    await endOtherSessions(userId, req.user.sessionId);
     res.status(200).json({
         success: true,
         message: "Password changed successfully",

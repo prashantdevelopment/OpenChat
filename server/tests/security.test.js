@@ -10,6 +10,8 @@ import { createServer } from "http";
 import { randomUUID } from "crypto";
 import request from "supertest";
 import JWT from "jsonwebtoken";
+import Session from "../src/models/session.model.js";
+import { createSession } from "../src/session.js";
 import { io as connectClient } from "socket.io-client";
 import app from "../src/app.js";
 import createSocketServer from "../src/socket.js";
@@ -154,12 +156,14 @@ describe("rate limits (sockets)", () => {
 });
 
 describe("sessions", () => {
-    it("tokens are only accepted signed with HS256 by the server (no 'none', no other algorithm)", async () => {
+    it("self-made or old-style (JWT) tokens are refused, whatever they are signed with", async () => {
         const claims = { userId: alice.id, jti: randomUUID() };
         const hs512 = JWT.sign(claims, JWT_SECRET, { algorithm: "HS512", expiresIn: "1h" });
         const none = JWT.sign(claims, null, { algorithm: "none" });
         const otherSecret = JWT.sign(claims, "x".repeat(40), { algorithm: "HS256", expiresIn: "1h" });
-        for (const token of [hs512, none, otherSecret]) {
+        // Even a proper old-style session token (HS256 with the server's own secret) is no session any more.
+        const oldStyle = JWT.sign(claims, JWT_SECRET, { algorithm: "HS256", expiresIn: "1h" });
+        for (const token of [oldStyle, hs512, none, otherSecret]) {
             await request(app).get("/api/auth/me").set("Cookie", `token=${token}`).expect(401);
             await expect(connect(`token=${token}`)).rejects.toThrow("Invalid authentication token");
         }
@@ -191,7 +195,9 @@ describe("sessions", () => {
     });
 
     it("a socket closes when its session expires (the token was only checked at connect)", async () => {
-        const token = JWT.sign({ userId: alice.id }, JWT_SECRET, { algorithm: "HS256", expiresIn: "1s", jwtid: randomUUID() });
+        // A session that ends in a second (as if its 60 idle days were up).
+        const { token, sessionId } = await createSession(alice.id);
+        await Session.updateOne({ _id: sessionId }, { $set: { expiresAt: new Date(Date.now() + 1000) } });
         const socket = await connect(`token=${token}`);
         const events = [];
         socket.on("sessionExpired", () => events.push("sessionExpired"));
@@ -232,11 +238,9 @@ describe("sessions", () => {
         expect((await withOrigin(process.env.CLIENT_URL)).connected).toBe(true);
     });
 
-    it("login tokens carry their own id and last an hour", async () => {
+    it("login tokens are random 256-bit values, not readable tokens (details: sessions.test.js)", async () => {
         const token = (await loginCookie("alice_sec")).replace("token=", "");
-        const claims = JWT.decode(token, { complete: true });
-        expect(claims.header.alg).toBe("HS256");
-        expect(claims.payload.jti).toMatch(/^[0-9a-f-]{36}$/);
-        expect(claims.payload.exp - claims.payload.iat).toBe(3600);
+        expect(token).toMatch(/^[\w-]{43}$/);
+        expect(JWT.decode(token)).toBeNull();
     });
 });

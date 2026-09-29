@@ -18,6 +18,8 @@ const GOOGLE_NOTES = {
 const Login = () => {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  // "Keep me logged in": on, like most apps; off on a shared computer.
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   // Logging in now also unlocks the encryption key (PBKDF2 takes a moment).
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,7 +33,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const { linkedGoogle } = await login(identifier, password);
+      const { linkedGoogle } = await login(identifier, password, remember);
       if (linkedGoogle) toastManager.add({ type: "success", title: "Google is connected", description: "Next time, “Continue with Google” logs you in." });
     } catch (error) {
       setError(error.response?.data?.message ?? "Could not reach the server. Please try again.");
@@ -55,7 +57,7 @@ const Login = () => {
       }
     >
       <PageMeta title="Log in" />
-      <GoogleButton />
+      <GoogleButton remember={remember} />
       <form onSubmit={handleLogin} className="space-y-6">
         {googleNote && !error ? (
           <p role="status" className="border-l-2 border-brand pl-4 text-sm">
@@ -98,6 +100,24 @@ const Login = () => {
             />
           )}
         </FormField>
+
+        <label className="flex cursor-pointer items-start justify-between gap-6">
+          <span>
+            <span className="block text-sm font-medium">Keep me logged in</span>
+            <span id="remember-hint" className="mt-0.5 block text-xs text-muted-foreground">
+              Turn off on a shared computer: you&apos;re logged out when the browser closes.
+            </span>
+          </span>
+          <input
+            id="remember"
+            type="checkbox"
+            role="switch"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            aria-describedby="remember-hint"
+            className="switch mt-0.5"
+          />
+        </label>
 
         <SubmitButton loading={isSubmitting}>Log in</SubmitButton>
       </form>

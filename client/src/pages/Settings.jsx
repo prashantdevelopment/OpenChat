@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { flushSync } from "react-dom";
-import { ArrowDownIcon, CircleCheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { ArrowDownIcon, CircleCheckIcon, MonitorIcon, MonitorSmartphoneIcon, MoonIcon, SunIcon } from "lucide-react";
 import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { rewrapPrivateKey } from "../crypto/keys.js";
@@ -18,6 +18,7 @@ import Masthead from "../components/Masthead.jsx";
 import PageMeta from "../components/PageMeta.jsx";
 import { Button } from "@/components/ui/button";
 import { displayName } from "../lib/people.js";
+import { formatLastSeen } from "../lib/time.js";
 
 const MAX_BIO_LENGTH = 160; // same limit as the server
 
@@ -626,6 +627,94 @@ const AppSection = () => {
   );
 };
 
+// "Where you're logged in": every device with a session (like Instagram's
+// login activity). Log one out (a lost phone), or all the others at once.
+const LoginSessions = () => {
+  const [sessions, setSessions] = useState(null); // null while loading
+  const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+
+  useEffect(() => {
+    let ignore = false;
+    api
+      .get("/auth/sessions")
+      .then((res) => !ignore && setSessions(res.data.sessions))
+      .catch(() => !ignore && setError("Couldn't load where you're logged in. Check your connection and reload the page."));
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const endOne = async (session) => {
+    setBusyId(session._id);
+    try {
+      await api.delete(`/auth/sessions/${session._id}`);
+      setSessions((list) => list.filter((item) => item._id !== session._id));
+      toastManager.add({ type: "success", title: `Logged out of ${session.device}` });
+    } catch (err) {
+      toastManager.add({ type: "error", title: "Couldn't log that device out", description: err.response?.data?.message ?? "Check your connection and try again." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const endOthers = async () => {
+    setBusyId("others");
+    try {
+      const res = await api.post("/auth/sessions/end-others");
+      setSessions((list) => list.filter((item) => item.current));
+      toastManager.add({ type: "success", title: res.data.ended === 1 ? "Logged out of 1 other device" : `Logged out of ${res.data.ended} other devices` });
+    } catch (err) {
+      toastManager.add({ type: "error", title: "Couldn't log the other devices out", description: err.response?.data?.message ?? "Check your connection and try again." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const others = sessions?.filter((session) => !session.current) ?? [];
+  return (
+    <div className="mt-8 border-t border-border pt-6">
+      <h3 className="font-medium">Where you&apos;re logged in</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        You stay logged in on a device until you log out there, or don&apos;t use OpenChat on it for 60 days. Don&apos;t recognise one? Log it out.
+      </p>
+      {error ? (
+        <FormAlert>{error}</FormAlert>
+      ) : sessions === null ? (
+        <p role="status" className="mt-3 text-sm text-muted-foreground">
+          Loading...
+        </p>
+      ) : (
+        <>
+          <ul aria-label="Where you're logged in" className="mt-3 divide-y divide-border border-y border-border">
+            {sessions.map((session) => (
+              <li key={session._id} className="flex items-center gap-3 py-3">
+                <MonitorSmartphoneIcon aria-hidden="true" strokeWidth={1.4} className="size-5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{session.device}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {session.current ? "This device" : formatLastSeen(session.lastUsedAt).replace(/^Last seen/, "Last active")}
+                  </span>
+                </span>
+                {session.current ? null : (
+                  <Button variant="outline" loading={busyId === session._id} onClick={() => endOne(session)} className="h-11 rounded-full border-foreground/25 px-5 sm:h-11">
+                    Log out<span className="sr-only"> of {session.device}</span>
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {others.length > 1 ? (
+            <Button variant="outline" loading={busyId === "others"} onClick={endOthers} className={`mt-4 border-foreground ${PILL}`}>
+              Log out of all other devices
+            </Button>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+};
+
 const AccountSection = () => {
   const { currentUser, logout } = useAuth();
   return (
@@ -637,6 +726,7 @@ const AccountSection = () => {
       <Button variant="outline" className={`mt-6 border-foreground ${PILL}`} onClick={logout}>
         Log out
       </Button>
+      <LoginSessions />
     </Section>
   );
 };

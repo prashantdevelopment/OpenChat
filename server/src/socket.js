@@ -1,7 +1,7 @@
 import { Server } from "socket.io";
 import { CLIENT_URL, TRUST_PROXY } from "./config/env.js";
 import { createLimiter } from "./rateLimit.js";
-import { sessionEvents } from "./session.js";
+import { sessionEndsAt, sessionEvents } from "./session.js";
 import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
 import { countUnread, findConversationBetween, getContactIds, getConversationForParticipant, markAllDelivered, markConversationDelivered, markConversationRead, otherParticipant, readReceiptsShared } from "./services/conversation.service.js";
@@ -13,7 +13,10 @@ import { createMessage } from "./services/message.service.js";
 import registerCallHandlers from "./calls.js";
 
 const userRoom = (userId) => `user:${userId}`;
-const sessionRoom = (jti) => `session:${jti}`;
+const sessionRoom = (sessionId) => `session:${sessionId}`;
+// Sockets look their session up again at least this often (timers can't wait
+// 60 days: setTimeout fires at once past about 24 days).
+const SESSION_CHECK_MS = 60 * 60 * 1000;
 
 // Events per user (all their tabs together) in a window. Generous for a
 // person, tight for a script. An event over its limit is dropped; if it
@@ -76,9 +79,9 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
     const eventLimiters = Object.fromEntries(Object.entries(EVENT_LIMITS).map(([event, limit]) => [event, createLimiter(limit)]));
 
     // Logout ended a session: its sockets are told, then closed.
-    const onSessionRevoked = (jti) => {
-        io.to(sessionRoom(jti)).emit("sessionExpired");
-        io.in(sessionRoom(jti)).disconnectSockets(true);
+    const onSessionRevoked = (sessionId) => {
+        io.to(sessionRoom(sessionId)).emit("sessionExpired");
+        io.in(sessionRoom(sessionId)).disconnectSockets(true);
     };
     sessionEvents.on("revoked", onSessionRevoked);
 
@@ -162,15 +165,26 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         // Joined on every connection, so it survives reconnects automatically.
         socket.join(userRoom(socket.userId));
 
-        // The login session behind this socket: it closes when the session
-        // expires (the token was only checked once, at connect) or is ended
-        // by logout. The client then asks for a new login.
-        const { jti, expiresAt } = socket.data.session;
-        if (jti) socket.join(sessionRoom(jti));
-        const expiryTimer = setTimeout(() => {
-            socket.emit("sessionExpired");
-            socket.disconnect(true);
-        }, Math.max(0, expiresAt - Date.now()));
+        // The login session behind this socket: it closes when the session is
+        // ended (logout: at once, via sessionEvents) or runs out. The session
+        // can be renewed meanwhile, so at its end time (or hourly) the socket
+        // looks it up again. The client then asks for a new login.
+        const { sessionId, expiresAt } = socket.data.session;
+        socket.join(sessionRoom(sessionId));
+        let expiryTimer;
+        const checkSessionLater = (endsAt) => {
+            expiryTimer = setTimeout(async () => {
+                const stillEndsAt = await sessionEndsAt(sessionId).catch(() => Date.now() + SESSION_CHECK_MS);
+                if (!socket.connected) return;
+                if (stillEndsAt === null) {
+                    socket.emit("sessionExpired");
+                    socket.disconnect(true);
+                } else {
+                    checkSessionLater(stillEndsAt);
+                }
+            }, Math.min(Math.max(0, endsAt - Date.now()), SESSION_CHECK_MS));
+        };
+        checkSessionLater(expiresAt);
         socket.on("disconnect", () => clearTimeout(expiryTimer));
 
         // Rate limits for every incoming event (see EVENT_LIMITS).

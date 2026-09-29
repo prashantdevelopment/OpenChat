@@ -14,12 +14,13 @@ const GoogleLogo = () => (
 // "Continue with Google" above the login and register forms, then "or".
 // A plain link: the browser goes to our server, which sends it on to Google
 // (no Google script on our pages). Nothing is shown if Google isn't set up.
-const GoogleButton = () => {
+// remember=false: "Keep me logged in" was switched off on the login page.
+const GoogleButton = ({ remember = true }) => {
   if (!useProviders()?.google) return null;
   return (
     <div className="mb-8">
       <a
-        href={`${API_URL}/api/auth/google`}
+        href={`${API_URL}/api/auth/google${remember ? "" : "?remember=0"}`}
         className="flex h-12.5 min-h-[44px] w-full items-center justify-center gap-3 rounded-full border border-foreground/25 bg-card px-6 text-[0.9375rem] font-medium text-foreground no-underline transition-colors duration-150 hover:bg-accent"
       >
         <GoogleLogo />
