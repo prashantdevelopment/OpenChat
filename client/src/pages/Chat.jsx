@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowUpRightIcon, WifiOffIcon } from "lucide-react";
+import { ArrowUpRightIcon, UsersRoundIcon, WifiOffIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
@@ -22,6 +22,12 @@ import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import { displayName } from "../lib/people.js";
+import { useGroups } from "../hooks/useGroups.js";
+import GroupInvites from "../components/GroupInvites.jsx";
+import GroupSheet from "../components/GroupSheet.jsx";
+import NewGroupSheet from "../components/NewGroupSheet.jsx";
+import Avatar from "../components/Avatar.jsx";
+import { memberCount } from "../lib/groups.js";
 
 const getConversations = async () => (await api.get("/conversations")).data.conversations;
 
@@ -51,6 +57,27 @@ const Chat = () => {
   const ListTag = listIsMain ? "main" : "aside";
   const PeerHeading = isWide ? "h2" : "h1";
   const [photos, setPhotos] = useState([]);
+  // Groups (group chats themselves come with group encryption): invites on
+  // top of the list, my groups below them; a group opens its info sheet.
+  const { groups, setGroups, invites, setInvites } = useGroups();
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
+  // The group stays set while the sheet closes (its content doesn't blink out).
+  const [groupSheet, setGroupSheet] = useState({ groupId: null, open: false });
+  const openGroup = (groupId) => setGroupSheet({ groupId, open: true });
+  // A group just created: its info opens once the "New group" sheet has
+  // closed (two sheets sliding at once would overlap).
+  const [createdGroupId, setCreatedGroupId] = useState(null);
+  const handleInviteAnswered = (inviteId) => setInvites((prev) => prev.filter((invite) => invite._id !== inviteId));
+  const handleGroupCreated = (group) => {
+    setNewGroupOpen(false);
+    setGroups((prev) => [group, ...prev.filter((g) => g._id !== group._id)]);
+    toastManager.add({
+      type: "success",
+      title: `“${group.name}” created`,
+      description: `${group.invites.length === 1 ? "1 invite" : `${group.invites.length} invites`} sent. People join when they accept.`,
+    });
+    setCreatedGroupId(group._id);
+  };
 
   // Fetch conversations
   useEffect(() => {
@@ -259,7 +286,13 @@ const Chat = () => {
                 <span className="font-mono text-xs text-brand">{String(totalUnread).padStart(2, "0")} unread</span>
               ) : null}
             </div>
-            <p className="mt-2 truncate text-sm text-muted-foreground">Logged in as {currentUser.username}</p>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-sm text-muted-foreground">Logged in as {currentUser.username}</p>
+              <Button variant="outline" className="min-h-[44px] shrink-0 rounded-full px-4 sm:h-8 sm:min-h-0" onClick={() => setNewGroupOpen(true)}>
+                <UsersRoundIcon aria-hidden="true" strokeWidth={1.4} />
+                New group
+              </Button>
+            </div>
             {isWide ? null : (
               <div className="mt-4 flex flex-col gap-3">
                 <UserSearch onMessageUser={handleMessageUser} />
@@ -272,7 +305,36 @@ const Chat = () => {
           </div>
 
           <nav aria-label="Conversations" className="min-h-0 flex-1 overflow-y-auto">
-            <h2 className="sr-only">Conversations</h2>
+            <GroupInvites invites={invites} onAnswered={handleInviteAnswered} />
+            {groups.length ? (
+              <section aria-labelledby="groups-heading" className={invites.length ? "pt-4" : undefined}>
+                <h2 id="groups-heading" className="px-5 pb-2 font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase md:px-7">
+                  Groups
+                </h2>
+                <ul>
+                  {groups.map((group) => (
+                    <li key={group._id}>
+                      <button
+                        type="button"
+                        data-slot="group-row"
+                        aria-haspopup="dialog"
+                        onClick={() => openGroup(group._id)}
+                        className="flex min-h-[64px] w-full items-center gap-3 border-t border-border px-5 py-3 text-left transition-colors duration-150 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring md:px-7"
+                      >
+                        <Avatar name={group.name} className="bg-brand text-brand-foreground italic" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-heading text-[1.3125rem] leading-tight">{group.name}</span>
+                          <span className="block truncate text-sm opacity-75">{memberCount(group.members.length)}</span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            <h2 className={groups.length || invites.length ? "px-5 pt-4 pb-2 font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase md:px-7" : "sr-only"}>
+              Chats
+            </h2>
             {listStatus === "loading" ? (
               // Skeletons only if loading takes longer than half a second.
               <div role="status" className="reveal-late">
@@ -346,6 +408,23 @@ const Chat = () => {
         </main>
 
       </div>
+      <NewGroupSheet
+        open={newGroupOpen}
+        onOpenChange={setNewGroupOpen}
+        onClosed={() => {
+          if (createdGroupId) openGroup(createdGroupId);
+          setCreatedGroupId(null);
+        }}
+        conversations={conversations}
+        currentUserId={currentUser._id}
+        onCreated={handleGroupCreated}
+      />
+      <GroupSheet
+        open={groupSheet.open}
+        onOpenChange={(open) => setGroupSheet((prev) => ({ ...prev, open }))}
+        groupId={groupSheet.groupId}
+        currentUserId={currentUser._id}
+      />
     </div>
   );
 };

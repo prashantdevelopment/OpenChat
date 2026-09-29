@@ -1,3 +1,4 @@
+import { EventEmitter } from "events";
 import mongoose from "mongoose";
 import Conversation, { MAX_GROUP_MEMBERS } from "../models/conversation.model.js";
 import GroupInvite from "../models/groupInvite.model.js";
@@ -15,6 +16,11 @@ import { isBlockedBetween } from "./block.service.js";
 // - at most MAX_GROUP_MEMBERS members, invites still pending included;
 // - after a decline, that group can't invite the person again for a week;
 // - at most MAX_INVITES_PER_DAY invites sent per person.
+
+// "invited" { group, fromId, invites }, "answered" { invite, group, accepted },
+// "cancelled" { invite, group }: socket.js tells the people involved (live
+// and by push).
+export const groupEvents = new EventEmitter();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DECLINE_COOLDOWN_MS = 7 * DAY_MS;
@@ -76,7 +82,9 @@ const invitePeople = async (group, fromId, userIds) => {
             throw error;
         })
     ));
-    return created.filter(Boolean);
+    const invites = created.filter(Boolean);
+    if (invites.length) groupEvents.emit("invited", { group, fromId, invites });
+    return invites;
 };
 
 const checkUserIds = (userIds) => {
@@ -132,7 +140,11 @@ export const respondToInvite = async (userId, inviteId, accept) => {
         { new: true }
     );
     if (!claimed) throw new AppError("This invite was already answered", 409);
-    if (!accept) return { invite: claimed, group: null };
+    if (!accept) {
+        const group = await Conversation.findOne({ _id: invite.group, type: "group" });
+        if (group) groupEvents.emit("answered", { invite: claimed, group, accepted: false });
+        return { invite: claimed, group: null };
+    }
 
     // Joined only while there is room (checked and added in one step).
     const group = await Conversation.findOneAndUpdate(
@@ -140,7 +152,10 @@ export const respondToInvite = async (userId, inviteId, accept) => {
         { $push: { participants: userId }, $set: { [`joinedAt.${userId}`]: now } },
         { new: true }
     );
-    if (group) return { invite: claimed, group };
+    if (group) {
+        groupEvents.emit("answered", { invite: claimed, group, accepted: true });
+        return { invite: claimed, group };
+    }
 
     const current = await Conversation.findOne({ _id: invite.group, type: "group" });
     if (current && includes(current.participants, userId)) return { invite: claimed, group: current };
@@ -163,6 +178,7 @@ export const cancelInvite = async (userId, inviteId) => {
         { new: true }
     );
     if (!cancelled) throw new AppError(`This invite was already ${invite.status}`, 409);
+    groupEvents.emit("cancelled", { invite: cancelled, group });
     return cancelled;
 };
 

@@ -13,6 +13,7 @@ import { markOffline, markOnline, statePresenceSnapshot } from "./statePresence.
 import { createMessage } from "./services/message.service.js";
 import registerCallHandlers from "./calls.js";
 import { createRingingCalls } from "./services/ringingCalls.service.js";
+import registerGroupEvents from "./groupSockets.js";
 
 const userRoom = (userId) => `user:${userId}`;
 const sessionRoom = (sessionId) => `session:${sessionId}`;
@@ -86,6 +87,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
     const hasVisibleApp = async (userId) => (await io.in(userRoom(userId)).fetchSockets()).some((s) => s.data.visible);
     const pushNewMessage = createMessagePush({ hasVisibleApp, throttleMs: pushThrottleMs });
     const ringingCalls = createRingingCalls({ hasVisibleApp, ringMs: callRingMs });
+    const stopGroupEvents = registerGroupEvents(io, { userRoom, hasVisibleApp });
 
     const eventLimiters = Object.fromEntries(Object.entries(EVENT_LIMITS).map(([event, limit]) => [event, createLimiter(limit)]));
 
@@ -144,6 +146,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         blockEvents.off("blocked", onBlocked);
         blockEvents.off("unblocked", onUnblocked);
         sessionEvents.off("revoked", onSessionRevoked);
+        stopGroupEvents();
     });
 
     // Online counts per state, to the pages that watch them (Discover).

@@ -4,6 +4,7 @@ import Unlock from "../pages/Unlock.jsx";
 import PublicLayout from "../components/PublicLayout.jsx";
 import CallProvider from "../calls/CallProvider.jsx";
 import MessageAlerts from "../notifications/MessageAlerts.jsx";
+import GroupAlerts from "../notifications/GroupAlerts.jsx";
 
 // Layout route: renders its child routes only for a logged-in user whose
 // private key is unlocked on this device. Not logged in: redirect to /login
@@ -17,11 +18,12 @@ const ProtectedRoute = () => {
   if (!currentUser) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
-  // Calls and new-message alerts live here, above the pages, so they keep
+  // Calls, new-message and group-invite alerts live here, above the pages, so they keep
   // going between chat, Discover and settings.
   return privateKey ? (
     <CallProvider>
       <MessageAlerts>
+        <GroupAlerts />
         <Outlet />
       </MessageAlerts>
     </CallProvider>
