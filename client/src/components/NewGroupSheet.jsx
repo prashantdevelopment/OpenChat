@@ -4,16 +4,18 @@ import Avatar from "./Avatar.jsx";
 import FormField from "./FormField.jsx";
 import { Sheet, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { createGroup } from "../lib/groups.js";
+import { createGroupWithKey } from "../lib/groupKeys.js";
+import { useAuth } from "../auth/AuthContext.js";
 import { displayName, handle } from "../lib/people.js";
 
 const MAX_NAME_LENGTH = 50;
 
-// "New group": a name and people from my chats. They get an invite; nobody is
-// added before accepting. Only chats someone wrote in are offered (the server
+// "New group": a name and people from my chats. They get an invite, with the
+// group's key locked for them (end to end); nobody is added before accepting. Only chats someone wrote in are offered (the server
 // accepts only those), and nobody I blocked.
 // onClosed: runs once the sheet has finished closing.
 const NewGroupSheet = ({ open, onOpenChange, onClosed, conversations, currentUserId, onCreated }) => {
+  const { currentUser, privateKey } = useAuth();
   const [name, setName] = useState("");
   const [filter, setFilter] = useState("");
   const [chosen, setChosen] = useState([]);
@@ -52,7 +54,7 @@ const NewGroupSheet = ({ open, onOpenChange, onClosed, conversations, currentUse
     }
     setIsSubmitting(true);
     try {
-      const group = await createGroup(name, chosen);
+      const group = await createGroupWithKey(currentUser, privateKey, name, people.filter((person) => chosen.includes(person._id)));
       reset();
       onCreated(group);
     } catch (error) {
@@ -60,7 +62,7 @@ const NewGroupSheet = ({ open, onOpenChange, onClosed, conversations, currentUse
       if (data?.errors?.name) {
         setNameError(data.errors.name);
         document.getElementById("group-name")?.focus();
-      } else setFormError(data?.message ?? "Couldn't create the group. Check your connection and try again.");
+      } else setFormError(data?.message ?? (error.person ? error.message : "Couldn't create the group. Check your connection and try again."));
     } finally {
       setIsSubmitting(false);
     }

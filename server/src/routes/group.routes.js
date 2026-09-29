@@ -6,6 +6,10 @@ import {
     createGroupController,
     declineInviteController,
     getGroupController,
+    getKeysController,
+    leaveController,
+    removeMemberController,
+    rotateKeyController,
     inviteController,
     listGroupsController,
     listInvitesController,
@@ -16,12 +20,21 @@ import { byUser, rateLimit } from "../rateLimit.js";
 // user (on top of the daily invite count in group.service.js).
 const inviteLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 30, keys: byUser("groupInvite"), message: "Too many invites, try again later" });
 
+// A new key epoch rewrites a copy for every member: not in a loop.
+const keyLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 30, keys: byUser("groupKey"), message: "Too many key changes, try again later" });
+const leaveLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, keys: byUser("groupRemove"), message: "Too many changes, try again later" });
+
 const router = Router();
 
 router.get("/groups", authMiddleware, listGroupsController);
 router.post("/groups", authMiddleware, inviteLimit, createGroupController);
 router.get("/groups/:groupId", authMiddleware, getGroupController);
 router.post("/groups/:groupId/invites", authMiddleware, inviteLimit, inviteController);
+// The group key (step 68): my locked copies; a new epoch (after someone left).
+router.get("/groups/:groupId/keys", authMiddleware, getKeysController);
+router.post("/groups/:groupId/keys", authMiddleware, keyLimit, rotateKeyController);
+router.post("/groups/:groupId/leave", authMiddleware, leaveController);
+router.delete("/groups/:groupId/members/:userId", authMiddleware, leaveLimit, removeMemberController);
 
 // Invites sent to me; answer one; the inviter (or an admin) takes one back.
 router.get("/group-invites", authMiddleware, listInvitesController);

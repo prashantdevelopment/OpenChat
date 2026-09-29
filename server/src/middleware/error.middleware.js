@@ -49,7 +49,8 @@ const errorMiddleware = (err, req, res, next) => {
         return res.status(err.statusCode).json({
             success: false,
             message: err.message,
-            ...(err.field ? { errors: { [err.field]: err.message } } : {})
+            ...(err.field ? { errors: { [err.field]: err.message } } : {}),
+            ...(err.reason ? { reason: err.reason } : {})
         });
     }
 

@@ -7,7 +7,8 @@ import { sendPush } from "./services/push.service.js";
 //   if OpenChat isn't on their screen; "groupInvitesChanged" when an invite of
 //   theirs was answered in another tab or taken back;
 // - the inviter: "groupInviteAnswered" (joined or declined);
-// - the group's members: "groupsChanged" (members and invites to reload).
+// - the group's members: "groupsChanged" (members and invites to reload),
+//   also when someone leaves or is removed (they too: the group is gone for them).
 // Returns a function that stops listening.
 const registerGroupEvents = (io, { userRoom, hasVisibleApp }) => {
     const toMembers = (group) => group.participants.forEach((member) => io.to(userRoom(member)).emit("groupsChanged"));
@@ -56,7 +57,11 @@ const registerGroupEvents = (io, { userRoom, hasVisibleApp }) => {
         toMembers(group);
     };
 
+    // (The group as it was: its members still include the one who left.)
+    const onLeft = ({ group }) => toMembers(group);
+
     const handlers = {
+        left: onLeft,
         invited: (event) => onInvited(event).catch(report),
         answered: (event) => onAnswered(event).catch(report),
         cancelled: onCancelled,

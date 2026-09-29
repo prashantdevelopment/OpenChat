@@ -60,3 +60,8 @@ export const registerAndLogin = async (username) => {
         cookie: res.headers["set-cookie"][0].split(";")[0],
     };
 };
+
+// Stand-ins for the group key locked for each person (the server only checks
+// the shape: a 48-byte locked key and a 12-byte IV).
+export const lockedKeys = (userIds) =>
+    [...new Set(userIds.map(String))].map((userId) => ({ userId, ciphertext: randomBytes(48).toString("base64"), iv: randomBytes(12).toString("base64") }));

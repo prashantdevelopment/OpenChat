@@ -5,6 +5,8 @@ import GroupInvite from "../models/groupInvite.model.js";
 import User, { PUBLIC_USER_FIELDS } from "../models/user.model.js";
 import AppError from "../utils/AppError.js";
 import { isBlockedBetween } from "./block.service.js";
+import GroupKeyEpoch from "../models/groupKeyEpoch.model.js";
+import { addInviteeKeys, checkLockedKeys, createFirstEpoch, dropKeysOf, getMyKeys, markKeyStale, rotateGroupKey } from "./groupKeys.service.js";
 
 // Groups (step 66): a group is a Conversation with type "group". Its members
 // are the participants; people join only by accepting an invite.
@@ -17,9 +19,12 @@ import { isBlockedBetween } from "./block.service.js";
 // - after a decline, that group can't invite the person again for a week;
 // - at most MAX_INVITES_PER_DAY invites sent per person.
 
+// Every invite comes with the group's key locked for the invitee (step 68,
+// groupKeys.service.js): in a new group, the first epoch; later, the latest.
+//
 // "invited" { group, fromId, invites }, "answered" { invite, group, accepted },
-// "cancelled" { invite, group }: socket.js tells the people involved (live
-// and by push).
+// "cancelled" { invite, group }, "left" { group, userId }: socket.js tells the
+// people involved (live and by push).
 export const groupEvents = new EventEmitter();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -49,7 +54,9 @@ const expireOldInvites = (filter) =>
     GroupInvite.updateMany({ ...filter, status: "pending", expiresAt: { $lte: new Date() } }, { $set: { status: "expired" } });
 
 // Checks every person first and invites nobody if one of them fails.
-const invitePeople = async (group, fromId, userIds) => {
+// keys: their copies of the group key at `epoch`; a new group's are in its
+// first epoch already (firstEpoch).
+const invitePeople = async (group, fromId, userIds, { keys, epoch, firstEpoch = false } = {}) => {
     const now = new Date();
     if (userIds.includes(fromId)) throw new AppError("You can't invite yourself", 400);
     if (userIds.some((id) => includes(group.participants, id))) throw new AppError("Already a member of this group", 400);
@@ -75,6 +82,8 @@ const invitePeople = async (group, fromId, userIds) => {
         if (declined) throw new AppError("They declined recently: you can invite them again a week after that", 409);
     }));
 
+    if (!firstEpoch) await addInviteeKeys(group, fromId, epoch, checkLockedKeys(keys, newIds, { exact: false }), newIds);
+
     const created = await Promise.all(newIds.map((id) =>
         GroupInvite.create({ group: group._id, from: fromId, to: id }).catch((error) => {
             // Invited by another admin at the same moment: that invite stands.
@@ -95,9 +104,16 @@ const checkUserIds = (userIds) => {
 
 // A new group: the creator is its first member and admin; everyone chosen
 // gets an invite. If an invite can't be sent, the group isn't created.
-export const createGroup = async (userId, { name, userIds } = {}) => {
+// keys: the first epoch of the group key, locked for the creator and each of them.
+// groupId: chosen by the creator's browser (a new random id), because the
+// locked copies are bound to the group before the server has seen it.
+export const createGroup = async (userId, { groupId, name, userIds, keys } = {}) => {
+    checkId(groupId, "group");
     const ids = checkUserIds(userIds);
+    const byUser = checkLockedKeys(keys, [String(userId), ...ids.filter((id) => id !== String(userId))]);
+    if (await Conversation.exists({ _id: groupId })) throw new AppError("Group id already used", 409);
     const group = await Conversation.create({
+        _id: groupId,
         type: "group",
         name: typeof name === "string" ? name : undefined,
         participants: [userId],
@@ -106,19 +122,20 @@ export const createGroup = async (userId, { name, userIds } = {}) => {
         joinedAt: { [userId]: new Date() },
     });
     try {
-        const invites = await invitePeople(group, String(userId), ids);
+        await createFirstEpoch(group._id, userId, byUser);
+        const invites = await invitePeople(group, String(userId), ids, { firstEpoch: true });
         return { group, invites };
     } catch (error) {
-        await Conversation.deleteOne({ _id: group._id });
+        await Promise.all([Conversation.deleteOne({ _id: group._id }), GroupKeyEpoch.deleteMany({ group: group._id })]);
         throw error;
     }
 };
 
-export const inviteToGroup = async (userId, groupId, userIds) => {
+export const inviteToGroup = async (userId, groupId, { userIds, keys, epoch } = {}) => {
     const ids = checkUserIds(userIds);
     const group = await getGroupForMember(groupId, userId);
     if (!canInvite(group, userId)) throw new AppError("Only admins can invite people to this group", 403);
-    return invitePeople(group, String(userId), ids);
+    return invitePeople(group, String(userId), ids, { keys, epoch });
 };
 
 // Accept: joins the group (if it still has room). Decline: the inviter sees it.
@@ -141,6 +158,7 @@ export const respondToInvite = async (userId, inviteId, accept) => {
     );
     if (!claimed) throw new AppError("This invite was already answered", 409);
     if (!accept) {
+        await dropKeysOf(invite.group, userId);
         const group = await Conversation.findOne({ _id: invite.group, type: "group" });
         if (group) groupEvents.emit("answered", { invite: claimed, group, accepted: false });
         return { invite: claimed, group: null };
@@ -178,6 +196,8 @@ export const cancelInvite = async (userId, inviteId) => {
         { new: true }
     );
     if (!cancelled) throw new AppError(`This invite was already ${invite.status}`, 409);
+    // They hold the key: it goes, and the group gets a new one.
+    await Promise.all([dropKeysOf(group._id, invite.to), markKeyStale(group._id)]);
     groupEvents.emit("cancelled", { invite: cancelled, group });
     return cancelled;
 };
@@ -235,3 +255,46 @@ export const getGroup = async (userId, groupId) => {
         invites: invites.map(({ _id, to, from, status, createdAt, expiresAt, respondedAt }) => ({ _id, to, from, status, createdAt, expiresAt, respondedAt })),
     };
 };
+
+// Leaving, or an admin removing someone: out of the group, and the group
+// needs a new key before the next message (they held this one). The last
+// admin leaving hands it to the member who has been there longest; the last
+// member leaving ends the group.
+const takeOut = async (group, userId) => {
+    const others = group.participants.filter((id) => String(id) !== String(userId));
+    if (others.length === 0) {
+        await Promise.all([
+            Conversation.deleteOne({ _id: group._id }),
+            GroupKeyEpoch.deleteMany({ group: group._id }),
+            GroupInvite.updateMany({ group: group._id, status: "pending" }, { $set: { status: "cancelled", respondedAt: new Date() } }),
+        ]);
+        return;
+    }
+    let admins = group.admins.filter((id) => String(id) !== String(userId));
+    if (admins.length === 0) {
+        const joined = (id) => group.joinedAt?.get(String(id))?.getTime() ?? 0;
+        admins = [[...others].sort((a, b) => joined(a) - joined(b))[0]];
+    }
+    await Conversation.updateOne(
+        { _id: group._id },
+        { $pull: { participants: userId }, $set: { admins }, $unset: { [`joinedAt.${userId}`]: "" } }
+    );
+    await markKeyStale(group._id);
+    groupEvents.emit("left", { group, userId: String(userId) });
+};
+
+export const leaveGroup = async (userId, groupId) => takeOut(await getGroupForMember(groupId, userId), userId);
+
+export const removeMember = async (adminId, groupId, userId) => {
+    const group = await getGroupForMember(groupId, adminId);
+    if (!includes(group.admins, adminId)) throw new AppError("Only admins can remove people", 403);
+    checkId(userId, "user");
+    if (String(userId) === String(adminId)) throw new AppError("To leave, use Leave group", 400);
+    if (!includes(group.participants, userId)) throw new AppError("Not a member of this group", 404);
+    await takeOut(group, userId);
+};
+
+// My copies of the group key, and what the next epoch needs (members only).
+export const getGroupKeys = async (userId, groupId) => getMyKeys(await getGroupForMember(groupId, userId), userId);
+
+export const rotateKey = async (userId, groupId, body) => rotateGroupKey(await getGroupForMember(groupId, userId), userId, body);

@@ -14,6 +14,7 @@ vi.mock("web-push", () => ({
 }));
 
 import { createServer } from "http";
+import mongoose from "mongoose";
 import { createECDH, randomBytes } from "crypto";
 import request from "supertest";
 import { io as connectClient } from "socket.io-client";
@@ -22,7 +23,7 @@ import createSocketServer from "../src/socket.js";
 import User from "../src/models/user.model.js";
 import Conversation from "../src/models/conversation.model.js";
 import GroupInvite from "../src/models/groupInvite.model.js";
-import { connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
+import { connectTestDb, disconnectTestDb, lockedKeys, registerAndLogin } from "./helpers.js";
 
 // alice invites; bob joins, carol's invite is taken back, dave declines; eve
 // is an outsider.
@@ -73,7 +74,7 @@ const connectAs = (user, { visible = true } = {}) => new Promise((resolve, rejec
 const settle = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
 const eventsOf = (socket, name) => socket.received.filter((r) => r.event === name).map((r) => r.data);
 const pushesTo = (user) => pushes.filter((p) => p.endpoint.endsWith(user.id));
-const createGroup = (userIds) => request(app).post("/api/groups").set("Cookie", alice.cookie).send({ name: "Goa trip", userIds }).expect(201);
+const createGroup = (userIds) => request(app).post("/api/groups").set("Cookie", alice.cookie).send({ groupId: new mongoose.Types.ObjectId().toString(), name: "Goa trip", userIds, keys: lockedKeys([alice.id, ...userIds]) }).expect(201);
 const inviteOf = async (user) => (await request(app).get("/api/group-invites").set("Cookie", user.cookie).expect(200)).body.invites[0];
 const answer = async (user, verb) => request(app).post(`/api/group-invites/${(await inviteOf(user))._id}/${verb}`).set("Cookie", user.cookie).expect(200);
 

@@ -8,7 +8,7 @@ import app from "../src/app.js";
 import createSocketServer from "../src/socket.js";
 import Conversation from "../src/models/conversation.model.js";
 import GroupInvite from "../src/models/groupInvite.model.js";
-import { connectTestDb, disconnectTestDb, encrypted, registerAndLogin } from "./helpers.js";
+import { connectTestDb, disconnectTestDb, encrypted, lockedKeys, registerAndLogin } from "./helpers.js";
 
 // alice creates groups; bob and carol join; dave declines; eve is an outsider
 // (no chat with anyone); frank chats with alice but no message was ever sent.
@@ -26,7 +26,13 @@ const chat = async (a, b, { message = true } = {}) => {
     if (message) await Conversation.updateOne({ _id: conversation._id }, { $set: { lastMessageAt: new Date() } });
     return conversation._id;
 };
-const createGroup = (user, body) => api(user).post("/api/groups", body);
+const createGroup = (user, body) =>
+    api(user).post("/api/groups", { groupId: new mongoose.Types.ObjectId().toString(), keys: lockedKeys([user.id, ...(Array.isArray(body.userIds) ? body.userIds : [])].filter((id) => typeof id === "string")), ...body });
+// Invite with their copies of the group's latest key (as a browser does).
+const sendInvite = async (user, groupId, userIds, status) => {
+    const epoch = (await api(user).get(`/api/groups/${groupId}/keys`)).body.currentEpoch ?? 1;
+    return api(user).post(`/api/groups/${groupId}/invites`, { userIds, keys: lockedKeys(userIds), epoch }).expect(status);
+};
 const invitesOf = async (user) => (await api(user).get("/api/group-invites").expect(200)).body.invites;
 const inviteFor = async (user, groupId) => (await invitesOf(user)).find((invite) => String(invite.group._id) === String(groupId));
 
@@ -138,9 +144,9 @@ describe("answering an invite", () => {
         const seen = (await api(alice).get(`/api/groups/${group._id}`).expect(200)).body.group;
         expect(seen.members).toHaveLength(1);
         expect(seen.invites.map((i) => [i.to.username, i.status])).toEqual([["dave_g", "declined"]]);
-        expect((await api(alice).post(`/api/groups/${group._id}/invites`, { userIds: [dave.id] }).expect(409)).body.message).toMatch(/declined recently/);
+        expect((await sendInvite(alice, group._id, [dave.id], 409)).body.message).toMatch(/declined recently/);
         await GroupInvite.updateOne({ _id: invite._id }, { $set: { respondedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) } });
-        await api(alice).post(`/api/groups/${group._id}/invites`, { userIds: [dave.id] }).expect(201);
+        await sendInvite(alice, group._id, [dave.id], 201);
         // A declined invite can't be accepted afterwards
         expect((await api(dave).post(`/api/group-invites/${invite._id}/accept`).expect(409)).body.message).toMatch(/declined/);
     });
@@ -166,7 +172,7 @@ describe("answering an invite", () => {
         await GroupInvite.updateOne({ _id: invite._id }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
         expect(await invitesOf(bob)).toEqual([]);
         expect((await api(bob).post(`/api/group-invites/${invite._id}/accept`)).status).toBe(409); // already marked expired by the listing
-        await api(alice).post(`/api/groups/${group._id}/invites`, { userIds: [bob.id] }).expect(201);
+        await sendInvite(alice, group._id, [bob.id], 201);
         const fresh = await inviteFor(bob, group._id);
         await GroupInvite.updateOne({ _id: fresh._id }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
         expect((await api(bob).post(`/api/group-invites/${fresh._id}/accept`).expect(410)).body.message).toMatch(/expired/);
@@ -182,36 +188,36 @@ describe("inviting more people and cancelling", () => {
 
     it("admins invite; other members only when the group allows it; outsiders never", async () => {
         const groupId = await groupWithBob();
-        expect((await api(bob).post(`/api/groups/${groupId}/invites`, { userIds: [carol.id] }).expect(403)).body.message).toMatch(/Only admins/);
-        await api(eve).post(`/api/groups/${groupId}/invites`, { userIds: [carol.id] }).expect(404);
+        expect((await sendInvite(bob, groupId, [carol.id], 403)).body.message).toMatch(/Only admins/);
+        await sendInvite(eve, groupId, [carol.id], 404);
         await Conversation.updateOne({ _id: groupId }, { $set: { membersCanInvite: true } });
-        await api(bob).post(`/api/groups/${groupId}/invites`, { userIds: [carol.id] }).expect(201); // bob chats with carol
+        await sendInvite(bob, groupId, [carol.id], 201); // bob chats with carol
         expect((await inviteFor(carol, groupId)).from.username).toBe("bob_g");
     });
 
     it("the member's own chats count, not the admin's (bob can't invite dave, whom only alice chats with)", async () => {
         const groupId = await groupWithBob();
         await Conversation.updateOne({ _id: groupId }, { $set: { membersCanInvite: true } });
-        await api(bob).post(`/api/groups/${groupId}/invites`, { userIds: [dave.id] }).expect(403);
+        await sendInvite(bob, groupId, [dave.id], 403);
     });
 
     it("members and people already invited: a member is refused, a second invite changes nothing", async () => {
         const groupId = await groupWithBob();
-        await api(alice).post(`/api/groups/${groupId}/invites`, { userIds: [bob.id] }).expect(400);
-        expect((await api(alice).post(`/api/groups/${groupId}/invites`, { userIds: [carol.id] }).expect(201)).body.invited).toBe(1);
-        expect((await api(alice).post(`/api/groups/${groupId}/invites`, { userIds: [carol.id] }).expect(201)).body.invited).toBe(0);
+        await sendInvite(alice, groupId, [bob.id], 400);
+        expect((await sendInvite(alice, groupId, [carol.id], 201)).body.invited).toBe(1);
+        expect((await sendInvite(alice, groupId, [carol.id], 201)).body.invited).toBe(0);
         expect(await GroupInvite.countDocuments({ group: groupId, to: carol.id })).toBe(1);
     });
 
     it("the inviter or an admin cancels a pending invite; it can't be accepted then; others can't cancel", async () => {
         const groupId = await groupWithBob();
         await Conversation.updateOne({ _id: groupId }, { $set: { membersCanInvite: true } });
-        await api(bob).post(`/api/groups/${groupId}/invites`, { userIds: [carol.id] }).expect(201);
+        await sendInvite(bob, groupId, [carol.id], 201);
         const invite = await inviteFor(carol, groupId);
         await api(eve).del(`/api/group-invites/${invite._id}`).expect(404);
         await api(carol).del(`/api/group-invites/${invite._id}`).expect(404);
         // bob (a member, not an admin) can't take back an invite someone else sent
-        await api(alice).post(`/api/groups/${groupId}/invites`, { userIds: [dave.id] }).expect(201);
+        await sendInvite(alice, groupId, [dave.id], 201);
         await api(bob).del(`/api/group-invites/${(await inviteFor(dave, groupId))._id}`).expect(404);
         await api(alice).del(`/api/group-invites/${invite._id}`).expect(200); // admin, not the inviter
         expect((await api(carol).post(`/api/group-invites/${invite._id}/accept`).expect(409)).body.message).toMatch(/cancelled/);
@@ -220,7 +226,7 @@ describe("inviting more people and cancelling", () => {
 
     it("a member who isn't admin sees only the invites they sent", async () => {
         const groupId = await groupWithBob();
-        await api(alice).post(`/api/groups/${groupId}/invites`, { userIds: [carol.id] }).expect(201);
+        await sendInvite(alice, groupId, [carol.id], 201);
         expect((await api(bob).get(`/api/groups/${groupId}`).expect(200)).body.group.invites).toEqual([]);
         expect((await api(alice).get(`/api/groups/${groupId}`).expect(200)).body.group.invites).toHaveLength(1);
     });
@@ -235,9 +241,9 @@ describe("limits", () => {
     it("at most 50 members, pending invites included", async () => {
         const { group } = (await createGroup(alice, { name: "Big", userIds: [bob.id] }).expect(201)).body;
         await fillGroup(group._id, 47); // alice + 47 + bob invited = 49
-        await api(alice).post(`/api/groups/${group._id}/invites`, { userIds: [carol.id, dave.id] }).expect(400);
-        await api(alice).post(`/api/groups/${group._id}/invites`, { userIds: [carol.id] }).expect(201); // 50
-        await api(alice).post(`/api/groups/${group._id}/invites`, { userIds: [dave.id] }).expect(400);
+        await sendInvite(alice, group._id, [carol.id, dave.id], 400);
+        await sendInvite(alice, group._id, [carol.id], 201); // 50
+        await sendInvite(alice, group._id, [dave.id], 400);
         await createGroup(alice, { name: "Too big", userIds: Array.from({ length: 50 }, () => new mongoose.Types.ObjectId().toString()) }).expect(400);
     });
 
@@ -254,7 +260,7 @@ describe("limits", () => {
         const { group } = (await createGroup(alice, { name: "Busy", userIds: [bob.id] }).expect(201)).body;
         const other = new mongoose.Types.ObjectId();
         await GroupInvite.insertMany(Array.from({ length: 99 }, () => ({ group: other, from: alice.id, to: new mongoose.Types.ObjectId() })));
-        expect((await api(alice).post(`/api/groups/${group._id}/invites`, { userIds: [carol.id] }).expect(429)).body.message).toMatch(/too many invites/);
+        expect((await sendInvite(alice, group._id, [carol.id], 429)).body.message).toMatch(/too many invites/);
     });
 });
 

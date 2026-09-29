@@ -55,6 +55,10 @@ const conversationSchema = new mongoose.Schema({
         of: Date,
         default: undefined
     },
+    // The group's key must change before anyone writes again while its latest
+    // epoch is at most this one (someone left or was removed, or an invite was
+    // taken back): they held that key (groupKeys.service.js).
+    staleKeyEpoch: { type: Number, default: undefined },
 
     // 1:1: both user ids, sorted ("<a>_<b>"), so a pair has one chat.
     // Group: "group_<its id>".

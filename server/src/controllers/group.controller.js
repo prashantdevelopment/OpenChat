@@ -1,8 +1,8 @@
-import { cancelInvite, createGroup, getGroup, inviteToGroup, listMyGroups, listMyInvites, respondToInvite } from "../services/group.service.js";
+import { cancelInvite, createGroup, getGroup, getGroupKeys, inviteToGroup, leaveGroup, listMyGroups, listMyInvites, removeMember, respondToInvite, rotateKey } from "../services/group.service.js";
 
 const createGroupController = async (req, res) => {
-    const { name, userIds } = req.body ?? {};
-    const { group } = await createGroup(req.user.userId, { name, userIds });
+    const { groupId, name, userIds, keys } = req.body ?? {};
+    const { group } = await createGroup(req.user.userId, { groupId, name, userIds, keys });
     res.status(201).json({ success: true, group: await getGroup(req.user.userId, group._id) });
 };
 
@@ -15,7 +15,8 @@ const getGroupController = async (req, res) => {
 };
 
 const inviteController = async (req, res) => {
-    const invites = await inviteToGroup(req.user.userId, req.params.groupId, req.body?.userIds);
+    const { userIds, keys, epoch } = req.body ?? {};
+    const invites = await inviteToGroup(req.user.userId, req.params.groupId, { userIds, keys, epoch });
     res.status(201).json({ success: true, invited: invites.length });
 };
 
@@ -38,7 +39,30 @@ const cancelInviteController = async (req, res) => {
     res.status(200).json({ success: true });
 };
 
+const getKeysController = async (req, res) => {
+    res.status(200).json({ success: true, ...(await getGroupKeys(req.user.userId, req.params.groupId)) });
+};
+
+const rotateKeyController = async (req, res) => {
+    const { epoch, keys } = req.body ?? {};
+    res.status(201).json({ success: true, ...(await rotateKey(req.user.userId, req.params.groupId, { epoch, keys })) });
+};
+
+const leaveController = async (req, res) => {
+    await leaveGroup(req.user.userId, req.params.groupId);
+    res.status(200).json({ success: true });
+};
+
+const removeMemberController = async (req, res) => {
+    await removeMember(req.user.userId, req.params.groupId, req.params.userId);
+    res.status(200).json({ success: true });
+};
+
 export {
+    getKeysController,
+    rotateKeyController,
+    leaveController,
+    removeMemberController,
     createGroupController,
     listGroupsController,
     getGroupController,
