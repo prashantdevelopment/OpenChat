@@ -512,46 +512,60 @@ const NotificationsSection = () => {
   };
 
   return (
-    <Section number="04" title="Notifications" description="Get a notification for new messages while OpenChat is open in a tab you aren't looking at.">
-      {!isSupported ? (
-        <p className="text-sm text-muted-foreground">This browser doesn&apos;t support notifications.</p>
-      ) : (
-        <div className="space-y-4">
-          <label className="flex cursor-pointer items-center justify-between gap-6">
-            <span className="font-medium">Desktop notifications</span>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={isOn}
-              disabled={permission === "denied"}
-              onChange={handleToggle}
-              className="switch"
-            />
-          </label>
-          {permission === "denied" ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              Notifications are blocked for this site. Allow them in your browser&apos;s site settings, then reload.
-            </p>
-          ) : null}
-          <label className="flex cursor-pointer items-start gap-3 has-disabled:cursor-not-allowed has-disabled:opacity-60">
-            <input
-              type="checkbox"
-              checked={prefs.preview}
-              disabled={!isOn}
-              onChange={(e) => save({ preview: e.target.checked })}
-              aria-describedby="notification-preview-hint"
-              className="mt-1 size-4.5 shrink-0 accent-brand"
-            />
-            <span>
-              <span className="block font-medium">Show message text</span>
-              <span id="notification-preview-hint" className="mt-0.5 block text-sm text-muted-foreground">
-                Messages are decrypted on this device. Turn this off if others can see your screen: the notification
-                will only say &quot;New message&quot;.
-              </span>
+    <Section
+      number="04"
+      title="Notifications"
+      description="A new message from another chat shows a small alert at the top of OpenChat. You can also be notified while OpenChat is in the background."
+    >
+      <div className="space-y-4">
+        <label className="flex cursor-pointer items-start justify-between gap-6">
+          <span>
+            <span className="block font-medium">Sound for new messages</span>
+            <span id="notification-sound-hint" className="mt-0.5 block text-sm text-muted-foreground">
+              A soft chime with the alert, on this device.
             </span>
-          </label>
-        </div>
-      )}
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={prefs.sound}
+            onChange={(e) => save({ sound: e.target.checked })}
+            aria-describedby="notification-sound-hint"
+            className="switch mt-0.5"
+          />
+        </label>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={prefs.preview}
+            onChange={(e) => save({ preview: e.target.checked })}
+            aria-describedby="notification-preview-hint"
+            className="mt-1 size-4.5 shrink-0 accent-brand"
+          />
+          <span>
+            <span className="block font-medium">Show message text</span>
+            <span id="notification-preview-hint" className="mt-0.5 block text-sm text-muted-foreground">
+              Messages are decrypted on this device. Turn this off if others can see your screen: alerts and notifications
+              will only say &quot;New message&quot;.
+            </span>
+          </span>
+        </label>
+        {!isSupported ? (
+          <p className="text-sm text-muted-foreground">This browser can&apos;t show notifications while OpenChat is in the background.</p>
+        ) : (
+          <>
+            <label className="flex cursor-pointer items-center justify-between gap-6">
+              <span className="font-medium">Notifications in the background</span>
+              <input type="checkbox" role="switch" checked={isOn} disabled={permission === "denied"} onChange={handleToggle} className="switch" />
+            </label>
+            {permission === "denied" ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                Notifications are blocked for this site. Allow them in your browser&apos;s site settings, then reload.
+              </p>
+            ) : null}
+          </>
+        )}
+      </div>
     </Section>
   );
 };

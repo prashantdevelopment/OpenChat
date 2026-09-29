@@ -38,8 +38,12 @@ const ToastList = () => {
             {ICONS[toast.type] ?? null}
             <div className="min-w-0 flex-1">
               <Toast.Title className="text-sm font-medium" />
-              <Toast.Description className="text-sm text-muted-foreground" />
+              <Toast.Description className="truncate text-sm text-muted-foreground" />
             </div>
+            {/* An action, e.g. "Open" on a new message (toastManager.add({ actionProps })). */}
+            {toast.actionProps ? (
+              <Toast.Action className="shrink-0 cursor-pointer self-center rounded-full border border-foreground/25 px-3.5 py-1.5 text-sm font-medium hover:bg-accent pointer-coarse:min-h-11" />
+            ) : null}
             <Toast.Close
               data-slot="toast-close"
               aria-label="Close"

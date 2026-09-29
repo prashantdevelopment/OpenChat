@@ -3,7 +3,9 @@
 // Push and a service worker.) The choice is per device, so it lives in
 // localStorage, like the theme.
 const STORAGE_KEY = "openchat-notifications";
-const DEFAULTS = { enabled: false, preview: true };
+// enabled / preview: browser notifications while OpenChat is in the
+// background. sound: a soft chime with the in-app alert for a new message.
+const DEFAULTS = { enabled: false, preview: true, sound: true };
 
 export const getNotificationPrefs = () => {
   try {
@@ -29,3 +31,40 @@ export const shouldNotify = ({ enabled, permission, isPageActive }) =>
 // "(3) OpenChat" while there are unread messages.
 export const titleWithUnread = (unread, base = "OpenChat") =>
   unread > 0 ? `(${unread > 99 ? "99+" : unread}) ${base}` : base;
+
+// The total on the installed app's icon (Badging API; nothing where unsupported).
+export const setAppBadge = (count) => {
+  try {
+    if (count > 0) navigator.setAppBadge?.(count)?.catch(() => {});
+    else navigator.clearAppBadge?.()?.catch(() => {});
+  } catch {
+    // Not supported here.
+  }
+};
+
+// A soft two-note chime for a new message, made with Web Audio (no sound file).
+// Browsers only play it after the page was interacted with, which logging in is.
+let audio;
+export const playChime = () => {
+  try {
+    const Context = window.AudioContext ?? window.webkitAudioContext;
+    if (!Context) return;
+    audio ??= new Context();
+    if (audio.state === "suspended") audio.resume().catch(() => {});
+    const start = audio.currentTime;
+    for (const [frequency, delay] of [[880, 0], [1318.5, 0.09]]) {
+      const tone = audio.createOscillator();
+      const volume = audio.createGain();
+      tone.type = "sine";
+      tone.frequency.value = frequency;
+      volume.gain.setValueAtTime(0.0001, start + delay);
+      volume.gain.exponentialRampToValueAtTime(0.06, start + delay + 0.01);
+      volume.gain.exponentialRampToValueAtTime(0.0001, start + delay + 0.35);
+      tone.connect(volume).connect(audio.destination);
+      tone.start(start + delay);
+      tone.stop(start + delay + 0.4);
+    }
+  } catch {
+    // No sound; the alert is still shown.
+  }
+};

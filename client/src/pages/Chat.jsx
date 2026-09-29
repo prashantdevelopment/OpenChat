@@ -14,10 +14,8 @@ import { toastManager } from "@/components/ui/toast";
 import { useIsConnected } from "../socket/useIsConnected.js";
 import { mergeReceipts } from "../lib/receipts.js";
 import { useCall } from "../calls/CallContext.js";
-import { getNotificationPrefs, shouldNotify, titleWithUnread } from "../lib/notifications.js";
-import { getConversationKey, useConversationKey } from "../crypto/hooks.js";
-import { decryptMessage } from "../crypto/messages.js";
-import { describeMessage } from "../lib/messageContent.js";
+import { titleWithUnread } from "../lib/notifications.js";
+import { useConversationKey } from "../crypto/hooks.js";
 import { unblockUser } from "../lib/blocks.js";
 import { checkPeerKey, trustPeerKey } from "../crypto/keyPins.js";
 import { cn } from "@/lib/utils";
@@ -28,7 +26,7 @@ import { displayName } from "../lib/people.js";
 const getConversations = async () => (await api.get("/conversations")).data.conversations;
 
 const Chat = () => {
-  const { currentUser, privateKey } = useAuth();
+  const { currentUser } = useAuth();
   // The open conversation lives in the URL (/chat/:conversationId), so
   // refresh, back/forward and shared links all keep it.
   const { conversationId } = useParams();
@@ -87,44 +85,10 @@ const Chat = () => {
   };
 
   // Live sidebar. For every message in any of our conversations, the server
-  // sends { _id, lastMessage, lastMessageAt } to our personal room.
+  // sends { _id, lastMessage, lastMessageAt, unreadCount } to our personal
+  // room. (Alerts, notifications and "delivered" for it: MessageAlerts.)
   // useEffectEvent: the listener is added once, but always sees the latest list.
-  // Browser notification for someone else's new message, if the user turned
-  // them on and isn't looking at OpenChat. The text is decrypted here; the
-  // server never sees it. tag: one notification per chat, even with several
-  // tabs open (a newer one replaces it).
-  const notifyNewMessage = async (update) => {
-    const prefs = getNotificationPrefs();
-    const isPageActive = document.visibilityState === "visible" && document.hasFocus();
-    if (!("Notification" in window) || !shouldNotify({ ...prefs, permission: Notification.permission, isPageActive })) return;
-
-    const sender = conversations
-      .find((conversation) => conversation._id === update._id)
-      ?.participants.find((participant) => participant._id !== currentUser._id);
-    let body = { image: "Photo", video: "Video", audio: "Voice message", file: "File", call: "Call" }[update.lastMessage.messageType] ?? "New message";
-    if (prefs.preview && sender?.publicKey && privateKey) {
-      try {
-        const key = await getConversationKey(privateKey, sender.publicKey, update._id);
-        body = describeMessage(update.lastMessage.messageType, await decryptMessage(key, update.lastMessage, update.lastMessage.sender));
-      } catch {
-        // Can't decrypt: keep "New message".
-      }
-    }
-    const notification = new Notification(displayName(sender) || "OpenChat", { body, tag: update._id, icon: "/icon-192.png" });
-    notification.onclick = () => {
-      window.focus();
-      navigate(`/chat/${update._id}`);
-      notification.close();
-    };
-  };
-
   const onConversationUpdated = useEffectEvent((update) => {
-    // Someone else's new message reached this device: "delivered" (the
-    // sender's ticks turn double).
-    if (update.lastMessage && update.lastMessage.sender !== currentUser._id) {
-      socket.emit("markDelivered", update._id);
-      notifyNewMessage(update).catch((error) => console.error("Could not show a notification:", error));
-    }
     if (conversations.some((conversation) => conversation._id === update._id)) {
       // Known conversation: new preview, and move it to the top.
       setConversations((prev) => {

@@ -31,17 +31,22 @@ describe("notification preferences", () => {
   });
 
   it("is off by default, with message text shown once turned on", () => {
-    expect(getNotificationPrefs()).toEqual({ enabled: false, preview: true });
+    expect(getNotificationPrefs()).toEqual({ enabled: false, preview: true, sound: true });
   });
 
   it("remembers changes and keeps the other setting", () => {
     setNotificationPrefs({ enabled: true });
     setNotificationPrefs({ preview: false });
-    expect(getNotificationPrefs()).toEqual({ enabled: true, preview: false });
+    expect(getNotificationPrefs()).toEqual({ enabled: true, preview: false, sound: true });
+  });
+
+  it("the chime is on by default and can be turned off on its own", () => {
+    setNotificationPrefs({ sound: false });
+    expect(getNotificationPrefs()).toEqual({ enabled: false, preview: true, sound: false });
   });
 
   it("falls back to the defaults if storage is broken", () => {
     localStorage.setItem("openchat-notifications", "{not json");
-    expect(getNotificationPrefs()).toEqual({ enabled: false, preview: true });
+    expect(getNotificationPrefs()).toEqual({ enabled: false, preview: true, sound: true });
   });
 });
