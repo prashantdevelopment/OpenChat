@@ -19,6 +19,7 @@ import PageMeta from "../components/PageMeta.jsx";
 import { Button } from "@/components/ui/button";
 import { displayName } from "../lib/people.js";
 import { formatLastSeen } from "../lib/time.js";
+import { currentSubscription, getPushConfig, needsHomeScreen, pushSupported, sendTestPush, subscribeToPush, unsubscribeFromPush } from "../lib/push.js";
 
 const MAX_BIO_LENGTH = 160; // same limit as the server
 
@@ -488,6 +489,103 @@ const PrivacySection = () => (
   </Section>
 );
 
+// Notifications while OpenChat is closed (Web Push), for this browser. Shown
+// only if the server has it set up.
+const ClosedNotifications = () => {
+  const supported = pushSupported();
+  const homeScreenFirst = supported && needsHomeScreen();
+  const [config, setConfig] = useState(null); // null while asking
+  const [isOn, setIsOn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (!supported) return;
+    let ignore = false;
+    Promise.all([getPushConfig(), currentSubscription()])
+      .then(([pushConfig, subscription]) => {
+        if (ignore) return;
+        setConfig(pushConfig);
+        setIsOn(Boolean(subscription));
+      })
+      .catch(() => !ignore && setConfig({ enabled: false }));
+    return () => {
+      ignore = true;
+    };
+  }, [supported]);
+
+  if (!supported) {
+    return <p className="text-sm text-muted-foreground">This browser can&apos;t notify you while OpenChat is closed.</p>;
+  }
+  if (!config?.enabled) return null;
+
+  const toggle = async () => {
+    setBusy(true);
+    setNote("");
+    try {
+      if (isOn) {
+        await unsubscribeFromPush();
+        setIsOn(false);
+      } else {
+        const permission = await subscribeToPush(config.publicKey);
+        setIsOn(permission === "granted");
+        if (permission === "denied") setNote("Notifications are blocked for this site. Allow them in your browser's site settings, then try again.");
+      }
+    } catch (error) {
+      console.error("Push subscription failed:", error);
+      setNote("Couldn't turn it on in this browser. Try again, or use another browser.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const test = async () => {
+    setBusy(true);
+    try {
+      const sent = await sendTestPush();
+      setNote(sent > 0 ? "Sent. It should appear in a moment, also with OpenChat closed." : "Nothing was sent: turn it off and on again.");
+    } catch (error) {
+      setNote(error.response?.data?.message ?? "Couldn't send a test. Check your connection.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <label className="flex cursor-pointer items-start justify-between gap-6 has-disabled:cursor-not-allowed has-disabled:opacity-60">
+        <span>
+          <span className="block font-medium">Notifications when OpenChat is closed</span>
+          <span id="push-hint" className="mt-0.5 block text-sm text-muted-foreground">
+            {homeScreenFirst
+              ? "On iPhone and iPad: first add OpenChat to your Home Screen (Share → Add to Home Screen), then turn this on from there."
+              : "New messages and calls on this device, even when no OpenChat tab is open. They never contain what was written."}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={isOn}
+          disabled={busy || homeScreenFirst}
+          onChange={toggle}
+          aria-describedby="push-hint"
+          className="switch mt-0.5"
+        />
+      </label>
+      {isOn ? (
+        <Button variant="outline" loading={busy} onClick={test} className="h-11 rounded-full border-foreground/25 px-5 sm:h-11">
+          Send a test notification
+        </Button>
+      ) : null}
+      {note ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {note}
+        </p>
+      ) : null}
+    </div>
+  );
+};
+
 const NotificationsSection = () => {
   const isSupported = "Notification" in window;
   const [prefs, setPrefs] = useState(getNotificationPrefs);
@@ -565,6 +663,7 @@ const NotificationsSection = () => {
             ) : null}
           </>
         )}
+        <ClosedNotifications />
       </div>
     </Section>
   );

@@ -146,7 +146,37 @@ const EMAIL_VERIFICATION = process.env.EMAIL_VERIFICATION ?? "on";
                 throw new Error("EMAIL_VERIFICATION can't be off in production");
             }
 
+// Web Push (notifications while OpenChat is closed): a VAPID key pair, made
+// once with `npx web-push generate-vapid-keys`. Both or neither; without them
+// the switch isn't offered. The subject tells push services who sends: a
+// mailto: or https: address.
+const PUSH = process.env.VAPID_PUBLIC_KEY || process.env.VAPID_PRIVATE_KEY
+    ? {
+        publicKey: process.env.VAPID_PUBLIC_KEY,
+        privateKey: process.env.VAPID_PRIVATE_KEY,
+        subject: process.env.VAPID_SUBJECT
+            ?? (EMAIL ? `mailto:${EMAIL.from}` : CLIENT_URL.startsWith("https://") ? CLIENT_URL : "mailto:push@openchat.invalid"),
+    }
+    : null;
+            if (PUSH && (!PUSH.publicKey || !PUSH.privateKey)) {
+                throw new Error("Web Push needs both VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY (npx web-push generate-vapid-keys)");
+            }
+            if (PUSH && (!/^[\w-]{87}$/.test(PUSH.publicKey) || !/^[\w-]{43}$/.test(PUSH.privateKey))) {
+                throw new Error("VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY look wrong (make them with npx web-push generate-vapid-keys)");
+            }
+            if (PUSH && !/^(mailto:|https:\/\/)/.test(PUSH.subject)) {
+                throw new Error("VAPID_SUBJECT must start with mailto: or https://");
+            }
+// Tests only: a push "service" on this machine (the browser tests run their
+// own). Real subscriptions only ever go to the big push services.
+const PUSH_TEST_ORIGIN = process.env.PUSH_TEST_ORIGIN || null;
+            if (PUSH_TEST_ORIGIN && process.env.NODE_ENV === "production") {
+                throw new Error("PUSH_TEST_ORIGIN is for tests only, never in production");
+            }
+
 export {
+    PUSH,
+    PUSH_TEST_ORIGIN,
     EMAIL,
     GOOGLE,
     TURN,

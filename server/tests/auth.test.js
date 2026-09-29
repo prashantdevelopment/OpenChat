@@ -412,3 +412,13 @@ describe("sign-up by email in production without Brevo", () => {
         }
     });
 });
+
+describe("notifications while closed (Web Push) without VAPID keys", () => {
+    it("the app is told it's off, and subscribing answers 404", async () => {
+        const user = await registerAndLogin("no_push_user");
+        expect((await request(app).get("/api/push/config").set("Cookie", user.cookie)).body).toMatchObject({ enabled: false, publicKey: null });
+        const res = await request(app).post("/api/push/subscriptions").set("Cookie", user.cookie)
+            .send({ endpoint: "https://fcm.googleapis.com/fcm/send/x", keys: { p256dh: "x", auth: "y" } });
+        expect(res.status).toBe(404);
+    });
+});

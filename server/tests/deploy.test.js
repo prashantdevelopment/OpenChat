@@ -9,7 +9,7 @@ const ENV_JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "sr
 const BASE = { PORT: "5000", MONGO_URI: "mongodb://localhost:27017/x", JWT_SECRET: "x".repeat(40), PATH: process.env.PATH, SystemRoot: process.env.SystemRoot };
 
 const load = (env) => {
-    const script = `const env = await import(${JSON.stringify("file://" + ENV_JS.replaceAll("\\", "/"))}); console.log(JSON.stringify({ CLIENT_URL: env.CLIENT_URL, STORAGE_DRIVER: env.STORAGE_DRIVER, GOOGLE: env.GOOGLE, EMAIL: env.EMAIL }));`;
+    const script = `const env = await import(${JSON.stringify("file://" + ENV_JS.replaceAll("\\", "/"))}); console.log(JSON.stringify({ CLIENT_URL: env.CLIENT_URL, STORAGE_DRIVER: env.STORAGE_DRIVER, GOOGLE: env.GOOGLE, EMAIL: env.EMAIL, PUSH: env.PUSH }));`;
     const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], { env: { ...BASE, ...env }, cwd: path.dirname(ENV_JS), encoding: "utf8" });
     return result.status === 0 ? { ok: JSON.parse(result.stdout.trim().split("\n").at(-1)) } : { error: result.stderr };
 };
@@ -54,5 +54,19 @@ describe("production settings (env.js)", () => {
         expect(load({ ...dev, BREVO_API_KEY: "k", EMAIL_FROM: "me@gmail.com" }).ok.EMAIL).toMatchObject({ from: "me@gmail.com", fromName: "OpenChat" });
         const prod = { NODE_ENV: "production", CLIENT_URL: "https://a.example", STORAGE_DRIVER: "cloudinary", CLOUDINARY_CLOUD_NAME: "c", CLOUDINARY_API_KEY: "k", CLOUDINARY_API_SECRET: "s" };
         expect(load({ ...prod, EMAIL_VERIFICATION: "off" }).error).toMatch(/can't be off in production/);
+    });
+
+    it("Web Push: both VAPID keys or neither, in the right shape, a mailto/https subject, no test origin in production", () => {
+        const dev = { CLIENT_URL: "http://localhost:5173" };
+        const pub = "B" + "a".repeat(86), priv = "c".repeat(43);
+        expect(load(dev).ok.PUSH).toBeNull();
+        expect(load({ ...dev, VAPID_PUBLIC_KEY: pub }).error).toMatch(/needs both VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY/);
+        expect(load({ ...dev, VAPID_PUBLIC_KEY: "short", VAPID_PRIVATE_KEY: priv }).error).toMatch(/look wrong/);
+        expect(load({ ...dev, VAPID_PUBLIC_KEY: pub, VAPID_PRIVATE_KEY: priv, VAPID_SUBJECT: "someone" }).error).toMatch(/mailto: or https/);
+        expect(load({ ...dev, VAPID_PUBLIC_KEY: pub, VAPID_PRIVATE_KEY: priv }).ok.PUSH.subject).toBe("mailto:push@openchat.invalid");
+        expect(load({ ...dev, VAPID_PUBLIC_KEY: pub, VAPID_PRIVATE_KEY: priv, BREVO_API_KEY: "k", EMAIL_FROM: "me@gmail.com" }).ok.PUSH.subject).toBe("mailto:me@gmail.com");
+        const prod = { NODE_ENV: "production", CLIENT_URL: "https://a.example", STORAGE_DRIVER: "cloudinary", CLOUDINARY_CLOUD_NAME: "c", CLOUDINARY_API_KEY: "k", CLOUDINARY_API_SECRET: "s" };
+        expect(load({ ...prod, VAPID_PUBLIC_KEY: pub, VAPID_PRIVATE_KEY: priv }).ok.PUSH.subject).toBe("https://a.example");
+        expect(load({ ...prod, PUSH_TEST_ORIGIN: "https://localhost:9" }).error).toMatch(/tests only/);
     });
 });

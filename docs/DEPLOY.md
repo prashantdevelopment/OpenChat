@@ -73,6 +73,17 @@ New accounts made with email and password must enter a 6-digit code sent to that
    Brevo only accepts API calls from **authorised IPs**: at https://app.brevo.com/security/authorised_ips add Render's outbound addresses (Render → the service → **Connect** → **Outbound**). Otherwise Brevo answers 401 "unrecognised IP address" and no code is sent.
 5. Try it: register with a real address you can open. If the code lands in Spam, mark it "Not spam" once. Without a domain of your own, some providers are stricter with mail "from" a Gmail address sent by Brevo; if codes don't arrive at all, tell me (the fallback is sending through the Gmail API).
 
+## 3e. Notifications while OpenChat is closed: VAPID keys (free)
+
+Web Push needs one key pair that identifies OpenChat to the browsers' push services (Google, Mozilla, Apple, Microsoft). No account anywhere.
+
+1. On your computer, in the `server` folder: `npx web-push generate-vapid-keys`. It prints a **Public Key** and a **Private Key**.
+2. Render → **Environment**: `VAPID_PUBLIC_KEY` = the public key, `VAPID_PRIVATE_KEY` = the private key. Save (Render restarts).
+3. Keep them: if they change, every browser has to turn notifications on again. Never put the private key in `client/.env` or in git.
+4. Check: Settings → Notifications → "Notifications when OpenChat is closed" → on → "Send a test notification", then close OpenChat and try again. On iPhone, first add OpenChat to the Home Screen and open it from there.
+
+Your computer already has its own pair in `server/.env` (made during step 63).
+
 ## 4. Check it
 
 1. `https://<your-address>/api/health` answers `{"status":"ok"}`.

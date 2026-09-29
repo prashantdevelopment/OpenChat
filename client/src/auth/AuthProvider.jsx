@@ -4,6 +4,7 @@ import api, { setSessionGoneHandler } from "../api/api.js";
 import socket from "../socket/socket.js";
 import { unlockPrivateKey } from "../crypto/keys.js";
 import { clearKeys, loadKey, saveKey } from "../crypto/keyStore.js";
+import { unsubscribeFromPush } from "../lib/push.js";
 import { AuthContext } from "./AuthContext.js";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -128,6 +129,9 @@ const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     loggingOut.current = true;
+    // The next person on this browser must not get this user's notifications
+    // (the server also drops them with the session).
+    await unsubscribeFromPush().catch(() => {});
     try {
       await api.post("/auth/logout");
     } catch (error) {

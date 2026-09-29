@@ -37,3 +37,6 @@ process.env.GOOGLE_CLIENT_SECRET = "";
 process.env.EMAIL_VERIFICATION = "off";
 process.env.BREVO_API_KEY = "";
 process.env.EMAIL_FROM = "";
+// And for Web Push: never the real VAPID keys (tests/push.test.js uses its own).
+process.env.VAPID_PUBLIC_KEY = "";
+process.env.VAPID_PRIVATE_KEY = "";
