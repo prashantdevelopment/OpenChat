@@ -11,7 +11,9 @@ import { isOnline } from "./presence.js";
 // change them. Changing them is how a server could put itself in the middle
 // of the call; the encrypted SDP carries the DTLS fingerprint that the two
 // browsers then check, so the audio itself is end-to-end encrypted too.
-// Call state (busy, missed, timeouts) lives in the browsers for now.
+// Call state (busy, missed, timeouts) lives in the browsers; the server only
+// remembers a call while it rings, for a callee whose app is closed
+// (services/ringingCalls.service.js).
 
 const CALL_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_SIGNAL_BYTES = 32 * 1024; // an SDP is a few KB
@@ -35,7 +37,7 @@ const checkCallId = (callId) => {
     return callId;
 };
 
-const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
+const registerCallHandlers = (io, socket, { userRoom, replyWithError, ringingCalls }) => {
     // The conversation (the user must be in it) and the other participant.
     // No call signal crosses a block, so blocking also ends a ringing call.
     const callPeer = async (conversationId) => {
@@ -74,6 +76,9 @@ const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
             from: caller,
             offer: encryptedOffer,
         });
+        // Kept while it rings; a push if they aren't looking at OpenChat.
+        ringingCalls.start({ callId, callerId: socket.userId, calleeId: peerId, conversationId: conversation._id, media, offer: encryptedOffer, from: caller })
+            .catch((error) => console.error("Ringing call:", error.message));
         // "Ringing" if the callee has the app open somewhere, else "Calling".
         return { ringing: isOnline(peerId) };
     });
@@ -82,6 +87,7 @@ const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
         checkCallId(callId);
         const encryptedAnswer = checkSignal(answer);
         const { conversation, peerId } = await callPeer(conversationId);
+        ringingCalls.answered(callId, socket.userId);
         io.to(userRoom(peerId)).emit("callAnswered", { callId, conversationId: conversation._id, answer: encryptedAnswer });
         // My other tabs stop ringing: this one took the call.
         socket.to(userRoom(socket.userId)).emit("callHandledElsewhere", { callId });
@@ -91,6 +97,7 @@ const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
         checkCallId(callId);
         const encryptedCandidate = checkSignal(candidate);
         const { conversation, peerId } = await callPeer(conversationId);
+        ringingCalls.addCandidate(callId, socket.userId, encryptedCandidate);
         io.to(userRoom(peerId)).emit("iceCandidate", { callId, conversationId: conversation._id, candidate: encryptedCandidate });
     });
 
@@ -114,6 +121,7 @@ const registerCallHandlers = (io, socket, { userRoom, replyWithError }) => {
             throw new AppError("Invalid reason", 400);
         }
         const { conversation, peerId } = await callPeer(conversationId);
+        ringingCalls.ended(callId, socket.userId);
         io.to(userRoom(peerId)).emit("callEnded", { callId, conversationId: conversation._id, reason });
         // Declining in one tab stops the ringing in the others.
         socket.to(userRoom(socket.userId)).emit("callHandledElsewhere", { callId });

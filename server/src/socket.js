@@ -12,6 +12,7 @@ import { isOnline, socketClosed, socketOpened } from "./presence.js";
 import { markOffline, markOnline, statePresenceSnapshot } from "./statePresence.js";
 import { createMessage } from "./services/message.service.js";
 import registerCallHandlers from "./calls.js";
+import { createRingingCalls } from "./services/ringingCalls.service.js";
 
 const userRoom = (userId) => `user:${userId}`;
 const sessionRoom = (sessionId) => `session:${sessionId}`;
@@ -56,7 +57,7 @@ const clientAddress = (socket) => {
 // at most this often, and only when they changed.
 // pushThrottleMs: at most one message push per chat this often (tests: short).
 const STATE_PRESENCE_ROOM = "state-presence";
-const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceIntervalMs = 3000, pushThrottleMs = 10_000 } = {}) => {
+const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceIntervalMs = 3000, pushThrottleMs = 10_000, callRingMs = 35_000 } = {}) => {
     const io = new Server(httpServer, {
         cors: {
             origin: CLIENT_URL,
@@ -84,6 +85,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
     // and on every change); message pushes go only when it isn't.
     const hasVisibleApp = async (userId) => (await io.in(userRoom(userId)).fetchSockets()).some((s) => s.data.visible);
     const pushNewMessage = createMessagePush({ hasVisibleApp, throttleMs: pushThrottleMs });
+    const ringingCalls = createRingingCalls({ hasVisibleApp, ringMs: callRingMs });
 
     const eventLimiters = Object.fromEntries(Object.entries(EVENT_LIMITS).map(([event, limit]) => [event, createLimiter(limit)]));
 
@@ -367,7 +369,10 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
             }
         });
 
-        registerCallHandlers(io, socket, { userRoom, replyWithError });
+        registerCallHandlers(io, socket, { userRoom, replyWithError, ringingCalls });
+        // Opened from a call notification (or just now): a call still ringing
+        // for this user rings here too.
+        ringingCalls.deliverTo(socket, socket.userId).catch((error) => console.error("Ringing call:", error.message));
 
         socket.on("leaveConversation", (conversationId) => {
             socket.leave(conversationId);

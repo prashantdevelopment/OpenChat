@@ -55,6 +55,8 @@ self.addEventListener("push", (event) => {
       body: data.body || "",
       tag: data.tag || undefined,
       renotify: Boolean(data.tag),
+      // A ringing call stays until it is tapped or closed (where supported).
+      requireInteraction: data.call === true,
       icon: "/icon-192.png",
       data: { url: data.url || "/chat" },
     }),

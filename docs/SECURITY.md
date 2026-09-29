@@ -53,6 +53,8 @@ Severity is by exploitability in this app, not by pattern.
 
 - **Message pushes (step 64):** only to people with no OpenChat on screen anywhere (each app reports "visible"/"hidden" on connect, on every change and when the tab closes); a message seen on screen is never pushed later. A push says who it is from (unless the recipient turned that off: "OpenChat · New message") and the kind ("Photo", "3 new messages"), never the text, which the server can't read. The kind of message and who wrote when were already visible to the server (metadata), so a push reveals nothing new to it; push services see only encrypted payloads.
 
+- **Call pushes (step 65):** while a call rings (at most 35 s) the server keeps it in memory for the callee: the offer and the caller's network candidates, both still encrypted with the conversation key (the server can't read them), so an app opened from the notification can ring and answer. Only the callee's own sockets get it, never across a block (checked again at hand-over), and only the two participants can answer or end it (the conversation check in calls.js). The push says who is calling (unless turned off) and voice/video; its TTL is the ringing time, and an unanswered call turns it into "Missed …" (same tag and topic).
+
 ## 4. Forward secrecy study
 
 **What it is.** Forward secrecy means that stealing a key today doesn't unlock messages from yesterday. OpenChat's conversation key comes from the two long-term keys, so anyone who later gets a user's private key (their password plus the locked blob from the server, or their unlocked device) and has recorded the ciphertext can read the **whole history** of that user's chats.

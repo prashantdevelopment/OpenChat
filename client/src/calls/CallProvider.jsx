@@ -402,7 +402,10 @@ const CallProvider = ({ children }) => {
   useEffect(() => {
     const isThisCall = (callId) => callRef.current?.callId === callId && callRef.current.status !== "ended";
 
-    const handleIncoming = ({ callId, conversationId, from, media, offer }) => {
+    // ringsForMs: set when the server hands over a call that was already
+    // ringing (this app just opened, e.g. from the call notification).
+    const handleIncoming = ({ callId, conversationId, from, media, offer, ringsForMs }) => {
+      if (callRef.current?.callId === callId) return; // this call again, after a reconnect
       if (callRef.current && callRef.current.status !== "ended") {
         socket.emit("endCall", { conversationId, callId, reason: "busy" }); // already in a call
         return;
@@ -421,7 +424,7 @@ const CallProvider = ({ children }) => {
           cleanUp();
           update(null);
         }
-      }, INCOMING_TIMEOUT_MS);
+      }, ringsForMs === undefined ? INCOMING_TIMEOUT_MS : Math.min(INCOMING_TIMEOUT_MS, ringsForMs + INCOMING_TIMEOUT_MS - RING_TIMEOUT_MS));
     };
 
     const handleAnswered = async ({ callId, answer }) => {

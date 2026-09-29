@@ -14,7 +14,10 @@ const openSockets = [];
 beforeAll(async () => {
     await connectTestDb();
     const httpServer = createServer(app);
-    io = createSocketServer(httpServer, { presenceGraceMs: 100 });
+    // Pure relay tests: a call stops "ringing" on the server at once, so one
+    // test's unanswered call isn't handed to the next test's sockets
+    // (that hand-over is tested in pushCalls.test.js).
+    io = createSocketServer(httpServer, { presenceGraceMs: 100, callRingMs: 1 });
     await new Promise((resolve) => httpServer.listen(0, resolve));
     url = `http://localhost:${httpServer.address().port}`;
     [alice, bob, carol] = await Promise.all(["alice_call", "bob_call", "carol_call"].map(registerAndLogin));
