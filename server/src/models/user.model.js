@@ -165,6 +165,12 @@ const userSchema =  new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    // Notifications while OpenChat is closed: show who a message is from
+    // (off: just "OpenChat · New message"). The text is never in them.
+    pushShowSender: {
+        type: Boolean,
+        default: true
+    },
     // When the user's last tab closed. Whether they are online right now is
     // kept in memory (src/presence.js), not here.
     lastSeen: {

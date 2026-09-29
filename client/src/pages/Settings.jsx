@@ -573,9 +573,14 @@ const ClosedNotifications = () => {
         />
       </label>
       {isOn ? (
-        <Button variant="outline" loading={busy} onClick={test} className="h-11 rounded-full border-foreground/25 px-5 sm:h-11">
-          Send a test notification
-        </Button>
+        <>
+          <SettingSwitch setting="pushShowSender" label="Show who it's from" hintId="push-sender-hint">
+            Off: they only say &quot;OpenChat · New message&quot;, for a lock screen others can see. Applies to all your devices.
+          </SettingSwitch>
+          <Button variant="outline" loading={busy} onClick={test} className="h-11 rounded-full border-foreground/25 px-5 sm:h-11">
+            Send a test notification
+          </Button>
+        </>
       ) : null}
       {note ? (
         <p role="status" className="text-sm text-muted-foreground">

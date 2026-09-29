@@ -159,7 +159,7 @@ const updateUser = async (userId, updateData) => {
     if (updateData.bio !== undefined) allowedUpdates.bio = updateData.bio;
     if (updateData.state !== undefined) allowedUpdates.state = updateData.state;
     // Strict true/false: Mongoose would turn "no" or 0 into false without complaint.
-    for (const setting of ["readReceipts", "discoverable"]) {
+    for (const setting of ["readReceipts", "discoverable", "pushShowSender"]) {
         if (updateData[setting] === undefined) continue;
         if (typeof updateData[setting] !== "boolean") {
             throw new AppError(`${setting} must be true or false`, 400);

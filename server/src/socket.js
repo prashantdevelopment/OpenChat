@@ -2,6 +2,7 @@ import { Server } from "socket.io";
 import { CLIENT_URL, TRUST_PROXY } from "./config/env.js";
 import { createLimiter } from "./rateLimit.js";
 import { sessionEndsAt, sessionEvents } from "./session.js";
+import { createMessagePush } from "./services/messagePush.service.js";
 import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
 import { countUnread, findConversationBetween, getContactIds, getConversationForParticipant, markAllDelivered, markConversationDelivered, markConversationRead, otherParticipant, readReceiptsShared } from "./services/conversation.service.js";
@@ -35,6 +36,8 @@ const EVENT_LIMITS = {
     iceCandidate: { windowMs: 10_000, max: 200 },
     // Reconnecting a dropped call: a couple of offers/answers a minute is plenty.
     callRestart: { windowMs: 60_000, max: 30 },
+    // The app telling whether it is on screen (tab switches, phone locked).
+    appVisible: { windowMs: 60_000, max: 120 },
 };
 // New connections per IP address a minute (each tab reconnects on its own).
 const CONNECTIONS_PER_MINUTE = 60;
@@ -51,8 +54,9 @@ const clientAddress = (socket) => {
 // online (a page reload reconnects within that time). Tests make it short.
 // statePresenceIntervalMs: the state counts (for the Discover page) are sent
 // at most this often, and only when they changed.
+// pushThrottleMs: at most one message push per chat this often (tests: short).
 const STATE_PRESENCE_ROOM = "state-presence";
-const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceIntervalMs = 3000 } = {}) => {
+const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceIntervalMs = 3000, pushThrottleMs = 10_000 } = {}) => {
     const io = new Server(httpServer, {
         cors: {
             origin: CLIENT_URL,
@@ -75,6 +79,11 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         next(new Error("Too many connections"));
     });
     io.use(socketAuthMiddleware);
+
+    // Is OpenChat on this user's screen anywhere? Each app says so (connecting
+    // and on every change); message pushes go only when it isn't.
+    const hasVisibleApp = async (userId) => (await io.in(userRoom(userId)).fetchSockets()).some((s) => s.data.visible);
+    const pushNewMessage = createMessagePush({ hasVisibleApp, throttleMs: pushThrottleMs });
 
     const eventLimiters = Object.fromEntries(Object.entries(EVENT_LIMITS).map(([event, limit]) => [event, createLimiter(limit)]));
 
@@ -164,6 +173,21 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         // server can reach the user no matter which conversation is open.
         // Joined on every connection, so it survives reconnects automatically.
         socket.join(userRoom(socket.userId));
+        socket.data.visible = socket.handshake.auth?.visible === true;
+        // One live socket per tab: an older one of the same tab (a network
+        // switch, a quick reconnect) would otherwise linger until its ping
+        // times out (~45 s), still counted as on screen and holding back
+        // pushes. Only this user's own sockets are looked at.
+        const tabId = socket.handshake.auth?.tabId;
+        if (typeof tabId === "string" && /^[\w-]{8,64}$/.test(tabId)) {
+            socket.data.tabId = tabId;
+            io.in(userRoom(socket.userId)).fetchSockets()
+                .then((sockets) => sockets.forEach((other) => { if (other.id !== socket.id && other.data.tabId === tabId) other.disconnect(true); }))
+                .catch(() => {});
+        }
+        socket.on("appVisible", (visible) => {
+            socket.data.visible = visible === true;
+        });
 
         // The login session behind this socket: it closes when the session is
         // ended (logout: at once, via sessionEvents) or runs out. The session
@@ -285,6 +309,8 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
 
                 // Full message: only to people who have this conversation open.
                 io.to(message.conversationId.toString()).emit("newMessage", message);
+                // Push to whoever isn't looking at OpenChat right now.
+                pushNewMessage(conversation, message, unreadCounts);
 
                 if (typeof ack === "function") ack({ success: true, message });
             } catch (err) {
