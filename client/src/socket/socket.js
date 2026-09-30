@@ -27,18 +27,16 @@ const socket = io(API_URL || undefined,
 document.addEventListener("visibilitychange", () => {
     if (socket.connected) socket.emit("appVisible", isVisible());
 });
+// The device lost its network: drop the connection now (the server's ping
+// would only notice after up to ~45 s), so "Not connected" shows and new
+// messages wait for Retry instead of seeming sent. It reconnects by itself.
+window.addEventListener("offline", () => {
+    if (socket.connected) socket.io.engine?.close();
+});
 // The tab is closing: say so at once. The server may only notice the lost
 // connection much later, and would keep holding back pushes until then.
 window.addEventListener("pagehide", () => {
     if (socket.connected) socket.emit("appVisible", false);
-});
-
-socket.on("connect", () => {
-    console.log("Connected to server with ID:", socket.id);
-});
-
-socket.on("disconnect", () => {
-    console.log("Disconnected from server", socket.id);
 });
 
 export default socket;

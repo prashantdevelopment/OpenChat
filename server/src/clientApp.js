@@ -22,6 +22,12 @@ const inlineScriptHashes = (file) => {
 
 // The router serving the app, or null when there is no build (development:
 // Vite serves the app itself).
+// The app's pages (keep in step with client/src/App.jsx). Anything else still
+// gets the app, which shows "Page not found", but with a real 404 status, so
+// search engines don't count it as a page.
+const APP_PAGES = [/^\/$/, /^\/(login|register|register\/google|discover|settings)\/?$/, /^\/chat(\/[0-9a-f]{24})?\/?$/, /^\/u\/[^/]+\/?$/];
+export const isAppPage = (pathname) => APP_PAGES.some((pattern) => pattern.test(pathname));
+
 export const createClientApp = () => {
     if (!existsSync(path.join(DIST, "index.html"))) return null;
     const scriptHashes = [...new Set(["index.html", "offline.html"].flatMap(inlineScriptHashes))];
@@ -66,7 +72,7 @@ export const createClientApp = () => {
     // to show, including its own "Page not found" (marked noindex).
     router.get(/^(?!\/api(\/|$)).*/, (req, res) => {
         res.set("Cache-Control", "no-cache");
-        res.sendFile(path.join(DIST, "index.html"));
+        res.status(isAppPage(req.path) ? 200 : 404).sendFile(path.join(DIST, "index.html"));
     });
     return router;
 };

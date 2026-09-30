@@ -198,8 +198,12 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         const contactIds = await getContactIds(userId);
         contactIds.forEach((contactId) => io.to(userRoom(contactId)).emit("presence", { userId, ...presence }));
     };
+    // Who connected when: printed in development only (tests read it); in
+    // production that would be a log of everyone's activity.
+    const devLog = process.env.NODE_ENV === "production" ? () => {} : (...args) => console.log(...args);
+
     io.on("connection", (socket) => {
-        console.log("A user connected:", socket.id , "User ID:", socket.userId);
+        devLog("A user connected:", socket.id, "User ID:", socket.userId);
 
         // Personal room: every socket (tab/device) of this user joins it, so the
         // server can reach the user no matter which conversation is open.
@@ -304,7 +308,6 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
                     return;
                 }
                 socket.join(conversation._id.toString());
-                console.log("User joined conversation:", conversation._id.toString(), "User:", socket.userId);
 
                 if (typeof ack === "function") ack({ success: true });
             } catch (err) {
@@ -408,11 +411,10 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
 
         socket.on("leaveConversation", (conversationId) => {
             socket.leave(conversationId);
-            console.log("User left conversation:", conversationId, "User:", socket.userId);
         });
 
         socket.on("disconnect", () => {
-            console.log("A user disconnected:", socket.id, "User ID:", socket.userId);
+            devLog("A user disconnected:", socket.id, "User ID:", socket.userId);
             socketClosed(socket.userId, presenceGraceMs, async () => {
                 markOffline(socket.userId);
                 scheduleStateCounts();
