@@ -63,6 +63,8 @@ Severity is by exploitability in this app, not by pattern.
 
 - **Group calls (step 71):** a mesh of direct WebRTC connections (DTLS-SRTP), so the server never carries call media. The signals between two people are encrypted with a key derived from their two key pairs and bound to the call, and a person whose key changed is not connected to. The server keeps who is in each call in memory and enforces: members only, at most six people, signals only between two people in the same call (never to anyone else), a second device replaces the first, and anyone who leaves the group or disconnects is dropped from the call. In a mesh each person's IP address is visible to the others in the call (as in any direct WebRTC call); TURN hides it when relay is used.
 
+- **Group notifications and mute (step 72):** group pushes carry the group's name, who wrote or called and the kind of message, never the text (the server can't read it); someone who hides senders in notifications gets neither the group nor the person. Muting is per person: each person's `mutedUntil` stays on the server and only their own value is ever returned (the conversation's JSON drops the map), and muted people get no pushes, alerts or group-call rings.
+
 ## 4. Forward secrecy study
 
 **What it is.** Forward secrecy means that stealing a key today doesn't unlock messages from yesterday. OpenChat's conversation key comes from the two long-term keys, so anyone who later gets a user's private key (their password plus the locked blob from the server, or their unlocked device) and has recorded the ciphertext can read the **whole history** of that user's chats.

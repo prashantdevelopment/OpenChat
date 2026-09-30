@@ -1,10 +1,39 @@
 import mongoose from 'mongoose';
+import { EventEmitter } from "events";
 import  Conversation  from '../models/conversation.model.js';
 import AppError from '../utils/AppError.js';
 import User, { PUBLIC_USER_FIELDS } from '../models/user.model.js';
 import Message from '../models/message.model.js';
 import { isOnline } from "../presence.js";
 import { assertNotBlocked, blockRelations } from "./block.service.js";
+
+// Muting a chat (step 72): no pushes, alerts or rings for it until then.
+// "always" is stored as a date far away. muteEvents tells my other tabs.
+export const muteEvents = new EventEmitter();
+const MUTE_FOR = { "8h": 8 * 60 * 60 * 1000, "1w": 7 * 24 * 60 * 60 * 1000 };
+const ALWAYS = new Date("9999-12-31T00:00:00Z");
+
+// Until when this person muted this chat (null: not muted, or it ran out).
+const mutedUntilFor = (conversation, userId) => {
+    const until = conversation.mutedUntil?.get(String(userId));
+    return until && until > new Date() ? until : null;
+};
+const isMuted = (conversation, userId) => mutedUntilFor(conversation, userId) !== null;
+
+// duration: "8h", "1w", "always", or null to unmute.
+const setMute = async (conversationId, userId, duration) => {
+    if (duration !== null && !(duration in MUTE_FOR) && duration !== "always") {
+        throw new AppError('duration must be "8h", "1w", "always" or null', 400);
+    }
+    const conversation = await getChatForMember(conversationId, userId);
+    const until = duration === null ? null : duration === "always" ? ALWAYS : new Date(Date.now() + MUTE_FOR[duration]);
+    await Conversation.updateOne(
+        { _id: conversation._id },
+        until ? { $set: { [`mutedUntil.${userId}`]: until } } : { $unset: { [`mutedUntil.${userId}`]: "" } }
+    );
+    muteEvents.emit("changed", { userId: String(userId), conversationId: String(conversation._id), mutedUntil: until });
+    return until;
+};
 
 // Everything here is about 1:1 chats. Groups (group.service.js) stay out of
 // these paths (messages, uploads, calls, the chat list, presence) until they
@@ -159,6 +188,7 @@ const getUserConversations = async (userId) => {
             // Only the blocker learns about the block (the blocked person is never told).
             blockedByMe: otherIds.some((id) => blockedByMe.has(id)),
             receipts: receiptsFor(conversation, userId),
+            mutedUntil: mutedUntilFor(conversation, userId),
             unreadCount: unreadById.get(conversation._id.toString()) ?? 0
         };
     });
@@ -265,6 +295,9 @@ const markAllDelivered = async (userId) => {
 };
 
 export {
+    isMuted,
+    mutedUntilFor,
+    setMute,
     getChatForMember,
     groupReceiptsFor,
     createOrGetConversation,

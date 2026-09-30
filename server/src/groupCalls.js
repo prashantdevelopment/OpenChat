@@ -2,6 +2,8 @@ import AppError from "./utils/AppError.js";
 import Conversation from "./models/conversation.model.js";
 import User, { PUBLIC_USER_FIELDS } from "./models/user.model.js";
 import { checkCallId, checkSignal } from "./calls.js";
+import { sendPush } from "./services/push.service.js";
+import { isMuted } from "./services/conversation.service.js";
 
 // Group calls (step 71): a "mesh", where every two people in the call connect
 // directly (WebRTC; through TURN when needed). The media never passes the
@@ -16,7 +18,32 @@ export const MAX_IN_CALL = 6;
 const MEDIA = ["audio", "video"];
 const SIGNAL_KINDS = ["offer", "answer", "candidate"];
 
-export const createGroupCalls = ({ io, userRoom }) => {
+// A group call starting: an urgent push to members who aren't looking at
+// OpenChat and haven't muted the group (useless once the ringing is over).
+const RING_SECONDS = 30;
+const pushCallStart = async ({ hasVisibleApp, groupId, callId, media, from }) => {
+    const group = await Conversation.findById(groupId).select("name participants mutedUntil");
+    if (!group) return;
+    const callerName = from?.name || from?.username || "Someone";
+    await Promise.all(group.participants.map(String).filter((id) => id !== String(from?._id)).map(async (id) => {
+        if (isMuted(group, id) || (await hasVisibleApp(id))) return;
+        const person = await User.findById(id).select("pushShowSender").lean();
+        const showSender = person?.pushShowSender !== false;
+        await sendPush(
+            id,
+            {
+                title: showSender ? group.name : "OpenChat",
+                body: showSender ? `${callerName} started a ${media === "video" ? "video" : "voice"} call` : "A group call started",
+                url: `/chat/${groupId}`,
+                tag: `groupcall-${callId}`,
+                call: true,
+            },
+            { urgency: "high", ttlSeconds: RING_SECONDS, topic: callId.replaceAll("-", "") },
+        );
+    }));
+};
+
+export const createGroupCalls = ({ io, userRoom, hasVisibleApp = async () => false }) => {
     const calls = new Map(); // groupId -> { callId, media, startedAt, people: Map(userId -> socketId) }
 
     const summary = (groupId) => {
@@ -43,7 +70,7 @@ export const createGroupCalls = ({ io, userRoom }) => {
     };
 
     const memberGroup = async (groupId, userId) => {
-        const group = await Conversation.findOne({ _id: groupId, type: "group", participants: userId }).select("name participants").lean();
+        const group = await Conversation.findOne({ _id: groupId, type: "group", participants: userId }).select("name participants mutedUntil");
         if (!group) throw new AppError("Group not found", 404);
         return group;
     };
@@ -90,8 +117,10 @@ export const createGroupCalls = ({ io, userRoom }) => {
             others.forEach((id) => io.to(call.people.get(id)).emit("groupCallPeerJoined", { groupId, callId: call.callId, userId: me }));
             if (starting) {
                 const from = await User.findById(me).select(PUBLIC_USER_FIELDS).lean();
-                group.participants.map(String).filter((id) => id !== me).forEach((id) =>
+                // Members who muted the group don't ring (the "in progress" bar still shows).
+                group.participants.map(String).filter((id) => id !== me && !isMuted(group, id)).forEach((id) =>
                     io.to(userRoom(id)).emit("groupCallRinging", { groupId, groupName: group.name, callId, media, from }));
+                pushCallStart({ hasVisibleApp, groupId, callId, media, from }).catch((error) => console.error("Group call push:", error.message));
             }
             await tellMembers(groupId);
             return { callId: call.callId, media: call.media, participants: others };

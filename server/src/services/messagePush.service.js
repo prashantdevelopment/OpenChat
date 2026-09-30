@@ -1,7 +1,9 @@
 import User from "../models/user.model.js";
+import Conversation from "../models/conversation.model.js";
+import { isMuted } from "./conversation.service.js";
 import { sendPush } from "./push.service.js";
 
-// Push for a new message (step 64): to each other participant who isn't
+// Push for a new message (step 64; groups and muting: step 72): to each other participant who isn't
 // looking at OpenChat anywhere (no tab or app on screen: the in-app alert
 // covers that). What it says: who it is from (unless they chose not to show
 // it) and the kind of message, never the text: it is end-to-end encrypted and
@@ -19,17 +21,25 @@ export const createMessagePush = ({ hasVisibleApp, throttleMs = 10_000 }) => {
     const send = async ({ recipientId, conversationId, senderId, messageType, unread }) => {
         // Looking at it by now (opened the app during the wait): nothing to do.
         if (await hasVisibleApp(recipientId)) return;
-        const [sender, recipient] = await Promise.all([
+        const [sender, recipient, chat] = await Promise.all([
             User.findById(senderId).select("name username").lean(),
             User.findById(recipientId).select("pushShowSender").lean(),
+            Conversation.findById(conversationId).select("type name mutedUntil"),
         ]);
-        if (!sender || !recipient) return;
+        if (!sender || !recipient || !chat) return;
+        // Muted meanwhile (the push waited for the end of a burst).
+        if (isMuted(chat, recipientId)) return;
         const showSender = recipient.pushShowSender !== false;
+        const senderName = sender.name || sender.username;
+        const kind = bodyFor(messageType, unread);
+        // A group: its name, and who wrote ("Riya: Photo"); with senders hidden, neither.
+        const title = chat.type === "group" ? (showSender ? chat.name : "OpenChat") : showSender ? senderName : "OpenChat";
+        const body = chat.type === "group" ? (showSender ? `${senderName}: ${kind}` : `${kind} in a group`) : kind;
         await sendPush(
             recipientId,
             {
-                title: showSender ? sender.name || sender.username : "OpenChat",
-                body: bodyFor(messageType, unread),
+                title,
+                body,
                 url: `/chat/${conversationId}`,
                 tag: conversationId,
             },
@@ -47,6 +57,7 @@ export const createMessagePush = ({ hasVisibleApp, throttleMs = 10_000 }) => {
         conversation.participants.forEach(async (participant, i) => {
             const recipientId = String(participant);
             if (recipientId === senderId) return;
+            if (isMuted(conversation, recipientId)) return; // muted by them
             // Seen on screen as it arrived: never pushed, not even later
             // (leaving the app a moment after must not bring it up again).
             if (await hasVisibleApp(recipientId).catch(() => false)) return;

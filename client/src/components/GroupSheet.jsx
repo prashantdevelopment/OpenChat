@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { EllipsisVerticalIcon, LogOutIcon, ShieldIcon, UserMinusIcon, UserPlusIcon } from "lucide-react";
+import { BellIcon, BellOffIcon, EllipsisVerticalIcon, LogOutIcon, ShieldIcon, UserMinusIcon, UserPlusIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
 import Avatar from "./Avatar.jsx";
 import FormField from "./FormField.jsx";
+import MuteDialog from "./MuteDialog.jsx";
+import { isMutedNow, mutedUntilText } from "../lib/mute.js";
 import { Sheet, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
@@ -156,7 +158,9 @@ const InvitePeople = ({ group, onDone }) => {
 // Admins: rename, invite, make admin, remove someone (the group then gets a
 // new key at once, made here), let all members invite. Everyone: leave.
 // Reloads while open when something changes.
-const GroupSheet = ({ open, onOpenChange, groupId, currentUserId }) => {
+// mutedUntil / onMuteChange: my notifications for this group (MuteDialog).
+const GroupSheet = ({ open, onOpenChange, groupId, currentUserId, mutedUntil, onMuteChange }) => {
+  const [muteOpen, setMuteOpen] = useState(false);
   const { currentUser, privateKey } = useAuth();
   const navigate = useNavigate();
   const [group, setGroup] = useState(null);
@@ -374,6 +378,14 @@ const GroupSheet = ({ open, onOpenChange, groupId, currentUserId }) => {
               </Section>
             ) : null}
 
+            <Section title="Notifications">
+              <p className="mt-1 mb-3 text-sm text-muted-foreground">{isMutedNow(mutedUntil) ? `${mutedUntilText(mutedUntil)}.` : "On: new messages and calls alert you."}</p>
+              <Button variant="outline" className="min-h-[44px] rounded-full px-5 sm:h-9 sm:min-h-0" onClick={() => setMuteOpen(true)}>
+                {isMutedNow(mutedUntil) ? <BellIcon aria-hidden="true" strokeWidth={1.4} /> : <BellOffIcon aria-hidden="true" strokeWidth={1.4} />}
+                {isMutedNow(mutedUntil) ? "Unmute" : "Mute"}
+              </Button>
+            </Section>
+
             <Section title="Leave">
               <p className="mt-1 mb-3 text-sm text-muted-foreground">
                 You&apos;ll stop getting its messages.{isAdmin && shown.admins.length === 1 && shown.members.length > 1 ? " The member here longest becomes admin." : ""}
@@ -387,6 +399,9 @@ const GroupSheet = ({ open, onOpenChange, groupId, currentUserId }) => {
         )}
       </SheetPopup>
 
+      {shown ? (
+        <MuteDialog open={muteOpen} onOpenChange={setMuteOpen} conversationId={groupId} name={shown.name} mutedUntil={mutedUntil} onChanged={(until) => onMuteChange?.(until)} />
+      ) : null}
       <Dialog open={confirm !== null} onOpenChange={(next) => !next && setConfirm(null)}>
         <DialogPopup>
           <DialogHeader>

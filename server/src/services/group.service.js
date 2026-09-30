@@ -8,7 +8,7 @@ import { isBlockedBetween } from "./block.service.js";
 import GroupKeyEpoch from "../models/groupKeyEpoch.model.js";
 import Message from "../models/message.model.js";
 import { addSystemMessage } from "./message.service.js";
-import { countUnread, groupReceiptsFor } from "./conversation.service.js";
+import { countUnread, groupReceiptsFor, mutedUntilFor } from "./conversation.service.js";
 import { addInviteeKeys, checkLockedKeys, createFirstEpoch, dropKeysOf, getMyKeys, markKeyStale, rotateGroupKey } from "./groupKeys.service.js";
 
 // Groups (step 66): a group is a Conversation with type "group". Its members
@@ -247,6 +247,7 @@ export const listMyGroups = async (userId) => {
             lastMessage: group.lastMessage?.toJSON?.() ?? group.lastMessage ?? null,
             lastMessageAt: group.lastMessageAt,
             unreadCount: await countUnread(group, userId),
+            mutedUntil: mutedUntilFor(group, userId),
             receipts: groupReceiptsFor(group, userId, group.participants),
         };
     }));

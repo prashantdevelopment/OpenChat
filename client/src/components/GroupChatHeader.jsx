@@ -13,7 +13,7 @@ import { useGroupCall } from "../calls/GroupCallContext.js";
 // who is writing), then voice and video call. Tapping the name opens the
 // group info. A call going on shows as a bar under it ("Join").
 // callDisabled: no calls now (offline, or in a call already).
-const GroupChatHeader = ({ group, currentUserId, nameOf, headingLevel: Heading = "h2", callDisabled }) => {
+const GroupChatHeader = ({ group, currentUserId, nameOf, headingLevel: Heading = "h2", callDisabled, onMuteChange }) => {
   const [infoOpen, setInfoOpen] = useState(false);
   const typing = useTypingPeople(group._id, currentUserId);
   const { activeCalls, call, joinGroupCall, watchGroupCall } = useGroupCall();
@@ -62,7 +62,7 @@ const GroupChatHeader = ({ group, currentUserId, nameOf, headingLevel: Heading =
       <Button variant="ghost" size="icon-lg" className="rounded-full" aria-label={`Group video call ${group.name}`} disabled={callDisabled || Boolean(ongoing)} onClick={() => joinGroupCall({ groupId: group._id, media: "video" })}>
         <VideoIcon aria-hidden="true" strokeWidth={1.4} />
       </Button>
-      <GroupSheet open={infoOpen} onOpenChange={setInfoOpen} groupId={group._id} currentUserId={currentUserId} />
+      <GroupSheet open={infoOpen} onOpenChange={setInfoOpen} groupId={group._id} currentUserId={currentUserId} mutedUntil={group.mutedUntil} onMuteChange={onMuteChange} />
     </header>
     {ongoing && !inThisCall ? (
       <div role="status" className="flex shrink-0 items-center gap-3 border-b border-border bg-brand/8 px-4 py-2 md:px-6">

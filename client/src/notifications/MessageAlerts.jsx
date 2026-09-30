@@ -9,6 +9,7 @@ import { describeMessage } from "../lib/messageContent.js";
 import { getNotificationPrefs, playChime, setAppBadge, shouldNotify } from "../lib/notifications.js";
 import { displayName } from "../lib/people.js";
 import { getGroupCipher } from "../lib/groupCipher.js";
+import { isMutedNow } from "../lib/mute.js";
 import { toastManager } from "@/components/ui/toast";
 import { UnreadContext } from "./UnreadContext.js";
 
@@ -18,8 +19,8 @@ const TYPE_LABELS = { image: "Photo", video: "Video", audio: "Voice message", fi
 const fetchChats = async (myId) => {
   const [chats, groups] = await Promise.all([api.get("/conversations"), api.get("/groups")]);
   return Object.fromEntries([
-    ...chats.data.conversations.map((c) => [c._id, { unreadCount: c.unreadCount ?? 0, peer: c.participants.find((p) => p._id !== myId) }]),
-    ...groups.data.groups.map((g) => [g._id, { unreadCount: g.unreadCount ?? 0, group: g }]),
+    ...chats.data.conversations.map((c) => [c._id, { unreadCount: c.unreadCount ?? 0, peer: c.participants.find((p) => p._id !== myId), mutedUntil: c.mutedUntil }]),
+    ...groups.data.groups.map((g) => [g._id, { unreadCount: g.unreadCount ?? 0, group: g, mutedUntil: g.mutedUntil }]),
   ]);
 };
 
@@ -76,6 +77,7 @@ const MessageAlerts = ({ children }) => {
       if (fresh) setChats(fresh);
       chat = fresh?.[update._id];
     }
+    if (isMutedNow(chat?.mutedUntil)) return; // muted: no alert, no sound
     const prefs = getNotificationPrefs();
     const inFront = document.visibilityState === "visible" && document.hasFocus();
 
@@ -116,10 +118,14 @@ const MessageAlerts = ({ children }) => {
     socket.on("conversationRead", handleRead);
     socket.on("blocksChanged", handleReconnect);
     socket.on("groupsChanged", handleReconnect);
+    const handleMute = ({ conversationId, mutedUntil }) =>
+      setChats((prev) => (prev[conversationId] ? { ...prev, [conversationId]: { ...prev[conversationId], mutedUntil } } : prev));
+    socket.on("muteChanged", handleMute);
     socket.io.on("reconnect", handleReconnect);
     return () => {
       ignore = true;
       socket.off("groupsChanged", handleReconnect);
+      socket.off("muteChanged", handleMute);
       socket.off("conversationUpdated", handleUpdate);
       socket.off("conversationRead", handleRead);
       socket.off("blocksChanged", handleReconnect);

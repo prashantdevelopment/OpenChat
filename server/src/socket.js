@@ -5,7 +5,7 @@ import { sessionEndsAt, sessionEvents } from "./session.js";
 import { createMessagePush } from "./services/messagePush.service.js";
 import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
-import { countUnread, findConversationBetween, getChatForMember, getContactIds, groupReceiptsFor, markAllDelivered, markConversationDelivered, markConversationRead, otherParticipant, readReceiptsShared } from "./services/conversation.service.js";
+import { countUnread, findConversationBetween, getChatForMember, getContactIds, groupReceiptsFor, markAllDelivered, markConversationDelivered, markConversationRead, muteEvents, otherParticipant, readReceiptsShared } from "./services/conversation.service.js";
 import Conversation from "./models/conversation.model.js";
 import { blockEvents, hasBlocked, isBlockedBetween } from "./services/block.service.js";
 import User from "./models/user.model.js";
@@ -97,7 +97,10 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
     const pushNewMessage = createMessagePush({ hasVisibleApp, throttleMs: pushThrottleMs });
     const ringingCalls = createRingingCalls({ hasVisibleApp, ringMs: callRingMs });
     const stopGroupEvents = registerGroupEvents(io, { userRoom, hasVisibleApp });
-    const groupCalls = createGroupCalls({ io, userRoom });
+    const groupCalls = createGroupCalls({ io, userRoom, hasVisibleApp });
+    // Muted or unmuted in one tab: the others know (no alerts for it).
+    const onMuteChanged = ({ userId, conversationId, mutedUntil }) => io.to(userRoom(userId)).emit("muteChanged", { conversationId, mutedUntil });
+    muteEvents.on("changed", onMuteChanged);
     const onLeftGroup = ({ group, userId }) => groupCalls.leftGroup(group._id, userId);
     groupEvents.on("left", onLeftGroup);
 
@@ -170,6 +173,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         sessionEvents.off("revoked", onSessionRevoked);
         stopGroupEvents();
         groupEvents.off("left", onLeftGroup);
+        muteEvents.off("changed", onMuteChanged);
     });
 
     // Online counts per state, to the pages that watch them (Discover).
@@ -338,8 +342,8 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
 
                 // Full message: only to people who have this conversation open.
                 io.to(message.conversationId.toString()).emit("newMessage", message);
-                // Push to whoever isn't looking at OpenChat right now (groups: step 72).
-                if (conversation.type !== "group") pushNewMessage(conversation, message, unreadCounts);
+                // Push to whoever isn't looking at OpenChat right now (and hasn't muted it).
+                pushNewMessage(conversation, message, unreadCounts);
 
                 if (typeof ack === "function") ack({ success: true, message });
             } catch (err) {

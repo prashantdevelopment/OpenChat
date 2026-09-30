@@ -1,4 +1,4 @@
-import { createOrGetConversation, getUserConversations } from "../services/conversation.service.js";
+import { createOrGetConversation, getUserConversations, setMute } from "../services/conversation.service.js";
 
 
 const createOrGetConversationController = async (req, res) => {
@@ -31,7 +31,15 @@ const getUserConversationsController = async (req, res) => {
     });
 }
 
+// Mute this chat's notifications: { duration: "8h" | "1w" | "always" | null }.
+const muteController = async (req, res) => {
+    const duration = req.body?.duration === undefined ? undefined : req.body.duration;
+    const mutedUntil = await setMute(req.params.conversationId, req.user.userId, duration ?? null);
+    res.status(200).json({ success: true, mutedUntil });
+}
+
 export {
     createOrGetConversationController,
-    getUserConversationsController
+    getUserConversationsController,
+    muteController
 }

@@ -7,6 +7,8 @@ import { formatConversationTime, formatFullDateTime } from "../lib/time.js";
 import { describeMessage } from "../lib/messageContent.js";
 import { memberCount } from "../lib/groups.js";
 import { cn } from "@/lib/utils";
+import { BellOffIcon } from "lucide-react";
+import { isMutedNow } from "../lib/mute.js";
 
 // A group in the chat list, set like a conversation: its initial, the name,
 // the time, a one-line preview with who wrote it ("Riya: Photo") and the
@@ -39,9 +41,15 @@ const GroupListItem = ({ group, currentUserId, nameOf }) => {
         {({ isActive }) => (
           <>
             <Avatar name={group.name} className={cn("row-span-2 bg-brand text-brand-foreground italic", isActive && "ring-2 ring-background")} />
-            <span className="min-w-0 truncate font-heading text-[1.3125rem] leading-tight">
-              {group.name}
+            <span className="flex min-w-0 items-center gap-2 font-heading text-[1.3125rem] leading-tight">
+              <span className="truncate">{group.name}</span>
               <span className="sr-only">, group</span>
+              {isMutedNow(group.mutedUntil) ? (
+                <>
+                  <BellOffIcon aria-hidden="true" strokeWidth={1.5} className="size-3.5 shrink-0 opacity-60" />
+                  <span className="sr-only">, muted</span>
+                </>
+              ) : null}
             </span>
             {lastMessageAt ? (
               <time

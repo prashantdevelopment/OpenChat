@@ -185,6 +185,14 @@ const Chat = () => {
       setGroups((prev) => prev.map(withReceipt));
     };
 
+    // Muted or unmuted (here or in another tab).
+    const handleMuteChanged = ({ conversationId: id, mutedUntil }) => {
+      const withMute = (chat) => (chat._id === id ? { ...chat, mutedUntil } : chat);
+      setConversations((prev) => prev.map(withMute));
+      setGroups((prev) => prev.map(withMute));
+    };
+
+    socket.on("muteChanged", handleMuteChanged);
     socket.on("conversationUpdated", handleConversationUpdated);
     socket.on("receipt", handleReceipt);
     socket.on("presence", handlePresence);
@@ -193,6 +201,7 @@ const Chat = () => {
     socket.on("blocksChanged", handleReconnect);
     socket.io.on("reconnect", handleReconnect);
     return () => {
+      socket.off("muteChanged", handleMuteChanged);
       socket.off("conversationUpdated", handleConversationUpdated);
       socket.off("receipt", handleReceipt);
       socket.off("presence", handlePresence);
@@ -369,6 +378,7 @@ const Chat = () => {
                 nameOf={nameOfIn(openGroup)}
                 headingLevel={PeerHeading}
                 callDisabled={!isConnected || isInCall}
+                onMuteChange={(mutedUntil) => setGroups((prev) => prev.map((g) => (g._id === openGroup._id ? { ...g, mutedUntil } : g)))}
               />
               <ConversationView
                 key={conversationId}
@@ -391,6 +401,8 @@ const Chat = () => {
                 headingLevel={PeerHeading}
                 callDisabled={!peer?.publicKey || !isConnected || isInCall || blockedByMe || keyChanged}
                 onCall={(media) => startCall({ conversationId, peer, media })}
+                mutedUntil={openConversation?.mutedUntil}
+                onMuteChange={(mutedUntil) => setConversations((prev) => prev.map((c) => (c._id === conversationId ? { ...c, mutedUntil } : c)))}
               />
               <ConversationView
                 key={conversationId}

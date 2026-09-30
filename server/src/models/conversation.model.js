@@ -103,6 +103,14 @@ const conversationSchema = new mongoose.Schema({
         default: () => new Map()
     },
 
+    // Notifications muted by each person until a time: { "<userId>": Date }
+    // ("always" is a date far away). Nobody else is told.
+    mutedUntil: {
+        type: Map,
+        of: Date,
+        default: undefined
+    },
+
 },
     {
         timestamps: true,
@@ -113,6 +121,7 @@ const conversationSchema = new mongoose.Schema({
             transform: (_doc, ret) => {
                 delete ret.lastReadAt;
                 delete ret.lastDeliveredAt;
+                delete ret.mutedUntil;
                 return ret;
             }
         }

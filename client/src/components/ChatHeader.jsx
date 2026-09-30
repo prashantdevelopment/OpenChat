@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { ArrowLeftIcon, EllipsisVerticalIcon, PhoneIcon, ShieldCheckIcon, UserRoundIcon, VideoIcon } from "lucide-react";
+import { ArrowLeftIcon, BellIcon, BellOffIcon, EllipsisVerticalIcon, PhoneIcon, ShieldCheckIcon, UserRoundIcon, VideoIcon } from "lucide-react";
 import Avatar from "./Avatar.jsx";
 import SafetyNumber from "./SafetyNumber.jsx";
 import ContactSheet from "./ContactSheet.jsx";
+import MuteDialog from "./MuteDialog.jsx";
+import { isMutedNow } from "../lib/mute.js";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { usePeerTyping } from "../socket/useTyping.js";
@@ -15,8 +17,11 @@ import { displayName, handle } from "../lib/people.js";
 // (@username · online / last seen, or "writing…"), voice call, video call
 // and a menu (contact info, safety number). Tapping the name opens the
 // contact info sheet.
-const ChatHeader = ({ peer, currentUser, conversationId, conversationKey, photos, blocked, onBlockedChange, headingLevel: Heading = "h2", callDisabled, onCall }) => {
+// mutedUntil / onMuteChange: this chat's notifications (MuteDialog).
+const ChatHeader = ({ peer, currentUser, conversationId, conversationKey, photos, blocked, onBlockedChange, headingLevel: Heading = "h2", callDisabled, onCall, mutedUntil, onMuteChange }) => {
   const [safetyOpen, setSafetyOpen] = useState(false);
+  const [muteOpen, setMuteOpen] = useState(false);
+  const muted = isMutedNow(mutedUntil);
   const [contactOpen, setContactOpen] = useState(false);
   const isTyping = usePeerTyping(conversationId, currentUser._id);
   const name = displayName(peer);
@@ -81,6 +86,10 @@ const ChatHeader = ({ peer, currentUser, conversationId, conversationKey, photos
               <UserRoundIcon aria-hidden="true" strokeWidth={1.5} />
               Contact info
             </MenuItem>
+            <MenuItem onClick={() => setMuteOpen(true)}>
+              {muted ? <BellIcon aria-hidden="true" strokeWidth={1.5} /> : <BellOffIcon aria-hidden="true" strokeWidth={1.5} />}
+              {muted ? "Unmute notifications" : "Mute notifications"}
+            </MenuItem>
             {peer.publicKey ? (
               <MenuItem onClick={() => setSafetyOpen(true)}>
                 <ShieldCheckIcon aria-hidden="true" strokeWidth={1.5} />
@@ -101,6 +110,9 @@ const ChatHeader = ({ peer, currentUser, conversationId, conversationKey, photos
         blocked={blocked}
         onBlockedChange={onBlockedChange}
       />
+      {peer ? (
+        <MuteDialog open={muteOpen} onOpenChange={setMuteOpen} conversationId={conversationId} name={name} mutedUntil={mutedUntil} onChanged={onMuteChange} />
+      ) : null}
       <SafetyNumber myPublicKey={currentUser.publicKey} peerPublicKey={peer?.publicKey} peerName={name} open={safetyOpen} onOpenChange={setSafetyOpen} />
     </header>
   );
