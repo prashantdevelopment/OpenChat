@@ -1,16 +1,8 @@
 import { useState } from "react";
 import { DownloadIcon, FileIcon } from "lucide-react";
-import { loadDecrypted } from "../lib/encryptedFiles.js";
+import { loadDecrypted, saveFile } from "../lib/encryptedFiles.js";
 import { formatFileSize } from "../lib/attachments.js";
 import { Button } from "@/components/ui/button";
-
-// Saves a (decrypted) blob URL under the file's name.
-const saveAs = (url, name) => {
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name || "file";
-  link.click();
-};
 
 // A file message: name, size and a Download button. The file is downloaded,
 // decrypted and saved only when asked; it is never opened in the page (it is
@@ -23,13 +15,13 @@ const FileAttachment = ({ fileId, file, previewUrl, children }) => {
 
   const download = () => {
     if (previewUrl) {
-      saveAs(previewUrl, name);
+      saveFile(previewUrl, name);
       return;
     }
     setState({ status: "loading", progress: 0 });
     loadDecrypted(fileId, file, "file", (progress) => setState({ status: "loading", progress }))
       .then((url) => {
-        saveAs(url, name);
+        saveFile(url, name);
         setState({ status: "idle", progress: 0 });
       })
       .catch(() => setState({ status: "failed", progress: 0 }));

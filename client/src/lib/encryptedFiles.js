@@ -51,3 +51,21 @@ export const loadDecrypted = (fileId, file, kind, onProgress) => {
   }
   return fileUrls.get(fileId);
 };
+
+// Saves a (decrypted) blob URL under a file name.
+export const saveFile = (url, name) => {
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name || "file";
+  link.click();
+};
+
+// A photo's or video's name when saved: the sender's file name, with the
+// extension of its real type (the saved bytes are that type), or "OpenChat
+// photo.jpg" and the like.
+const EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" };
+export const mediaFileName = (kind, file) => {
+  const base = (file.name ?? "").replace(/\.[^.]*$/, "").trim() || `OpenChat ${kind === "video" ? "video" : "photo"}`;
+  const extension = EXTENSIONS[baseType(file.mime)] ?? (kind === "video" ? "mp4" : "jpg");
+  return `${base}.${extension}`;
+};

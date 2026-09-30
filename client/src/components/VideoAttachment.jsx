@@ -4,6 +4,7 @@ import { getReadyUrl, loadDecrypted } from "../lib/encryptedFiles.js";
 import { formatDuration, formatFileSize } from "../lib/attachments.js";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import MediaViewer from "./MediaViewer.jsx";
 
 // Up to 288px wide and 320px tall, keeping the video's shape (16:9 if unknown).
 const displaySize = ({ width, height }) => {
@@ -13,9 +14,11 @@ const displaySize = ({ width, height }) => {
 };
 
 // A video message. Downloaded only when the user presses play (videos are
-// big), then decrypted and played. previewUrl: my own video while it is sent.
-const VideoAttachment = ({ fileId, file, previewUrl, label, children }) => {
+// big), then decrypted and played full screen (with Back and Download); the
+// message then shows its first frame. previewUrl: my own video while it is sent.
+const VideoAttachment = ({ fileId, file, previewUrl, from, label, caption, children }) => {
   const [state, setState] = useState({ status: "idle", url: null, progress: 0 });
+  const [viewing, setViewing] = useState(false);
   const size = displaySize(file);
   // My own video (or one played before) is already here.
   const url = previewUrl ?? state.url ?? getReadyUrl(fileId);
@@ -26,7 +29,10 @@ const VideoAttachment = ({ fileId, file, previewUrl, label, children }) => {
   const play = () => {
     setState({ status: "loading", url: null, progress: 0 });
     loadDecrypted(fileId, file, "video", (progress) => setState((s) => ({ ...s, progress })))
-      .then((loaded) => setState({ status: "ready", url: loaded, progress: 1 }))
+      .then((loaded) => {
+        setState({ status: "ready", url: loaded, progress: 1 });
+        setViewing(true);
+      })
       .catch(() => setState({ status: "failed", url: null, progress: 0 }));
   };
 
@@ -36,8 +42,19 @@ const VideoAttachment = ({ fileId, file, previewUrl, label, children }) => {
       style={{ width: size.width, aspectRatio: `${size.width} / ${size.height}` }}
     >
       {url ? (
-        // autoPlay after "Play" was pressed; the controls work either way.
-        <video src={url} controls playsInline autoPlay={state.status === "ready"} aria-label={label} className="size-full object-contain" />
+        <>
+          <video src={url} muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1} className="size-full object-cover" />
+          <button
+            type="button"
+            onClick={() => setViewing(true)}
+            aria-label={`Play video${details ? `, ${details}` : ""}`}
+            className="absolute inset-0 flex cursor-pointer items-center justify-center border-0 bg-black/10 p-0 text-white hover:bg-black/20"
+          >
+            <span className="flex size-12 items-center justify-center rounded-full bg-black/45">
+              <PlayIcon aria-hidden="true" className="size-6 fill-current" />
+            </span>
+          </button>
+        </>
       ) : state.status === "loading" ? (
         <div className="flex size-full flex-col items-center justify-center gap-2 text-sm">
           <Spinner className="size-6" aria-hidden="true" role={undefined} aria-label={undefined} />
@@ -67,6 +84,7 @@ const VideoAttachment = ({ fileId, file, previewUrl, label, children }) => {
         </button>
       )}
       {children}
+      {url ? <MediaViewer open={viewing} onOpenChange={setViewing} kind="video" url={url} file={file} from={from} label={label} caption={caption} /> : null}
     </div>
   );
 };

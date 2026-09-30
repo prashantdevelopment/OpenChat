@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ImageOffIcon } from "lucide-react";
 import { loadDecrypted } from "../lib/encryptedFiles.js";
+import MediaViewer from "./MediaViewer.jsx";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -13,11 +14,13 @@ const displaySize = ({ width, height }) => {
   return { width: Math.max(Math.round(width * scale), 96), height: Math.max(Math.round(height * scale), 64) };
 };
 
-// A photo from an image message. previewUrl: my own photo while it is still
-// being sent (no download needed).
-const EncryptedImage = ({ fileId, file, alt, previewUrl, children, className }) => {
+// A photo from an image message: tap it to see it full screen (with Back and
+// Download). previewUrl: my own photo while it is still being sent (no
+// download needed).
+const EncryptedImage = ({ fileId, file, alt, from, caption, previewUrl, children, className }) => {
   const [result, setResult] = useState({ fileId: null, url: null, failed: false });
   const [attempt, setAttempt] = useState(0);
+  const [viewing, setViewing] = useState(false);
 
   useEffect(() => {
     if (previewUrl || !fileId) return;
@@ -37,10 +40,9 @@ const EncryptedImage = ({ fileId, file, alt, previewUrl, children, className }) 
   return (
     <div className={cn("relative max-w-full overflow-hidden rounded-xl bg-muted", className)} style={{ width: size.width, aspectRatio: `${size.width} / ${size.height}` }}>
       {url ? (
-        // Opens the full photo in a new tab (a local blob: address).
-        <a href={url} target="_blank" rel="noopener noreferrer" title="Open full size" className="block size-full">
+        <button type="button" onClick={() => setViewing(true)} aria-label={`${alt}. View full screen`} className="block size-full cursor-zoom-in border-0 bg-transparent p-0">
           <img src={url} alt={alt} width={size.width} height={size.height} className="size-full object-cover" />
-        </a>
+        </button>
       ) : failed ? (
         <div role="alert" className="flex size-full flex-col items-center justify-center gap-2 p-3 text-center text-sm text-muted-foreground">
           <ImageOffIcon aria-hidden="true" className="size-6" />
@@ -62,6 +64,7 @@ const EncryptedImage = ({ fileId, file, alt, previewUrl, children, className }) 
         </div>
       )}
       {children}
+      {url ? <MediaViewer open={viewing} onOpenChange={setViewing} kind="image" url={url} file={file} from={from} label={alt} caption={caption} /> : null}
     </div>
   );
 };

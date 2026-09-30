@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useDecryptedText } from "../crypto/hooks.js";
 import { computeSafetyNumber } from "../crypto/safetyNumber.js";
@@ -7,20 +7,25 @@ import { loadDecrypted } from "../lib/encryptedFiles.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
 import ViewableAvatar from "./PhotoViewer.jsx";
 import PersonActions from "./PersonActions.jsx";
+import MediaViewer from "./MediaViewer.jsx";
 import { Sheet, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { displayName, handle } from "../lib/people.js";
 
 const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name;
 const SHOWN_PHOTOS = 9;
 
-// A shared photo as a tiny print. Decrypted in the browser like in the chat.
-const SharedPhoto = ({ message, conversationKey }) => {
+// A shared photo, small; tap it to see it full screen. Decrypted in the
+// browser like in the chat.
+const SharedPhoto = ({ message, conversationKey, peerId, peerName }) => {
   const { text } = useDecryptedText(conversationKey, message, message.sender);
   const fileId = message.attachment?.fileId;
   const [url, setUrl] = useState(null);
+  const [viewing, setViewing] = useState(false);
+  const attachment = useMemo(() => (text === undefined ? null : parseAttachmentContent(text)), [text]);
+  const from = String(message.sender) === String(peerId) ? peerName : "You";
+  const label = attachment?.caption || `Photo from ${from === "You" ? "you" : from}`;
 
   useEffect(() => {
-    const attachment = text === undefined ? null : parseAttachmentContent(text);
     if (!fileId || !attachment) return;
     let ignore = false;
     loadDecrypted(fileId, attachment.file, "image")
@@ -29,11 +34,18 @@ const SharedPhoto = ({ message, conversationKey }) => {
     return () => {
       ignore = true;
     };
-  }, [fileId, text]);
+  }, [fileId, attachment]);
 
   return (
-    <li className="bg-print p-[3px] shadow-[0_12px_24px_-14px_rgb(60_40_20/0.45)]">
-      <div className="aspect-square bg-muted">{url ? <img src={url} alt="" className="size-full object-cover" /> : null}</div>
+    <li className="aspect-square overflow-hidden rounded-md bg-muted">
+      {url ? (
+        <>
+          <button type="button" onClick={() => setViewing(true)} aria-label={`${label}. View full screen`} className="block size-full cursor-zoom-in border-0 bg-transparent p-0">
+            <img src={url} alt="" className="size-full object-cover" />
+          </button>
+          <MediaViewer open={viewing} onOpenChange={setViewing} kind="image" url={url} file={attachment.file} from={from} label={label} caption={attachment.caption} />
+        </>
+      ) : null}
     </li>
   );
 };
@@ -88,7 +100,7 @@ const ContactSheet = ({ open, onOpenChange, peer, myPublicKey, conversationId, c
           {shown.length ? (
             <ul aria-label="Shared photos" className="mt-3 grid grid-cols-3 gap-2">
               {shown.map((message) => (
-                <SharedPhoto key={message._id} message={message} conversationKey={conversationKey} />
+                <SharedPhoto key={message._id} message={message} conversationKey={conversationKey} peerId={peer._id} peerName={name} />
               ))}
             </ul>
           ) : (

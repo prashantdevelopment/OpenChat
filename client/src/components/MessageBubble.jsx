@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // One message. It arrives encrypted and is decrypted here, in the browser.
-// Mine: right, ink. Theirs: left, a darker paper. A photo is shown like a
-// print with a figure caption ("Fig. 2 — caption"), slightly askew. Within a group (see lib/timeline.js)
+// Mine: right, ink. Theirs: left, a darker paper. Photos and videos are shown
+// on their own (no bubble), with the sender's caption, if any, under them;
+// tapped, they open full screen. Within a group (see lib/timeline.js)
 // bubbles sit close together and only the last one shows the time.
 // A message still on its way (see ConversationView) has `status` "sending" or
 // "failed" and its plain `text`; it shows that status instead of a time.
@@ -29,7 +30,7 @@ const RECEIPTS = {
 };
 
 // showSender: in a group, the first of someone's messages shows their name above it.
-const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, showSender = false, isFirstInGroup, isLastInGroup, receipts, onRetry, animateIn, figure }) => {
+const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, showSender = false, isFirstInGroup, isLastInGroup, receipts, onRetry, animateIn }) => {
   const { text, failed } = useDecryptedText(conversationKey, message, message.sender);
 
   const kind = ["image", "video", "audio", "file"].includes(message.messageType) ? message.messageType : null;
@@ -55,7 +56,7 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, sho
   const callText = callRecord ? describeCall(callRecord, isOwnMessage) : null;
   if (message.messageType === "call" && text !== undefined && !callRecord) content = "[This call record could not be opened]";
   const progress = message.status === "sending" && message.progress < 1 ? message.progress : null;
-  const isPrint = kind === "image" && Boolean(attachment);
+  const isMedia = (kind === "image" || kind === "video") && Boolean(attachment);
 
   return (
     // animateIn: a message that just arrived or was just sent rises in (only
@@ -76,11 +77,8 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, sho
           // relative: keeps the sr-only label (position: absolute) inside the
           // scrolling log, otherwise it stretches the whole page.
           "relative max-w-[85%] sm:max-w-[58%]",
-          isPrint
-            ? cn(
-                "bg-print p-2 pb-2.5 text-print-foreground shadow-[0_12px_24px_-14px_rgb(60_40_20/0.45)]",
-                isOwnMessage ? "rotate-[1.2deg]" : "-rotate-[0.8deg]",
-              )
+          isMedia
+            ? "flex flex-col"
             : cn(
                 "rounded-md leading-relaxed",
                 attachment ? "p-1" : "px-4 py-3",
@@ -99,6 +97,8 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, sho
             file={attachment.file}
             previewUrl={message.previewUrl}
             label={attachment.caption || `${kind === "video" ? "Video" : "Photo"} from ${isOwnMessage ? "you" : senderName}`}
+            caption={attachment.caption}
+            from={isOwnMessage ? "You" : senderName}
           >
             {progress !== null ? (
               <div
@@ -114,16 +114,12 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, sho
             ) : null}
           </Attachment>
         ) : null}
-        {isPrint ? (
-          <p dir="auto" className="mt-2 font-heading text-[0.9375rem] leading-snug italic wrap-anywhere">
-            Fig. {figure ?? 1}
-            {content ? (
-              <>
-                {" — "}
-                <span className="whitespace-pre-wrap">{content}</span>
-              </>
-            ) : null}
-          </p>
+        {isMedia ? (
+          content ? (
+            <p dir="auto" className={cn("mt-1 px-1 leading-snug whitespace-pre-wrap wrap-anywhere", isOwnMessage && "text-right")}>
+              {content}
+            </p>
+          ) : null
         ) : callText ? (
           <p className={cn("flex items-center gap-2 font-medium", callText.missed && "text-destructive-foreground")}>
             {callText.missed ? (
@@ -156,7 +152,7 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, sho
           </Button>
         </div>
       ) : isLastInGroup && message.createdAt ? (
-        <div className={cn("flex items-center gap-1.5 px-1 font-mono text-[10.5px] text-muted-foreground", isPrint ? "mt-2.5" : "mt-1")}>
+        <div className={cn("flex items-center gap-1.5 px-1 font-mono text-[10.5px] text-muted-foreground", "mt-1")}>
           <time dateTime={message.createdAt} title={formatFullDateTime(message.createdAt)}>
             {formatTimeOfDay(message.createdAt)}
           </time>
@@ -169,10 +165,10 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, sho
 
 // The file part of a photo, video or file message; `children` (the upload
 // progress bar) is drawn on top of it.
-const Attachment = ({ kind, fileId, file, previewUrl, label, children }) => {
+const Attachment = ({ kind, fileId, file, previewUrl, from, label, caption, children }) => {
   if (kind === "image") {
     return (
-      <EncryptedImage fileId={fileId} file={file} previewUrl={previewUrl} alt={label} className="rounded-none">
+      <EncryptedImage fileId={fileId} file={file} previewUrl={previewUrl} alt={label} from={from} caption={caption}>
         {children}
       </EncryptedImage>
     );
@@ -186,7 +182,7 @@ const Attachment = ({ kind, fileId, file, previewUrl, label, children }) => {
   }
   if (kind === "video") {
     return (
-      <VideoAttachment fileId={fileId} file={file} previewUrl={previewUrl} label={label}>
+      <VideoAttachment fileId={fileId} file={file} previewUrl={previewUrl} from={from} label={label} caption={caption}>
         {children}
       </VideoAttachment>
     );

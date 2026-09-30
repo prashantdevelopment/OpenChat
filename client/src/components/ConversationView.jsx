@@ -49,13 +49,6 @@ const NEAR_BOTTOM_PX = 80;
 // Enter adds a new line there and the Send button sends.
 const enterSends = () => !window.matchMedia("(pointer: coarse)").matches;
 
-// Photos are numbered like figures in a magazine ("Fig. 1", "Fig. 2", ...),
-// in the order they appear in the chat.
-const withFigureNumbers = (items) => {
-  let figure = 0;
-  return items.map((item) => (item.message?.messageType === "image" ? { ...item, figure: ++figure } : item));
-};
-
 // One open conversation: its messages, real-time updates and the input.
 // Chat.jsx renders it with key={conversationId}, so switching conversation
 // mounts a fresh instance and all of this state starts empty.
@@ -589,7 +582,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
               </div>
             ) : null}
 
-            {withFigureNumbers(buildTimeline([...history.messages, ...pending])).map((item) =>
+            {buildTimeline([...history.messages, ...pending]).map((item) =>
               item.type === "day" ? (
                 // A heading per day, so screen-reader users can jump between days.
                 // Set like a section break: a rule, the day in small caps, a rule.
@@ -616,7 +609,6 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
                   receipts={receipts}
                   onRetry={item.message.status ? () => deliver(item.message) : undefined}
                   animateIn={freshKeys.has(item.key)}
-                  figure={item.figure}
                 />
               ),
             )}
