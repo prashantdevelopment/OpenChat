@@ -39,6 +39,11 @@ const mergeMessages = (a, b) => {
 
 // How long to wait for the server to confirm a message before calling it "Not sent".
 const SEND_TIMEOUT_MS = 5000;
+// Why "Delete for everyone" was refused (the server's reasons).
+const DELETE_REFUSED = {
+  seen: "It was seen in the meantime.",
+  tooLate: "Messages can only be deleted within 15 minutes.",
+};
 // Show how many characters are left once the text gets this close to the limit.
 const COUNTER_FROM = MAX_MESSAGE_LENGTH - 200;
 
@@ -79,6 +84,8 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   // animate in (never the history loaded when opening or scrolling up).
   const [freshKeys, setFreshKeys] = useState(() => new Set());
   const markFresh = (key) => setFreshKeys((keys) => new Set(keys).add(key));
+  // My messages being deleted: hidden at once, back if the server refuses.
+  const [deletingIds, setDeletingIds] = useState(() => new Set());
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   // A photo, video or file chosen to send (see lib/attachments.js, plus a
@@ -143,10 +150,18 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       }
     };
 
+    // Deleted for everyone (by its sender, maybe in another tab).
+    const handleMessageDeleted = ({ conversationId: id, messageId }) => {
+      if (id !== conversationId) return;
+      setHistory((prev) => ({ ...prev, messages: prev.messages.filter((message) => message._id !== messageId) }));
+    };
+
     socket.on("newMessage", handleNewMessage);
+    socket.on("messageDeleted", handleMessageDeleted);
 
     return () => {
       socket.off("newMessage", handleNewMessage);
+      socket.off("messageDeleted", handleMessageDeleted);
     };
   }, [conversationId, currentUserId]);
 
@@ -374,6 +389,33 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
       });
   };
 
+  // "Delete for everyone": gone from the chat at once; if the server refuses
+  // (seen meanwhile, too late, offline) it comes back, with the reason.
+  const deleteMessage = (message) => {
+    const show = () =>
+      setDeletingIds((ids) => {
+        const next = new Set(ids);
+        next.delete(message._id);
+        return next;
+      });
+    const refused = (description) => {
+      show();
+      toastManager.add({ type: "error", title: "Couldn't delete the message", description });
+    };
+    if (!socket.connected) {
+      refused("You're offline. Try again when you're back online.");
+      return;
+    }
+    setDeletingIds((ids) => new Set(ids).add(message._id));
+    inputRef.current?.focus();
+    socket.timeout(SEND_TIMEOUT_MS).emit("deleteMessage", { conversationId, messageId: message._id }, (err, response) => {
+      if (err) return refused("Check your connection and try again.");
+      if (!response.success) return refused(DELETE_REFUSED[response.reason] ?? response.message);
+      setHistory((prev) => ({ ...prev, messages: prev.messages.filter((item) => item._id !== message._id) }));
+      show();
+    });
+  };
+
   const chooseFile = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // choosing the same file again still triggers onChange
@@ -582,7 +624,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
               </div>
             ) : null}
 
-            {buildTimeline([...history.messages, ...pending]).map((item) =>
+            {buildTimeline([...history.messages.filter((message) => !deletingIds.has(message._id)), ...pending]).map((item) =>
               item.type === "day" ? (
                 // A heading per day, so screen-reader users can jump between days.
                 // Set like a section break: a rule, the day in small caps, a rule.
@@ -608,6 +650,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
                   isLastInGroup={item.isLastInGroup}
                   receipts={receipts}
                   onRetry={item.message.status ? () => deliver(item.message) : undefined}
+                  onDelete={item.message.status ? undefined : () => deleteMessage(item.message)}
                   animateIn={freshKeys.has(item.key)}
                 />
               ),

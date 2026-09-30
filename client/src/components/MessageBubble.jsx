@@ -1,13 +1,15 @@
+import { useRef, useState } from "react";
 import { m } from "motion/react";
 import { AlertCircleIcon, CheckCheckIcon, CheckIcon, PhoneIcon, PhoneMissedIcon, RotateCwIcon, VideoIcon } from "lucide-react";
 import { useDecryptedText } from "../crypto/hooks.js";
 import { formatFullDateTime, formatTimeOfDay } from "../lib/time.js";
-import { receiptStatus } from "../lib/receipts.js";
+import { DELETABLE_TYPES, receiptStatus, whyNotDeletable } from "../lib/receipts.js";
 import { describeCall, parseAttachmentContent, parseCallContent } from "../lib/messageContent.js";
 import EncryptedImage from "./EncryptedImage.jsx";
 import VideoAttachment from "./VideoAttachment.jsx";
 import FileAttachment from "./FileAttachment.jsx";
 import VoiceNote from "./VoiceNote.jsx";
+import MessageActions from "./MessageActions.jsx";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -29,9 +31,59 @@ const RECEIPTS = {
   read: { Icon: CheckCheckIcon, label: "Read", className: "text-primary" },
 };
 
+// A long press (touch) opens a message's menu after this long, unless the
+// finger moves (scrolling).
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_SLOP_PX = 10;
+
 // showSender: in a group, the first of someone's messages shows their name above it.
-const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, showSender = false, isFirstInGroup, isLastInGroup, receipts, onRetry, animateIn }) => {
+// onDelete: "Delete for everyone" for my own sent messages (see MessageActions).
+const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, showSender = false, isFirstInGroup, isLastInGroup, receipts, onRetry, onDelete, animateIn }) => {
   const { text, failed } = useDecryptedText(conversationKey, message, message.sender);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const press = useRef(null);
+  const canAct = Boolean(onDelete) && isOwnMessage && !message.status && Boolean(message.ciphertext) && DELETABLE_TYPES.includes(message.messageType ?? "text");
+  // A long press opens the menu; the tap that ends it must not also open a
+  // photo or play a video. Only for the message itself: events from its menu,
+  // dialog or full-screen photo (portals) reach here too through React.
+  const inBubble = (event) => event.currentTarget.contains(event.target);
+  const pressHandlers = canAct
+    ? {
+        onPointerDown: (event) => {
+          press.current = null;
+          if (event.pointerType !== "touch" || !inBubble(event)) return;
+          const start = { x: event.clientX, y: event.clientY };
+          press.current = { start, opened: false, timer: setTimeout(() => {
+            press.current.opened = true;
+            setMenuOpen(true);
+          }, LONG_PRESS_MS) };
+        },
+        onPointerMove: (event) => {
+          const { start, timer } = press.current ?? {};
+          if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > LONG_PRESS_SLOP_PX) clearTimeout(timer);
+        },
+        onPointerUp: () => clearTimeout(press.current?.timer),
+        // The finger lifts after the menu opened: no tap from it (it would
+        // count as a tap outside the menu and close it).
+        onTouchEnd: (event) => {
+          if (press.current?.opened && inBubble(event)) event.preventDefault();
+        },
+        onPointerCancel: () => clearTimeout(press.current?.timer),
+        onClickCapture: (event) => {
+          if (!press.current?.opened || !inBubble(event)) return;
+          press.current = null;
+          event.preventDefault();
+          event.stopPropagation();
+        },
+        // Right-click (and a long press on Android): the menu, unless text is
+        // selected (then the browser's own menu, to copy it).
+        onContextMenu: (event) => {
+          if (!inBubble(event) || window.getSelection()?.toString()) return;
+          event.preventDefault();
+          setMenuOpen(true);
+        },
+      }
+    : {};
 
   const kind = ["image", "video", "audio", "file"].includes(message.messageType) ? message.messageType : null;
   const attachment = !kind
@@ -77,6 +129,8 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, sho
           // relative: keeps the sr-only label (position: absolute) inside the
           // scrolling log, otherwise it stretches the whole page.
           "relative max-w-[85%] sm:max-w-[58%]",
+          // No text selection or phone callout on a long press: it opens the menu.
+          canAct && "group/message pointer-coarse:select-none [-webkit-touch-callout:none]",
           isMedia
             ? "flex flex-col"
             : cn(
@@ -85,6 +139,7 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, sho
                 isOwnMessage ? "bg-bubble-own text-bubble-own-foreground" : "bg-muted text-foreground",
               ),
         )}
+        {...pressHandlers}
       >
         {/* Screen readers hear who said it; sighted users see it from the side. */}
         <span className="sr-only">{isOwnMessage ? "You" : senderName}: </span>
@@ -135,6 +190,9 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, sho
           <p dir="auto" className={cn("whitespace-pre-wrap wrap-anywhere", attachment && "px-2.5 pt-1.5 pb-1", isStatus && "font-heading italic opacity-80")}>
             {content}
           </p>
+        ) : null}
+        {canAct ? (
+          <MessageActions open={menuOpen} onOpenChange={setMenuOpen} reason={menuOpen ? whyNotDeletable(message, receipts) : null} onDelete={onDelete} side="left" />
         ) : null}
       </div>
 

@@ -121,11 +121,16 @@ const MessageAlerts = ({ children }) => {
     const handleMute = ({ conversationId, mutedUntil }) =>
       setChats((prev) => (prev[conversationId] ? { ...prev, [conversationId]: { ...prev[conversationId], mutedUntil } } : prev));
     socket.on("muteChanged", handleMute);
+    // A deleted message isn't unread any more (no alert: it's gone).
+    const handleDeleted = ({ conversationId, unreadCount }) =>
+      setChats((prev) => (prev[conversationId] ? { ...prev, [conversationId]: { ...prev[conversationId], unreadCount } } : prev));
+    socket.on("messageDeleted", handleDeleted);
     socket.io.on("reconnect", handleReconnect);
     return () => {
       ignore = true;
       socket.off("groupsChanged", handleReconnect);
       socket.off("muteChanged", handleMute);
+      socket.off("messageDeleted", handleDeleted);
       socket.off("conversationUpdated", handleUpdate);
       socket.off("conversationRead", handleRead);
       socket.off("blocksChanged", handleReconnect);

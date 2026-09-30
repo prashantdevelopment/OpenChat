@@ -15,3 +15,15 @@ export const mergeReceipts = (current, update) => ({
   deliveredAt: later(current?.deliveredAt ?? null, update.deliveredAt ?? null),
   readAt: later(current?.readAt ?? null, update.readAt ?? null),
 });
+
+// "Delete for everyone" (the server checks the same): my own text, photo,
+// video, voice or file message, within 15 minutes, while it doesn't show as
+// read. null when it can be deleted now, otherwise why not: "tooLate" | "seen"
+// (in that order, like the server).
+export const DELETE_WINDOW_MS = 15 * 60 * 1000;
+export const DELETABLE_TYPES = ["text", "image", "video", "audio", "file"];
+export const whyNotDeletable = (message, receipts, now = Date.now()) => {
+  if (now - new Date(message.createdAt).getTime() > DELETE_WINDOW_MS) return "tooLate";
+  if (receiptStatus(message, receipts) === "read") return "seen";
+  return null;
+};

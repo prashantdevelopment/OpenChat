@@ -31,7 +31,7 @@ export function MenuPopup({ className, children, align = "end", sideOffset = 6, 
 }
 
 const itemClass =
-  "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm text-foreground no-underline outline-none select-none data-highlighted:bg-accent [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
+  "flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-3 text-sm text-foreground no-underline outline-none select-none data-highlighted:bg-accent [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
 
 export function MenuItem({ className, ...props }) {
   return <MenuPrimitive.Item data-slot="menu-item" className={cn(itemClass, className)} {...props} />;

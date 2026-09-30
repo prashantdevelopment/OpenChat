@@ -192,7 +192,16 @@ const Chat = () => {
       setGroups((prev) => prev.map(withMute));
     };
 
+    // A message was deleted for everyone: the preview goes back to the one
+    // before it (or none) and my unread count drops; the order follows.
+    const handleMessageDeleted = ({ conversationId: id, lastMessage, lastMessageAt, unreadCount }) => {
+      const withDeletion = (chat) => (chat._id === id ? { ...chat, lastMessage, lastMessageAt, unreadCount } : chat);
+      setConversations((prev) => prev.map(withDeletion));
+      setGroups((prev) => prev.map(withDeletion));
+    };
+
     socket.on("muteChanged", handleMuteChanged);
+    socket.on("messageDeleted", handleMessageDeleted);
     socket.on("conversationUpdated", handleConversationUpdated);
     socket.on("receipt", handleReceipt);
     socket.on("presence", handlePresence);
@@ -202,6 +211,7 @@ const Chat = () => {
     socket.io.on("reconnect", handleReconnect);
     return () => {
       socket.off("muteChanged", handleMuteChanged);
+      socket.off("messageDeleted", handleMessageDeleted);
       socket.off("conversationUpdated", handleConversationUpdated);
       socket.off("receipt", handleReceipt);
       socket.off("presence", handlePresence);
