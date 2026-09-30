@@ -2,10 +2,11 @@ import mongoose from "mongoose";
 import Message from "../models/message.model.js";
 import AppError from "../utils/AppError.js";
 import { base64Length, isBase64 } from "../utils/base64.js";
-import { getChatForMember, otherParticipant } from "./conversation.service.js";
+import Conversation from "../models/conversation.model.js";
+import { getChatForMember, otherParticipant, seenUpTo } from "./conversation.service.js";
 import { latestEpoch, needsNewKey } from "./groupKeys.service.js";
 import { assertNotBlocked } from "./block.service.js";
-import { getAttachableUpload } from "./upload.service.js";
+import { getAttachableUpload, removeUpload } from "./upload.service.js";
 
 // Messages are end-to-end encrypted, so the server cannot see the text. It can
 // only check sizes: AES-GCM output = UTF-8 text + a 16-byte tag, and the
@@ -157,8 +158,64 @@ const SYSTEM_PEOPLE = [{ path: "system.user", select: "name username" }, { path:
 const addSystemMessage = async (groupId, kind, userId, byId, extra = {}) =>
     (await Message.create({ conversationId: groupId, sender: userId, messageType: "system", system: { kind, user: userId, ...(byId ? { by: byId } : {}), ...extra } })).populate(SYSTEM_PEOPLE);
 
+// "Delete for everyone" (step 76): my own message, within 15 minutes, while it
+// doesn't show as read to me (1:1: the other person hasn't read it; group: not
+// everyone has). Deleted for real: the message, and its file in storage. The
+// chat's preview goes back to the newest message left (or none).
+const DELETE_WINDOW_MS = 15 * 60 * 1000;
+const DELETABLE_TYPES = ["text", ...FILE_TYPES];
+
+const deleteMessage = async (conversationId, messageId, currentUserId) => {
+    // Membership first: outsiders learn nothing about the chat's messages.
+    const conversation = await getChatForMember(conversationId, currentUserId);
+    if (!mongoose.isValidObjectId(messageId)) {
+        throw new AppError("Invalid message id", 400);
+    }
+    const message = await Message.findOne({ _id: messageId, conversationId: conversation._id });
+    if (!message) {
+        throw new AppError("Message not found", 404);
+    }
+    if (!message.sender.equals(currentUserId)) {
+        throw new AppError("You can only delete your own messages", 403, { reason: "notYours" });
+    }
+    // Call records and "joined/left" lines stay.
+    if (!DELETABLE_TYPES.includes(message.messageType)) {
+        throw new AppError("This message can't be deleted", 403, { reason: "notAllowed" });
+    }
+    if (Date.now() - message.createdAt.getTime() > DELETE_WINDOW_MS) {
+        throw new AppError("Messages can only be deleted within 15 minutes", 403, { reason: "tooLate" });
+    }
+    const seen = await seenUpTo(conversation, currentUserId);
+    if (seen && seen >= message.createdAt) {
+        throw new AppError("This message was already seen", 403, { reason: "seen" });
+    }
+
+    // Already deleted (a second tab, a retry): nothing more to do.
+    if (!(await Message.deleteOne({ _id: message._id })).deletedCount) {
+        throw new AppError("Message not found", 404);
+    }
+    if (message.attachment) {
+        // The message is gone either way; a file that couldn't be removed keeps
+        // its record, so it isn't forgotten.
+        await removeUpload(message.attachment.fileId).catch((err) => console.error("File removal failed:", message.attachment.fileId, err.message));
+    }
+
+    // The preview showed this message: the newest one left takes its place
+    // (only if nothing newer arrived meanwhile).
+    const newest = await Message.findOne({ conversationId: conversation._id, messageType: { $ne: "system" } }).sort({ createdAt: -1, _id: -1 });
+    await Conversation.updateOne(
+        { _id: conversation._id, lastMessageAt: message.createdAt },
+        { $set: {
+            lastMessage: newest ? { ciphertext: newest.ciphertext, iv: newest.iv, sender: newest.sender, messageType: newest.messageType, ...(newest.epoch !== undefined ? { epoch: newest.epoch } : {}) } : null,
+            lastMessageAt: newest?.createdAt ?? null
+        } }
+    );
+    return { conversation: await Conversation.findById(conversation._id), message };
+};
+
 export {
     addSystemMessage,
     createMessage,
+    deleteMessage,
     getMessagesByConversationId
 }

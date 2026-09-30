@@ -64,4 +64,11 @@ const getAttachableUpload = async (fileId, userId, conversationId, kind) => {
     return upload;
 };
 
-export { MAX_UPLOAD_BYTES, createUpload, readUpload, getAttachableUpload };
+// Removes a file: from storage first, then its record. If storage fails, the
+// record stays (and the error goes up), so the file isn't forgotten.
+const removeUpload = async (fileId) => {
+    await storage.remove(fileId);
+    await Upload.deleteOne({ _id: fileId });
+};
+
+export { MAX_UPLOAD_BYTES, createUpload, readUpload, getAttachableUpload, removeUpload };

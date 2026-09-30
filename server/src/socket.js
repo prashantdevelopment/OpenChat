@@ -11,7 +11,7 @@ import { blockEvents, hasBlocked, isBlockedBetween } from "./services/block.serv
 import User from "./models/user.model.js";
 import { isOnline, socketClosed, socketOpened } from "./presence.js";
 import { markOffline, markOnline, statePresenceSnapshot } from "./statePresence.js";
-import { createMessage } from "./services/message.service.js";
+import { createMessage, deleteMessage } from "./services/message.service.js";
 import registerCallHandlers from "./calls.js";
 import { createRingingCalls } from "./services/ringingCalls.service.js";
 import registerGroupEvents from "./groupSockets.js";
@@ -30,6 +30,7 @@ const SESSION_CHECK_MS = 60 * 60 * 1000;
 // (leaveConversation, unwatchStatePresence: they only remove things).
 const EVENT_LIMITS = {
     sendMessage: { windowMs: 10_000, max: 30 },
+    deleteMessage: { windowMs: 10_000, max: 30 },
     typing: { windowMs: 10_000, max: 20 },
     markRead: { windowMs: 10_000, max: 60 },
     markDelivered: { windowMs: 10_000, max: 60 },
@@ -358,9 +359,38 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         // Handled in parallel, a quick second message could be saved or
         // announced before the first one. handleSendMessage never throws
         // (it catches its errors), so one failed message can't block the queue.
+        // "Delete for everyone": every participant's tabs drop the message and
+        // get the chat's new preview and their own unread count (a separate
+        // event from conversationUpdated, which means "a new message").
+        const handleDeleteMessage = async (data, ack) => {
+            try {
+                const { conversation, message } = await deleteMessage(data?.conversationId, data?.messageId, socket.userId);
+                const unreadCounts = await Promise.all(
+                    conversation.participants.map((participantId) => countUnread(conversation, participantId))
+                );
+                conversation.participants.forEach((participantId, i) => {
+                    io.to(userRoom(participantId)).emit("messageDeleted", {
+                        conversationId: conversation._id,
+                        messageId: message._id,
+                        lastMessage: conversation.lastMessage,
+                        lastMessageAt: conversation.lastMessageAt,
+                        unreadCount: unreadCounts[i]
+                    });
+                });
+                if (typeof ack === "function") ack({ success: true });
+            } catch (err) {
+                replyWithError(err, ack);
+            }
+        };
+
+        // Sends and deletes share the queue: a delete right after a send
+        // always comes after it.
         let sendQueue = Promise.resolve();
         socket.on("sendMessage", (data, ack) => {
             sendQueue = sendQueue.then(() => handleSendMessage(data, ack));
+        });
+        socket.on("deleteMessage", (data, ack) => {
+            sendQueue = sendQueue.then(() => handleDeleteMessage(data, ack));
         });
 
         // The user has seen everything in this conversation. All of their tabs

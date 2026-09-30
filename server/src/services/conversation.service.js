@@ -235,6 +235,16 @@ const groupReceiptsFor = (conversation, userId, people) => {
 const readReceiptsShared = async (conversation) =>
     shareReadReceipts(await User.find({ _id: { $in: conversation.participants } }).select("readReceipts"));
 
+// Up to when userId's messages show as read to them (the "Seen" ticks), in a
+// 1:1 chat or a group; null if nothing does. Only what the ticks show, never
+// more: the read-receipt setting applies.
+const seenUpTo = async (conversation, userId) => {
+    const people = await User.find({ _id: { $in: conversation.participants } }).select("readReceipts").lean();
+    if (conversation.type === "group") return groupReceiptsFor(conversation, userId, people).readAt;
+    if (!shareReadReceipts(people)) return null;
+    return conversation.lastReadAt?.get(otherParticipant(conversation, userId)) ?? null;
+};
+
 // Everyone who shares a conversation with the user: they are told when the
 // user comes online or goes offline.
 // Not across a block.
@@ -308,6 +318,7 @@ export {
     markConversationDelivered,
     markAllDelivered,
     readReceiptsShared,
+    seenUpTo,
     getContactIds,
     otherParticipant,
     findConversationBetween

@@ -65,6 +65,8 @@ Severity is by exploitability in this app, not by pattern.
 
 - **Group notifications and mute (step 72):** group pushes carry the group's name, who wrote or called and the kind of message, never the text (the server can't read it); someone who hides senders in notifications gets neither the group nor the person. Muting is per person: each person's `mutedUntil` stays on the server and only their own value is ever returned (the conversation's JSON drops the map), and muted people get no pushes, alerts or group-call rings.
 
+- **Delete for everyone (step 76):** only the sender, only a text, photo, video, voice or file message (never a call record or a "joined/left" line), only within 15 minutes and only while it doesn't show as read to the sender. "Read" is exactly what the sender's ticks show, with the read-receipt setting applied: someone who turned read receipts off can't be found out by trying to delete (their reads don't stop a delete). Membership is checked before the message is looked up, so outsiders learn nothing. The delete is real: the message document, and for files the `Upload` record and the encrypted file in storage (if storage fails, the record stays so the file isn't forgotten). A push already shown on a phone can't be taken back, but it never held the text.
+
 ## 4. Forward secrecy study
 
 **What it is.** Forward secrecy means that stealing a key today doesn't unlock messages from yesterday. OpenChat's conversation key comes from the two long-term keys, so anyone who later gets a user's private key (their password plus the locked blob from the server, or their unlocked device) and has recorded the ciphertext can read the **whole history** of that user's chats.
