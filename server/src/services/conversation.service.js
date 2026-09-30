@@ -34,6 +34,23 @@ const getConversationForParticipant = async (conversationId, userId) => {
 }
 
 
+// A chat the user is in: 1:1 or group (step 69: group chats use the same
+// message, upload, receipt and typing paths; 1:1-only paths such as calls
+// and blocks keep using getConversationForParticipant).
+const getChatForMember = async (conversationId, userId) => {
+    if (!mongoose.isValidObjectId(conversationId)) {
+        throw new AppError("Invalid conversation id", 400);
+    }
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+        throw new AppError("Conversation not found", 404);
+    }
+    if (!conversation.participants.some((id) => String(id) === String(userId))) {
+        throw new AppError("User is not a participant in this conversation", 403);
+    }
+    return conversation;
+};
+
 const createOrGetConversation = async (currentUserId, otherUserId) => {
     if (!mongoose.isValidObjectId(otherUserId)) {
         throw new AppError("Invalid user id", 400);
@@ -86,11 +103,16 @@ const createOrGetConversation = async (currentUserId, otherUserId) => {
 // sent by the other participant, after the user's lastReadAt (all of them if
 // the user never opened it). ObjectIds are built explicitly because
 // aggregate() does not cast types the way find() does.
+// In a group, nothing from before the user joined is unread for them, and
+// "joined/left" lines never count.
 const unreadFilter = (conversation, userId) => {
-    const lastRead = conversation.lastReadAt?.get(userId.toString());
+    const lastRead = [conversation.lastReadAt?.get(userId.toString()), conversation.joinedAt?.get(userId.toString())]
+        .filter(Boolean)
+        .reduce((a, b) => (a > b ? a : b), null);
     return {
         conversationId: conversation._id,
         sender: { $ne: new mongoose.Types.ObjectId(userId) },
+        messageType: { $ne: "system" },
         ...(lastRead ? { createdAt: { $gt: lastRead } } : {})
     };
 };
@@ -159,6 +181,26 @@ const receiptsFor = (conversation, userId) => {
     };
 };
 
+// A group's receipts as userId sees them: delivered when every other member's
+// app has it, read when every other member who shares read receipts has read
+// it (none if userId doesn't share them). Someone who joined later counts as
+// having everything from before. `people`: the members with readReceipts.
+const groupReceiptsFor = (conversation, userId, people) => {
+    const others = people.filter((person) => String(person._id) !== String(userId));
+    const me = people.find((person) => String(person._id) === String(userId));
+    const at = (map, id) => {
+        const joined = conversation.joinedAt?.get(String(id));
+        const time = map?.get(String(id));
+        return time && joined ? (time > joined ? time : joined) : (time ?? joined ?? null);
+    };
+    const earliest = (times) => (times.length === 0 || times.includes(null) ? null : times.reduce((a, b) => (a < b ? a : b)));
+    const readers = others.filter((person) => person.readReceipts !== false);
+    return {
+        deliveredAt: others.length ? earliest(others.map((person) => at(conversation.lastDeliveredAt, person._id))) : null,
+        readAt: me?.readReceipts === false || readers.length === 0 ? null : earliest(readers.map((person) => at(conversation.lastReadAt, person._id))),
+    };
+};
+
 // Whether the participants of a (not populated) conversation share read receipts.
 const readReceiptsShared = async (conversation) =>
     shareReadReceipts(await User.find({ _id: { $in: conversation.participants } }).select("readReceipts"));
@@ -179,7 +221,7 @@ const findConversationBetween = (userId, otherUserId) =>
 const otherParticipant = (conversation, userId) => conversation.participants.map(String).find((id) => id !== String(userId));
 
 const markConversationRead = async (conversationId, userId) => {
-    const conversation = await getConversationForParticipant(conversationId, userId);
+    const conversation = await getChatForMember(conversationId, userId);
     const readAt = new Date();
     // $set only this user's entry, so a message being saved at the same moment
     // (which writes lastMessage) is never overwritten. Read implies delivered.
@@ -192,7 +234,7 @@ const markConversationRead = async (conversationId, userId) => {
 
 // The user's app received the conversation's messages so far.
 const markConversationDelivered = async (conversationId, userId) => {
-    const conversation = await getConversationForParticipant(conversationId, userId);
+    const conversation = await getChatForMember(conversationId, userId);
     const deliveredAt = new Date();
     // $max: never moves back (e.g. if an older event arrives late).
     await Conversation.updateOne({ _id: conversation._id }, { $max: { [`lastDeliveredAt.${userId}`]: deliveredAt } });
@@ -206,7 +248,6 @@ const markAllDelivered = async (userId) => {
     const deliveredAt = new Date();
     const candidates = await Conversation.find({
         participants: userId,
-        ...DIRECT,
         lastMessageAt: { $ne: null },
         "lastMessage.sender": { $ne: new mongoose.Types.ObjectId(userId) }
     });
@@ -224,6 +265,8 @@ const markAllDelivered = async (userId) => {
 };
 
 export {
+    getChatForMember,
+    groupReceiptsFor,
     createOrGetConversation,
     getUserConversations,
     getConversationForParticipant,

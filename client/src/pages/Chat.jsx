@@ -24,10 +24,10 @@ import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import { displayName } from "../lib/people.js";
 import { useGroups } from "../hooks/useGroups.js";
 import GroupInvites from "../components/GroupInvites.jsx";
-import GroupSheet from "../components/GroupSheet.jsx";
 import NewGroupSheet from "../components/NewGroupSheet.jsx";
-import Avatar from "../components/Avatar.jsx";
-import { memberCount } from "../lib/groups.js";
+import GroupListItem from "../components/GroupListItem.jsx";
+import GroupChatHeader from "../components/GroupChatHeader.jsx";
+import { useGroupCipher } from "../lib/groupCipher.js";
 
 const getConversations = async () => (await api.get("/conversations")).data.conversations;
 
@@ -57,16 +57,17 @@ const Chat = () => {
   const ListTag = listIsMain ? "main" : "aside";
   const PeerHeading = isWide ? "h2" : "h1";
   const [photos, setPhotos] = useState([]);
-  // Groups (group chats themselves come with group encryption): invites on
-  // top of the list, my groups below them; a group opens its info sheet.
+  // Groups: invites on top of the list; groups and 1:1 chats in one list,
+  // newest first. A group opens as a chat like any other.
   const { groups, setGroups, invites, setInvites } = useGroups();
   const [newGroupOpen, setNewGroupOpen] = useState(false);
-  // The group stays set while the sheet closes (its content doesn't blink out).
-  const [groupSheet, setGroupSheet] = useState({ groupId: null, open: false });
-  const openGroup = (groupId) => setGroupSheet({ groupId, open: true });
-  // A group just created: its info opens once the "New group" sheet has
-  // closed (two sheets sliding at once would overlap).
+  // A group just created opens once the "New group" sheet has closed.
   const [createdGroupId, setCreatedGroupId] = useState(null);
+  // Who wrote in a group: its members by id (someone who left: "Former member").
+  const nameOfIn = (group) => (userId) => {
+    const member = group?.members.find((person) => person._id === userId);
+    return member ? displayName(member) : "Former member";
+  };
   const handleInviteAnswered = (inviteId) => setInvites((prev) => prev.filter((invite) => invite._id !== inviteId));
   const handleGroupCreated = (group) => {
     setNewGroupOpen(false);
@@ -104,7 +105,12 @@ const Chat = () => {
   }, [isConnected]);
 
   // Unread messages in the tab title, e.g. "(3) OpenChat", seen from other tabs.
-  const totalUnread = conversations.reduce((sum, conversation) => sum + (conversation.unreadCount ?? 0), 0);
+  const totalUnread = [...conversations, ...groups].reduce((sum, chat) => sum + (chat.unreadCount ?? 0), 0);
+  // 1:1 chats and groups in one list, the newest message first. A new group
+  // without messages counts from when it was made; a 1:1 chat nobody wrote in
+  // yet goes last, as before.
+  const sortTime = (chat) => new Date(chat.lastMessageAt ?? (chat.type === "group" ? chat.createdAt : 0)).getTime();
+  const chats = [...conversations, ...groups].sort((a, b) => sortTime(b) - sortTime(a));
 
   const retryConversations = () => {
     setListStatus("loading");
@@ -116,7 +122,9 @@ const Chat = () => {
   // room. (Alerts, notifications and "delivered" for it: MessageAlerts.)
   // useEffectEvent: the listener is added once, but always sees the latest list.
   const onConversationUpdated = useEffectEvent((update) => {
-    if (conversations.some((conversation) => conversation._id === update._id)) {
+    if (groups.some((group) => group._id === update._id)) {
+      setGroups((prev) => prev.map((group) => (group._id === update._id ? { ...group, ...update } : group)));
+    } else if (conversations.some((conversation) => conversation._id === update._id)) {
       // Known conversation: new preview, and move it to the top.
       setConversations((prev) => {
         const current = prev.find((conversation) => conversation._id === update._id);
@@ -147,6 +155,7 @@ const Chat = () => {
       setConversations((prev) =>
         prev.map((conversation) => (conversation._id === _id ? { ...conversation, unreadCount: 0 } : conversation)),
       );
+      setGroups((prev) => prev.map((group) => (group._id === _id ? { ...group, unreadCount: 0 } : group)));
     };
 
     // A contact came online or went offline (the server only tells us about
@@ -168,11 +177,9 @@ const Chat = () => {
 
     // The other person received / read a conversation: new ticks on my messages.
     const handleReceipt = ({ conversationId: id, deliveredAt, readAt }) => {
-      setConversations((prev) =>
-        prev.map((conversation) =>
-          conversation._id === id ? { ...conversation, receipts: mergeReceipts(conversation.receipts, { deliveredAt, readAt }) } : conversation,
-        ),
-      );
+      const withReceipt = (chat) => (chat._id === id ? { ...chat, receipts: mergeReceipts(chat.receipts, { deliveredAt, readAt }) } : chat);
+      setConversations((prev) => prev.map(withReceipt));
+      setGroups((prev) => prev.map(withReceipt));
     };
 
     socket.on("conversationUpdated", handleConversationUpdated);
@@ -190,7 +197,7 @@ const Chat = () => {
       socket.off("blocksChanged", handleReconnect);
       socket.io.off("reconnect", handleReconnect);
     };
-  }, []);
+  }, [setGroups]);
 
   // "Message" on a search result: get (or create) the conversation and open it.
   const handleMessageUser = async (user) => {
@@ -217,6 +224,8 @@ const Chat = () => {
   // for encryption). Undefined until the list has loaded, or if the
   // conversation isn't ours.
   const openConversation = conversations.find((conversation) => conversation._id === conversationId);
+  const openGroup = groups.find((group) => group._id === conversationId);
+  const groupCipher = useGroupCipher(openGroup?._id);
   const peer = openConversation?.participants.find((participant) => participant._id !== currentUser._id);
   const conversationKey = useConversationKey(conversationId, peer?.publicKey);
   // Is this the key this device saw for them before? (crypto/keyPins.js)
@@ -306,33 +315,7 @@ const Chat = () => {
 
           <nav aria-label="Conversations" className="min-h-0 flex-1 overflow-y-auto">
             <GroupInvites invites={invites} onAnswered={handleInviteAnswered} />
-            {groups.length ? (
-              <section aria-labelledby="groups-heading" className={invites.length ? "pt-4" : undefined}>
-                <h2 id="groups-heading" className="px-5 pb-2 font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase md:px-7">
-                  Groups
-                </h2>
-                <ul>
-                  {groups.map((group) => (
-                    <li key={group._id}>
-                      <button
-                        type="button"
-                        data-slot="group-row"
-                        aria-haspopup="dialog"
-                        onClick={() => openGroup(group._id)}
-                        className="flex min-h-[64px] w-full items-center gap-3 border-t border-border px-5 py-3 text-left transition-colors duration-150 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring md:px-7"
-                      >
-                        <Avatar name={group.name} className="bg-brand text-brand-foreground italic" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-heading text-[1.3125rem] leading-tight">{group.name}</span>
-                          <span className="block truncate text-sm opacity-75">{memberCount(group.members.length)}</span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            <h2 className={groups.length || invites.length ? "px-5 pt-4 pb-2 font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase md:px-7" : "sr-only"}>
+            <h2 className={invites.length ? "px-5 pt-4 pb-2 font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase md:px-7" : "sr-only"}>
               Chats
             </h2>
             {listStatus === "loading" ? (
@@ -354,16 +337,20 @@ const Chat = () => {
                   Try again
                 </Button>
               </div>
-            ) : conversations.length === 0 ? (
+            ) : chats.length === 0 ? (
               <div className="border-t border-border px-7 py-8">
                 <p className="font-heading text-xl">No conversations yet</p>
                 <p className="mt-1 text-sm text-muted-foreground">Find someone in the search and write to them.</p>
               </div>
             ) : (
               <ul className="flex flex-col border-b border-border">
-                {conversations.map((conversation) => (
-                  <ConversationListItem key={conversation._id} conversation={conversation} currentUserId={currentUser._id} />
-                ))}
+                {chats.map((chat) =>
+                  chat.type === "group" ? (
+                    <GroupListItem key={chat._id} group={chat} currentUserId={currentUser._id} nameOf={nameOfIn(chat)} />
+                  ) : (
+                    <ConversationListItem key={chat._id} conversation={chat} currentUserId={currentUser._id} />
+                  ),
+                )}
               </ul>
             )}
           </nav>
@@ -371,7 +358,18 @@ const Chat = () => {
 
         {/* Open conversation. Mobile: shown instead of the list. */}
         <main id={listIsMain ? undefined : "main"} className={cn("min-h-0 min-w-0 flex-col md:flex", conversationId ? "flex" : "hidden")}>
-          {conversationId ? (
+          {openGroup ? (
+            <>
+              <GroupChatHeader group={openGroup} currentUserId={currentUser._id} nameOf={nameOfIn(openGroup)} headingLevel={PeerHeading} />
+              <ConversationView
+                key={conversationId}
+                conversationId={conversationId}
+                currentUser={currentUser}
+                receipts={openGroup.receipts}
+                group={{ name: openGroup.name, cipher: groupCipher, nameOf: nameOfIn(openGroup) }}
+              />
+            </>
+          ) : conversationId ? (
             <>
               <ChatHeader
                 peer={peer}
@@ -412,18 +410,12 @@ const Chat = () => {
         open={newGroupOpen}
         onOpenChange={setNewGroupOpen}
         onClosed={() => {
-          if (createdGroupId) openGroup(createdGroupId);
+          if (createdGroupId) navigate(`/chat/${createdGroupId}`);
           setCreatedGroupId(null);
         }}
         conversations={conversations}
         currentUserId={currentUser._id}
         onCreated={handleGroupCreated}
-      />
-      <GroupSheet
-        open={groupSheet.open}
-        onOpenChange={(open) => setGroupSheet((prev) => ({ ...prev, open }))}
-        groupId={groupSheet.groupId}
-        currentUserId={currentUser._id}
       />
     </div>
   );

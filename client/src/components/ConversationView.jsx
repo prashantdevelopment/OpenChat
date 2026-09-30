@@ -11,7 +11,7 @@ import { canRecordVoice, useVoiceRecorder } from "../hooks/useVoiceRecorder.js";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import MessageBubble from "./MessageBubble.jsx";
 import { buildTimeline } from "../lib/timeline.js";
-import { usePeerTyping, useTypingSender } from "../socket/useTyping.js";
+import { useTypingPeople, useTypingSender } from "../socket/useTyping.js";
 import { formatDayLabel } from "../lib/time.js";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,7 +65,10 @@ const withFigureNumbers = (items) => {
 // blocked: the user blocked this person (the composer gives way to a note
 // with Unblock); onUnblock unblocks them. keyChanged: their public key isn't
 // the one this device saw before (crypto/keyPins.js); onTrustKey accepts it.
-const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName, receipts, onPhotosChange, blocked = false, onUnblock, keyChanged = false, onTrustKey }) => {
+// A group chat instead gets `group`: { name, cipher (lib/groupCipher.js),
+// nameOf(userId) }; messages then show who wrote them, and the lines the
+// server adds ("Riya joined").
+const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName, receipts, onPhotosChange, blocked = false, onUnblock, keyChanged = false, onTrustKey, group }) => {
   // The loaded messages and whether older ones exist on the server. Kept in
   // one state object because they always change together.
   const [history, setHistory] = useState({ messages: [], hasOlder: false });
@@ -120,10 +123,15 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
   // The id comes from the URL now, so it can be wrong or belong to someone else.
   const [joinError, setJoinError] = useState(null);
   const currentUserId = currentUser._id;
-  // AES key shared with the other participant (null while being derived).
-  const conversationKey = useConversationKey(conversationId, peerPublicKey);
+  // AES key shared with the other participant (null while being derived), or
+  // the group's cipher. Either one encrypts what is sent and decrypts what comes.
+  const directKey = useConversationKey(conversationId, group ? undefined : peerPublicKey);
+  const conversationKey = group ? group.cipher : directKey;
+  const encryptText = (text) => (conversationKey.encrypt ? conversationKey.encrypt(text) : encryptMessage(conversationKey, text, currentUserId));
   const typing = useTypingSender(conversationId);
-  const isPeerTyping = usePeerTyping(conversationId, currentUserId);
+  const typingPeople = useTypingPeople(conversationId, currentUserId);
+  const isPeerTyping = typingPeople.length > 0;
+  const chatName = group ? group.name : peerName;
 
   // Receive real-time messages
   useEffect(() => {
@@ -345,7 +353,22 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     // timeout(): if the server never answers, the callback still runs with an error.
     socket
       .timeout(SEND_TIMEOUT_MS)
-      .emit("sendMessage", { conversationId, clientId, ...payload }, (err, response) => {
+      .emit("sendMessage", { conversationId, clientId, ...payload }, async (err, response) => {
+        // A group whose key just changed (or must change: someone left): get
+        // the new key, encrypt the message again and send it once more.
+        if (!err && response.reason && conversationKey.refresh && !item.encryptedAgain) {
+          try {
+            await conversationKey.refresh(response.reason);
+            const plain = item.attachmentContent ? JSON.stringify(item.attachmentContent) : item.text;
+            const encrypted = await conversationKey.encrypt(plain);
+            rememberText(conversationKey, encrypted, currentUserId, plain);
+            updateOutboxItem(clientId, { encrypted, encryptedAgain: true });
+            deliver({ ...item, encrypted, encryptedAgain: true, fileId: payload.attachment?.fileId ?? item.fileId });
+            return;
+          } catch (error) {
+            console.error("Message not sent: the group's key could not be updated", error);
+          }
+        }
         if (err || !response.success) {
           console.error("Message not sent:", err ? "Server did not respond" : response.message);
           setOutboxStatus(clientId, "failed");
@@ -397,7 +420,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
         caption,
         file: { key: fileEncrypted.key, iv: fileEncrypted.iv, mime, name, size: chosen.blob.size, width, height, duration },
       };
-      encrypted = await encryptMessage(conversationKey, JSON.stringify(content), currentUserId);
+      encrypted = await encryptText(JSON.stringify(content));
     } catch (error) {
       console.error("Attachment not sent: could not encrypt it", error);
       if (chosen.kind !== "audio") setAttachment(chosen);
@@ -464,7 +487,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
     inputRef.current?.focus();
     let encrypted;
     try {
-      encrypted = await encryptMessage(conversationKey, text, currentUserId);
+      encrypted = await encryptText(text);
     } catch (error) {
       console.error("Message not sent: could not encrypt it", error);
       setMessageInput((current) => current || text);
@@ -561,7 +584,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
                 <LockIcon aria-hidden="true" strokeWidth={1.3} className="size-8 text-muted-foreground" />
                 <p className="mt-3 font-heading text-2xl">No messages yet</p>
                 <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                  Messages with {peerName ?? "this person"} are end-to-end encrypted. Say hello!
+                  Messages {group ? "in" : "with"} {chatName ?? "this person"} are end-to-end encrypted. Say hello!
                 </p>
               </div>
             ) : null}
@@ -578,13 +601,16 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
                   <time dateTime={item.date}>{formatDayLabel(item.date)}</time>
                   <span aria-hidden="true" className="h-px flex-1 bg-border" />
                 </h3>
+              ) : item.message.messageType === "system" ? (
+                <SystemLine key={item.key} message={item.message} currentUserId={currentUserId} />
               ) : (
                 <MessageBubble
                   key={item.key}
                   message={item.message}
                   conversationKey={conversationKey}
                   isOwnMessage={item.message.sender === currentUserId}
-                  senderName={peerName}
+                  senderName={group ? group.nameOf(item.message.sender) : peerName}
+                  showSender={Boolean(group) && item.isFirstInGroup && item.message.sender !== currentUserId}
                   isFirstInGroup={item.isFirstInGroup}
                   isLastInGroup={item.isLastInGroup}
                   receipts={receipts}
@@ -601,7 +627,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
         {/* "writing…" is shown in the chat header; this says it to screen
             readers. Always present, so they announce the text when it appears. */}
         <p role="status" className="sr-only">
-          {isPeerTyping ? `${peerName ?? "The other person"} is typing` : ""}
+          {!isPeerTyping ? "" : group ? `${typingPeople.map(group.nameOf).join(", ")} ${typingPeople.length > 1 ? "are" : "is"} typing` : `${peerName ?? "The other person"} is typing`}
         </p>
 
         {unseenCount > 0 ? (
@@ -723,7 +749,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             className="max-h-40 min-h-11 min-w-0 flex-1 resize-none rounded-none border-0 border-b border-foreground bg-transparent px-0 py-2.5 placeholder:font-heading placeholder:text-base placeholder:italic sm:placeholder:text-xl focus-line focus-visible:outline-none"
             aria-label="Message"
             aria-describedby="composer-hint"
-            placeholder={attachment ? "Add a caption..." : roomyComposer ? `Write a note to ${peerName?.split(" ")[0] ?? "them"}…` : "Write a note…"}
+            placeholder={attachment ? "Add a caption..." : roomyComposer ? `Write a note to ${group ? group.name : (peerName?.split(" ")[0] ?? "them")}…` : "Write a note…"}
             maxLength={MAX_MESSAGE_LENGTH}
             enterKeyHint={enterSends() ? "send" : "enter"}
             value={messageInput}
@@ -784,6 +810,24 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
 
 // In place of the composer while the other person's key looks different from
 // the one this device saw before: nothing is sent until the user trusts it.
+// A line the server adds to a group's history: who joined, left or was removed.
+const SYSTEM_TEXT = {
+  created: (who) => `${who} created the group`,
+  joined: (who) => `${who} joined`,
+  left: (who) => `${who} left`,
+  removed: (who, by) => `${by} removed ${who}`,
+};
+const SystemLine = ({ message, currentUserId }) => {
+  const name = (person) => (!person ? "Someone" : person._id === currentUserId ? "You" : person.name || person.username);
+  const { kind, user, by } = message.system ?? {};
+  const text = (SYSTEM_TEXT[kind] ?? SYSTEM_TEXT.joined)(name(user), name(by));
+  return (
+    <p className="my-3 text-center font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
+      <span className="rounded-full border border-border px-3 py-1">{text}</span>
+    </p>
+  );
+};
+
 const KeyChangedNote = ({ peerName, onTrust }) => (
   <div role="alert" className="shrink-0 border-t-2 border-brand px-5 pt-4 pb-5 md:px-9 md:pb-6">
     <p className="font-heading text-xl italic">{peerName}&apos;s security key has changed.</p>

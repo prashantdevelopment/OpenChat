@@ -28,7 +28,8 @@ const RECEIPTS = {
   read: { Icon: CheckCheckIcon, label: "Read", className: "text-primary" },
 };
 
-const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isFirstInGroup, isLastInGroup, receipts, onRetry, animateIn, figure }) => {
+// showSender: in a group, the first of someone's messages shows their name above it.
+const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, showSender = false, isFirstInGroup, isLastInGroup, receipts, onRetry, animateIn, figure }) => {
   const { text, failed } = useDecryptedText(conversationKey, message, message.sender);
 
   const kind = ["image", "video", "audio", "file"].includes(message.messageType) ? message.messageType : null;
@@ -65,6 +66,11 @@ const MessageBubble = ({ message, conversationKey, isOwnMessage, senderName, isF
       transition={{ duration: 0.2, ease: "easeOut" }}
       className={cn("flex flex-col", isOwnMessage ? "items-end" : "items-start", isFirstInGroup ? "mt-3" : "mt-0.5")}
     >
+      {showSender ? (
+        <span aria-hidden="true" className="mb-1 px-1 text-xs font-medium text-brand">
+          {senderName}
+        </span>
+      ) : null}
       <div
         className={cn(
           // relative: keeps the sr-only label (position: absolute) inside the

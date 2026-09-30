@@ -264,22 +264,23 @@ describe("limits", () => {
     });
 });
 
-describe("groups stay out of the 1:1 paths (until group encryption, steps 68-69)", () => {
+describe("groups and the 1:1 paths", () => {
     const connectAs = (user) => new Promise((resolve, reject) => {
         const socket = connectClient(url, { extraHeaders: { cookie: user.cookie }, reconnection: false });
         socket.on("connect", () => resolve(socket));
         socket.on("connect_error", reject);
     });
 
-    it("not in the chat list, no messages, no sending, no calls, no joining its room", async () => {
+    it("not in the 1:1 chat list and no calls; messages only with the group key's epoch; outsiders nothing", async () => {
         const { group } = (await createGroup(alice, { name: "Goa trip", userIds: [bob.id] }).expect(201)).body;
         const list = (await api(alice).get("/api/conversations").expect(200)).body.conversations;
         expect(list.map((c) => c._id)).not.toContain(group._id);
-        await api(alice).get(`/api/conversations/${group._id}/messages`).expect(404);
+        await api(alice).get(`/api/conversations/${group._id}/messages`).expect(200);
+        await api(eve).get(`/api/conversations/${group._id}/messages`).expect(403);
         const socket = await connectAs(alice);
         try {
             const sent = await socket.timeout(2000).emitWithAck("sendMessage", { conversationId: group._id, clientId: randomUUID(), ...encrypted("hi") });
-            expect(sent.success).toBe(false);
+            expect([sent.success, sent.reason]).toEqual([false, "epoch"]);
             const called = await socket.timeout(2000).emitWithAck("callUser", { conversationId: group._id, callId: randomUUID(), media: "audio", offer: encrypted("sdp") });
             expect(called.success).toBe(false);
         } finally {

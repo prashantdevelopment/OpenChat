@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import Upload from "../models/upload.model.js";
 import storage from "../storage/index.js";
 import AppError from "../utils/AppError.js";
-import { getConversationForParticipant, otherParticipant } from "./conversation.service.js";
+import { getChatForMember, otherParticipant } from "./conversation.service.js";
 import { assertNotBlocked } from "./block.service.js";
 
 // 10 MB per encrypted file, for every kind: the most Cloudinary's plan takes
@@ -13,7 +13,7 @@ const KINDS = ["image", "video", "audio", "file"];
 const MIN_UPLOAD_BYTES = 17;
 const FILE_ID_PATTERN = /^[a-f0-9]{32}$/;
 
-// Saves an encrypted file for a conversation the user is part of.
+// Saves an encrypted file for a conversation (1:1 or group) the user is part of.
 const createUpload = async (conversationId, userId, bytes, kind) => {
     if (!KINDS.includes(kind)) {
         throw new AppError("kind must be image, video, audio or file", 400);
@@ -24,8 +24,8 @@ const createUpload = async (conversationId, userId, bytes, kind) => {
     if (bytes.length < MIN_UPLOAD_BYTES) {
         throw new AppError("The file is empty", 400);
     }
-    const conversation = await getConversationForParticipant(conversationId, userId);
-    await assertNotBlocked(userId, otherParticipant(conversation, userId), "You can't send files in this chat");
+    const conversation = await getChatForMember(conversationId, userId);
+    if (conversation.type !== "group") await assertNotBlocked(userId, otherParticipant(conversation, userId), "You can't send files in this chat");
 
     const fileId = randomBytes(16).toString("hex");
     await storage.save(fileId, bytes);
@@ -47,10 +47,10 @@ const findUpload = async (fileId) => {
     return upload;
 };
 
-// The encrypted bytes, for participants of the file's conversation only.
+// The encrypted bytes, for the current members of the file's conversation only.
 const readUpload = async (fileId, userId) => {
     const upload = await findUpload(fileId);
-    await getConversationForParticipant(upload.conversationId, userId);
+    await getChatForMember(upload.conversationId, userId);
     return storage.read(upload._id);
 };
 

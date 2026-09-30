@@ -44,12 +44,15 @@ const registerGroupEvents = (io, { userRoom, hasVisibleApp }) => {
         toMembers(group);
     };
 
-    const onAnswered = async ({ invite, group, accepted }) => {
+    const onAnswered = async ({ invite, group, accepted, line }) => {
         const user = await publicUser(invite.to);
         io.to(userRoom(invite.from)).emit("groupInviteAnswered", { inviteId: invite._id, groupId: group._id, groupName: group.name, user, accepted });
         io.to(userRoom(invite.to)).emit("groupInvitesChanged");
         toMembers(group);
-        if (accepted) io.to(userRoom(invite.to)).emit("groupsChanged");
+        if (accepted) {
+            io.to(userRoom(invite.to)).emit("groupsChanged");
+            io.to(String(group._id)).emit("newMessage", line);
+        }
     };
 
     const onCancelled = ({ invite, group }) => {
@@ -58,10 +61,19 @@ const registerGroupEvents = (io, { userRoom, hasVisibleApp }) => {
     };
 
     // (The group as it was: its members still include the one who left.)
-    const onLeft = ({ group }) => toMembers(group);
+    // Their tabs leave the group's room at once: no more messages or typing.
+    const onLeft = ({ group, userId, line }) => {
+        io.in(userRoom(userId)).socketsLeave(String(group._id));
+        io.to(String(group._id)).emit("newMessage", line);
+        toMembers(group);
+    };
+
+    // A new epoch of the group key: members load it.
+    const onKeyChanged = ({ group }) => group.participants.forEach((member) => io.to(userRoom(member)).emit("groupKeyChanged", { groupId: group._id }));
 
     const handlers = {
         left: onLeft,
+        keyChanged: onKeyChanged,
         invited: (event) => onInvited(event).catch(report),
         answered: (event) => onAnswered(event).catch(report),
         cancelled: onCancelled,

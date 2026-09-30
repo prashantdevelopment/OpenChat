@@ -52,38 +52,49 @@ export const useTypingSender = (conversationId) => {
   return { onInput, stop };
 };
 
-// Receiver side: whether the other person is typing in this conversation.
-export const usePeerTyping = (conversationId, currentUserId) => {
-  const [isTyping, setIsTyping] = useState(false);
+// Receiver side: who else is typing in this conversation (user ids, in the
+// order they started). In a 1:1 chat that is the other person or nobody.
+export const useTypingPeople = (conversationId, currentUserId) => {
+  const [people, setPeople] = useState([]);
 
   useEffect(() => {
-    let expireTimer;
-    const hide = () => {
-      clearTimeout(expireTimer);
-      setIsTyping(false);
+    const timers = new Map(); // userId -> expiry timer
+    const stop = (userId) => {
+      clearTimeout(timers.get(userId));
+      timers.delete(userId);
+      setPeople((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : prev));
+    };
+    const stopAll = () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+      setPeople([]);
     };
 
     const handleTyping = (event) => {
       if (event.conversationId !== conversationId || event.userId === currentUserId) return;
-      clearTimeout(expireTimer);
-      setIsTyping(event.isTyping);
-      if (event.isTyping) expireTimer = setTimeout(hide, EXPIRE_MS);
+      if (!event.isTyping) return stop(event.userId);
+      clearTimeout(timers.get(event.userId));
+      timers.set(event.userId, setTimeout(() => stop(event.userId), EXPIRE_MS));
+      setPeople((prev) => (prev.includes(event.userId) ? prev : [...prev, event.userId]));
     };
     // Their message arrived: they are done typing it.
     const handleNewMessage = (message) => {
-      if (message.conversationId === conversationId && message.sender !== currentUserId) hide();
+      if (message.conversationId === conversationId && message.sender !== currentUserId) stop(message.sender);
     };
 
     socket.on("typing", handleTyping);
     socket.on("newMessage", handleNewMessage);
-    socket.on("disconnect", hide);
+    socket.on("disconnect", stopAll);
     return () => {
-      clearTimeout(expireTimer);
+      timers.forEach((timer) => clearTimeout(timer));
       socket.off("typing", handleTyping);
       socket.off("newMessage", handleNewMessage);
-      socket.off("disconnect", hide);
+      socket.off("disconnect", stopAll);
     };
   }, [conversationId, currentUserId]);
 
-  return isTyping;
+  return people;
 };
+
+// Whether the other person is typing (1:1 chats).
+export const usePeerTyping = (conversationId, currentUserId) => useTypingPeople(conversationId, currentUserId).length > 0;

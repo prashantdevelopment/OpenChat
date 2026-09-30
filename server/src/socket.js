@@ -5,7 +5,8 @@ import { sessionEndsAt, sessionEvents } from "./session.js";
 import { createMessagePush } from "./services/messagePush.service.js";
 import socketAuthMiddleware from "./middleware/socket-auth.middleware.js";
 import AppError from "./utils/AppError.js";
-import { countUnread, findConversationBetween, getContactIds, getConversationForParticipant, markAllDelivered, markConversationDelivered, markConversationRead, otherParticipant, readReceiptsShared } from "./services/conversation.service.js";
+import { countUnread, findConversationBetween, getChatForMember, getContactIds, groupReceiptsFor, markAllDelivered, markConversationDelivered, markConversationRead, otherParticipant, readReceiptsShared } from "./services/conversation.service.js";
+import Conversation from "./models/conversation.model.js";
 import { blockEvents, hasBlocked, isBlockedBetween } from "./services/block.service.js";
 import User from "./models/user.model.js";
 import { isOnline, socketClosed, socketOpened } from "./presence.js";
@@ -108,8 +109,18 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
             });
     };
 
+    // A group: each member gets the receipts as they see them (everyone else
+    // received / read), from the maps as they are now.
+    const sendGroupReceipts = async (groupId) => {
+        const group = await Conversation.findById(groupId);
+        if (!group) return;
+        const people = await User.find({ _id: { $in: group.participants } }).select("readReceipts").lean();
+        people.forEach((person) => io.to(userRoom(person._id)).emit("receipt", { conversationId: group._id, ...groupReceiptsFor(group, person._id, people) }));
+    };
+
     // Receipts never cross a block (they would show the other one is active).
     const sendReceiptUnlessBlocked = async (conversation, userId, times) => {
+        if (conversation.type === "group") return sendGroupReceipts(conversation._id);
         if (await isBlockedBetween(userId, otherParticipant(conversation, userId))) return;
         sendReceipt(conversation, userId, times);
     };
@@ -261,17 +272,18 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
             if (typeof ack === "function") {
                 ack({
                     success: false,
-                    message: err instanceof AppError ? err.message : "Something went wrong"
+                    message: err instanceof AppError ? err.message : "Something went wrong",
+                    ...(err instanceof AppError && err.reason ? { reason: err.reason } : {})
                 });
             }
         };
 
         socket.on("joinConversation", async (conversationId, ack) => {
             try {
-                const conversation = await getConversationForParticipant(conversationId, socket.userId);
+                const conversation = await getChatForMember(conversationId, socket.userId);
                 // Someone who blocked the other person reads the history but
                 // stays out of the live room: no typing or messages from them.
-                if (await hasBlocked(socket.userId, otherParticipant(conversation, socket.userId))) {
+                if (conversation.type !== "group" && await hasBlocked(socket.userId, otherParticipant(conversation, socket.userId))) {
                     if (typeof ack === "function") ack({ success: true });
                     return;
                 }
@@ -314,8 +326,8 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
 
                 // Full message: only to people who have this conversation open.
                 io.to(message.conversationId.toString()).emit("newMessage", message);
-                // Push to whoever isn't looking at OpenChat right now.
-                pushNewMessage(conversation, message, unreadCounts);
+                // Push to whoever isn't looking at OpenChat right now (groups: step 72).
+                if (conversation.type !== "group") pushNewMessage(conversation, message, unreadCounts);
 
                 if (typeof ack === "function") ack({ success: true, message });
             } catch (err) {

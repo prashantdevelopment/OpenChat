@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
 import { decryptMessage, deriveConversationKey } from "./messages.js";
 
+// What decrypts a chat's messages: a 1:1 conversation key (CryptoKey), or a
+// group cipher (lib/groupCipher.js: { encrypt, decrypt }) that picks the key of
+// each message's epoch.
+const decryptWith = (keyOrCipher, encrypted, senderId) =>
+  keyOrCipher.decrypt ? keyOrCipher.decrypt(encrypted, senderId) : decryptMessage(keyOrCipher, encrypted, senderId);
+
 // Conversation keys are derived once per session and conversation, then shared
 // by the sidebar preview and the open chat. Keyed by the private key object,
 // so logging in again (a new private key) starts with an empty cache.
@@ -67,7 +73,7 @@ export const useDecryptedText = (conversationKey, encrypted, senderId) => {
   useEffect(() => {
     if (!conversationKey || !encrypted?.ciphertext || known !== undefined) return;
     let ignore = false;
-    decryptMessage(conversationKey, encrypted, senderId)
+    decryptWith(conversationKey, encrypted, senderId)
       .then((text) => {
         rememberText(conversationKey, encrypted, senderId, text);
         if (!ignore) setResult({ source: encrypted, text });

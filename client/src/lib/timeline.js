@@ -4,8 +4,11 @@ import { isSameDay } from "./time.js";
 // bubbles sit closer and only the last one shows the time.
 const GROUP_GAP_MS = 5 * 60 * 1000;
 
+// A group's "joined"/"left" lines stand alone.
 const continuesGroup = (earlier, later) =>
   Boolean(earlier && later) &&
+  earlier.messageType !== "system" &&
+  later.messageType !== "system" &&
   earlier.sender === later.sender &&
   isSameDay(earlier.createdAt, later.createdAt) &&
   new Date(later.createdAt) - new Date(earlier.createdAt) < GROUP_GAP_MS;

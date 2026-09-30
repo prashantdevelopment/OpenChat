@@ -10,7 +10,9 @@ const lastMessageSchema = new mongoose.Schema({
     sender: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     // "image" / "video" / "audio" / "file" lets the sidebar say "Photo" etc. (the caption
     // and file name are in the ciphertext).
-    messageType: { type: String, default: "text" }
+    messageType: { type: String, default: "text" },
+    // Groups: the key generation it was encrypted with.
+    epoch: { type: Number, default: undefined }
 }, { _id: false });
 
 const conversationSchema = new mongoose.Schema({

@@ -6,6 +6,9 @@ import User, { PUBLIC_USER_FIELDS } from "../models/user.model.js";
 import AppError from "../utils/AppError.js";
 import { isBlockedBetween } from "./block.service.js";
 import GroupKeyEpoch from "../models/groupKeyEpoch.model.js";
+import Message from "../models/message.model.js";
+import { addSystemMessage } from "./message.service.js";
+import { countUnread, groupReceiptsFor } from "./conversation.service.js";
 import { addInviteeKeys, checkLockedKeys, createFirstEpoch, dropKeysOf, getMyKeys, markKeyStale, rotateGroupKey } from "./groupKeys.service.js";
 
 // Groups (step 66): a group is a Conversation with type "group". Its members
@@ -22,9 +25,10 @@ import { addInviteeKeys, checkLockedKeys, createFirstEpoch, dropKeysOf, getMyKey
 // Every invite comes with the group's key locked for the invitee (step 68,
 // groupKeys.service.js): in a new group, the first epoch; later, the latest.
 //
-// "invited" { group, fromId, invites }, "answered" { invite, group, accepted },
-// "cancelled" { invite, group }, "left" { group, userId }: socket.js tells the
-// people involved (live and by push).
+// "invited" { group, fromId, invites }, "answered" { invite, group, accepted,
+// line }, "cancelled" { invite, group }, "left" { group, userId, line },
+// "keyChanged" { group }: socket.js tells the people involved (live and by
+// push). line: the "joined"/"left" line added to the group's history.
 export const groupEvents = new EventEmitter();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -124,9 +128,10 @@ export const createGroup = async (userId, { groupId, name, userIds, keys } = {})
     try {
         await createFirstEpoch(group._id, userId, byUser);
         const invites = await invitePeople(group, String(userId), ids, { firstEpoch: true });
+        await addSystemMessage(group._id, "created", userId);
         return { group, invites };
     } catch (error) {
-        await Promise.all([Conversation.deleteOne({ _id: group._id }), GroupKeyEpoch.deleteMany({ group: group._id })]);
+        await Promise.all([Conversation.deleteOne({ _id: group._id }), GroupKeyEpoch.deleteMany({ group: group._id }), Message.deleteMany({ conversationId: group._id })]);
         throw error;
     }
 };
@@ -171,7 +176,8 @@ export const respondToInvite = async (userId, inviteId, accept) => {
         { new: true }
     );
     if (group) {
-        groupEvents.emit("answered", { invite: claimed, group, accepted: true });
+        const line = await addSystemMessage(group._id, "joined", userId);
+        groupEvents.emit("answered", { invite: claimed, group, accepted: true, line });
         return { invite: claimed, group };
     }
 
@@ -226,12 +232,24 @@ const groupJson = (group) => {
     return { _id, type: "group", name, members: participants, admins, createdBy, membersCanInvite, joinedAt, createdAt };
 };
 
-// The groups I'm in, with their members.
+// The groups I'm in, for the chat list: members, the newest message (still
+// encrypted, with its key epoch), my unread count and the receipts as I see
+// them. The members' read-receipt setting is used here, never sent.
 export const listMyGroups = async (userId) => {
     const groups = await Conversation.find({ type: "group", participants: userId })
-        .populate("participants", PUBLIC_USER_FIELDS)
+        .populate("participants", `${PUBLIC_USER_FIELDS} readReceipts`)
         .sort({ lastMessageAt: -1, createdAt: -1 });
-    return groups.map(groupJson);
+    return Promise.all(groups.map(async (group) => {
+        const json = groupJson(group);
+        return {
+            ...json,
+            members: json.members.map(({ readReceipts: _setting, ...member }) => member),
+            lastMessage: group.lastMessage?.toJSON?.() ?? group.lastMessage ?? null,
+            lastMessageAt: group.lastMessageAt,
+            unreadCount: await countUnread(group, userId),
+            receipts: groupReceiptsFor(group, userId, group.participants),
+        };
+    }));
 };
 
 // One group, for its members: the members and the invites still open or
@@ -260,12 +278,13 @@ export const getGroup = async (userId, groupId) => {
 // needs a new key before the next message (they held this one). The last
 // admin leaving hands it to the member who has been there longest; the last
 // member leaving ends the group.
-const takeOut = async (group, userId) => {
+const takeOut = async (group, userId, byId) => {
     const others = group.participants.filter((id) => String(id) !== String(userId));
     if (others.length === 0) {
         await Promise.all([
             Conversation.deleteOne({ _id: group._id }),
             GroupKeyEpoch.deleteMany({ group: group._id }),
+            Message.deleteMany({ conversationId: group._id }),
             GroupInvite.updateMany({ group: group._id, status: "pending" }, { $set: { status: "cancelled", respondedAt: new Date() } }),
         ]);
         return;
@@ -280,7 +299,8 @@ const takeOut = async (group, userId) => {
         { $pull: { participants: userId }, $set: { admins }, $unset: { [`joinedAt.${userId}`]: "" } }
     );
     await markKeyStale(group._id);
-    groupEvents.emit("left", { group, userId: String(userId) });
+    const line = await addSystemMessage(group._id, byId ? "removed" : "left", userId, byId);
+    groupEvents.emit("left", { group, userId: String(userId), line });
 };
 
 export const leaveGroup = async (userId, groupId) => takeOut(await getGroupForMember(groupId, userId), userId);
@@ -291,10 +311,15 @@ export const removeMember = async (adminId, groupId, userId) => {
     checkId(userId, "user");
     if (String(userId) === String(adminId)) throw new AppError("To leave, use Leave group", 400);
     if (!includes(group.participants, userId)) throw new AppError("Not a member of this group", 404);
-    await takeOut(group, userId);
+    await takeOut(group, userId, adminId);
 };
 
 // My copies of the group key, and what the next epoch needs (members only).
 export const getGroupKeys = async (userId, groupId) => getMyKeys(await getGroupForMember(groupId, userId), userId);
 
-export const rotateKey = async (userId, groupId, body) => rotateGroupKey(await getGroupForMember(groupId, userId), userId, body);
+export const rotateKey = async (userId, groupId, body) => {
+    const group = await getGroupForMember(groupId, userId);
+    const result = await rotateGroupKey(group, userId, body);
+    groupEvents.emit("keyChanged", { group });
+    return result;
+};
