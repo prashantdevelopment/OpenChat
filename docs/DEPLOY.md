@@ -99,3 +99,16 @@ Your computer already has its own pair in `server/.env` (made during step 63).
 - **Updates**: every push to `main` builds and deploys again (Render's auto-deploy). Run the tests before pushing.
 - **Security headers**: the server sends a Content-Security-Policy for the app with hashes of its two inline scripts, computed from the build at start, so nothing needs updating by hand.
 - If rate limits ever treat everyone as one visitor, Render's proxy setup differs from `TRUST_PROXY=1`: tell me, it is a one-line change.
+
+## Moving to another Render service (a new address)
+
+The app finds its own address through `RENDER_EXTERNAL_URL`, so nothing in the code changes. When the address changes (e.g. `https://openchat-6cl5.onrender.com`):
+
+1. **Render (new service):** the same environment variables as before (MONGO_URI, JWT_SECRET, Cloudinary, Google, Brevo, VAPID keys). Don't copy `CLIENT_URL`, `VITE_SITE_URL` or an `https://` `VAPID_SUBJECT` with the old address: leave them out (or set the new one) and redeploy, so the sitemap and link previews use the new address.
+2. **Google Cloud → OAuth client:** Authorized JavaScript origin `https://<new>.onrender.com`, redirect URI `https://<new>.onrender.com/api/auth/google/callback`. The old ones can go.
+3. **Brevo → Authorized IPs:** the new service's outbound IPs (Render → the service → Connect → Outbound). Without them, email codes fail with 401.
+4. **MongoDB Atlas → Network Access:** only if it lists IPs instead of `0.0.0.0/0`: add the new outbound IPs.
+5. **Google Search Console:** add the new address as a property, verify it, submit `https://<new>.onrender.com/sitemap.xml`.
+6. **Old service:** suspend or delete it, so only one server runs (presence, rate limits and calls live in memory).
+7. **People:** each browser logs in once on the new address (keys, key pins and push subscriptions belong to the site's address); notifications are turned on again in Settings there.
+8. **Uptime job:** `GET https://<new>.onrender.com/api/health` answers `200 {"status":"ok"}` (keeps the free service awake if pinged every ~10 minutes).
