@@ -7,6 +7,8 @@ import {
     declineInviteController,
     getGroupController,
     getKeysController,
+    makeAdminController,
+    updateGroupController,
     leaveController,
     removeMemberController,
     rotateKeyController,
@@ -29,6 +31,9 @@ const router = Router();
 router.get("/groups", authMiddleware, listGroupsController);
 router.post("/groups", authMiddleware, inviteLimit, createGroupController);
 router.get("/groups/:groupId", authMiddleware, getGroupController);
+// Admins: rename, the "all members can invite" switch, make someone admin.
+router.patch("/groups/:groupId", authMiddleware, leaveLimit, updateGroupController);
+router.post("/groups/:groupId/admins/:userId", authMiddleware, leaveLimit, makeAdminController);
 router.post("/groups/:groupId/invites", authMiddleware, inviteLimit, inviteController);
 // The group key (step 68): my locked copies; a new epoch (after someone left).
 router.get("/groups/:groupId/keys", authMiddleware, getKeysController);

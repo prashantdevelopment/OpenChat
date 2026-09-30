@@ -1,4 +1,4 @@
-import { cancelInvite, createGroup, getGroup, getGroupKeys, inviteToGroup, leaveGroup, listMyGroups, listMyInvites, removeMember, respondToInvite, rotateKey } from "../services/group.service.js";
+import { cancelInvite, createGroup, getGroup, getGroupKeys, inviteToGroup, leaveGroup, listMyGroups, listMyInvites, makeAdmin, removeMember, respondToInvite, rotateKey, updateGroup } from "../services/group.service.js";
 
 const createGroupController = async (req, res) => {
     const { groupId, name, userIds, keys } = req.body ?? {};
@@ -58,7 +58,20 @@ const removeMemberController = async (req, res) => {
     res.status(200).json({ success: true });
 };
 
+const updateGroupController = async (req, res) => {
+    const { name, membersCanInvite } = req.body ?? {};
+    await updateGroup(req.user.userId, req.params.groupId, { name, membersCanInvite });
+    res.status(200).json({ success: true, group: await getGroup(req.user.userId, req.params.groupId) });
+};
+
+const makeAdminController = async (req, res) => {
+    await makeAdmin(req.user.userId, req.params.groupId, req.params.userId);
+    res.status(200).json({ success: true });
+};
+
 export {
+    updateGroupController,
+    makeAdminController,
     getKeysController,
     rotateKeyController,
     leaveController,

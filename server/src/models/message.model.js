@@ -33,9 +33,11 @@ const messageSchema = new mongoose.Schema({
     // (an admin removing someone). Metadata the server has anyway, no text.
     system: {
         type: new mongoose.Schema({
-            kind: { type: String, enum: ["created", "joined", "left", "removed"], required: true },
+            kind: { type: String, enum: ["created", "joined", "left", "removed", "renamed", "admin"], required: true },
             user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-            by: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+            by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+            // "renamed": the new name.
+            name: { type: String }
         }, { _id: false }),
         default: undefined
     },

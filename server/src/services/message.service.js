@@ -154,8 +154,8 @@ const getMessagesByConversationId = async (conversationId, currentUserId, { befo
 
 // "Riya joined" and the like, in a group's history (never unread, no preview).
 const SYSTEM_PEOPLE = [{ path: "system.user", select: "name username" }, { path: "system.by", select: "name username" }];
-const addSystemMessage = async (groupId, kind, userId, byId) =>
-    (await Message.create({ conversationId: groupId, sender: userId, messageType: "system", system: { kind, user: userId, ...(byId ? { by: byId } : {}) } })).populate(SYSTEM_PEOPLE);
+const addSystemMessage = async (groupId, kind, userId, byId, extra = {}) =>
+    (await Message.create({ conversationId: groupId, sender: userId, messageType: "system", system: { kind, user: userId, ...(byId ? { by: byId } : {}), ...extra } })).populate(SYSTEM_PEOPLE);
 
 export {
     addSystemMessage,

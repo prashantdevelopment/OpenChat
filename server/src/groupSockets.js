@@ -68,12 +68,19 @@ const registerGroupEvents = (io, { userRoom, hasVisibleApp }) => {
         toMembers(group);
     };
 
+    // Renamed, the invite switch, a new admin: members reload; the line goes to the open chats.
+    const onUpdated = ({ group, line }) => {
+        if (line) io.to(String(group._id)).emit("newMessage", line);
+        toMembers(group);
+    };
+
     // A new epoch of the group key: members load it.
     const onKeyChanged = ({ group }) => group.participants.forEach((member) => io.to(userRoom(member)).emit("groupKeyChanged", { groupId: group._id }));
 
     const handlers = {
         left: onLeft,
         keyChanged: onKeyChanged,
+        updated: onUpdated,
         invited: (event) => onInvited(event).catch(report),
         answered: (event) => onAnswered(event).catch(report),
         cancelled: onCancelled,

@@ -27,7 +27,7 @@ import { addInviteeKeys, checkLockedKeys, createFirstEpoch, dropKeysOf, getMyKey
 //
 // "invited" { group, fromId, invites }, "answered" { invite, group, accepted,
 // line }, "cancelled" { invite, group }, "left" { group, userId, line },
-// "keyChanged" { group }: socket.js tells the people involved (live and by
+// "keyChanged" { group }, "updated" { group, line }: socket.js tells the people involved (live and by
 // push). line: the "joined"/"left" line added to the group's history.
 export const groupEvents = new EventEmitter();
 
@@ -312,6 +312,35 @@ export const removeMember = async (adminId, groupId, userId) => {
     if (String(userId) === String(adminId)) throw new AppError("To leave, use Leave group", 400);
     if (!includes(group.participants, userId)) throw new AppError("Not a member of this group", 404);
     await takeOut(group, userId, adminId);
+};
+
+// Admins change the group: its name, and whether every member may invite.
+// A rename gets a line in the chat ("Alice renamed the group to …").
+export const updateGroup = async (adminId, groupId, { name, membersCanInvite } = {}) => {
+    const group = await getGroupForMember(groupId, adminId);
+    if (!includes(group.admins, adminId)) throw new AppError("Only admins can change the group", 403);
+    if (name === undefined && membersCanInvite === undefined) throw new AppError("Nothing to change", 400);
+    if (membersCanInvite !== undefined && typeof membersCanInvite !== "boolean") throw new AppError("membersCanInvite must be true or false", 400);
+    if (name !== undefined && typeof name !== "string") throw new AppError("Group name is required", 400, { field: "name" });
+    const oldName = group.name;
+    if (name !== undefined) group.name = name;
+    if (membersCanInvite !== undefined) group.membersCanInvite = membersCanInvite;
+    await group.save(); // runs the name rules (errors.name)
+    const line = name !== undefined && group.name !== oldName ? await addSystemMessage(group._id, "renamed", adminId, undefined, { name: group.name }) : null;
+    groupEvents.emit("updated", { group, line });
+    return group;
+};
+
+// An admin makes a member an admin too ("Alice made Bob an admin").
+export const makeAdmin = async (adminId, groupId, userId) => {
+    const group = await getGroupForMember(groupId, adminId);
+    if (!includes(group.admins, adminId)) throw new AppError("Only admins can make admins", 403);
+    checkId(userId, "user");
+    if (!includes(group.participants, userId)) throw new AppError("Not a member of this group", 404);
+    if (includes(group.admins, userId)) throw new AppError("Already an admin", 409);
+    await Conversation.updateOne({ _id: group._id }, { $addToSet: { admins: userId } });
+    const line = await addSystemMessage(group._id, "admin", userId, adminId);
+    groupEvents.emit("updated", { group, line });
 };
 
 // My copies of the group key, and what the next epoch needs (members only).

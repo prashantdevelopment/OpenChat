@@ -810,17 +810,23 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
 
 // In place of the composer while the other person's key looks different from
 // the one this device saw before: nothing is sent until the user trusts it.
-// A line the server adds to a group's history: who joined, left or was removed.
+// A line the server adds to a group's history: who joined, left or was
+// removed, a new name, a new admin.
 const SYSTEM_TEXT = {
   created: (who) => `${who} created the group`,
   joined: (who) => `${who} joined`,
   left: (who) => `${who} left`,
   removed: (who, by) => `${by} removed ${who}`,
+  renamed: (who, _by, name) => `${who} renamed the group to “${name}”`,
+  admin: (who, by) => `${by} made ${who} an admin`,
 };
 const SystemLine = ({ message, currentUserId }) => {
-  const name = (person) => (!person ? "Someone" : person._id === currentUserId ? "You" : person.name || person.username);
-  const { kind, user, by } = message.system ?? {};
-  const text = (SYSTEM_TEXT[kind] ?? SYSTEM_TEXT.joined)(name(user), name(by));
+  // "You" when I did it, "you" when it was done to me ("Riya made you an admin").
+  const name = (person, { done: isObject = false } = {}) =>
+    !person ? "someone" : person._id === currentUserId ? (isObject ? "you" : "You") : person.name || person.username;
+  const { kind, user, by, name: groupName } = message.system ?? {};
+  const doneTo = kind === "removed" || kind === "admin";
+  const text = (SYSTEM_TEXT[kind] ?? SYSTEM_TEXT.joined)(name(user, { done: doneTo }), name(by), groupName);
   return (
     <p className="my-3 text-center font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
       <span className="rounded-full border border-border px-3 py-1">{text}</span>
