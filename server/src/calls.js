@@ -22,7 +22,7 @@ const END_REASONS = ["ended", "declined", "cancelled", "busy", "failed", "missed
 const MEDIA = ["audio", "video"];
 
 // { ciphertext, iv } made by the browser's encryptMessage().
-const checkSignal = (signal) => {
+export const checkSignal = (signal) => {
     const { ciphertext, iv } = signal ?? {};
     if (!isBase64(ciphertext) || !isBase64(iv) || base64Length(iv) !== 12 || base64Length(ciphertext) > MAX_SIGNAL_BYTES) {
         throw new AppError("Invalid call signal", 400);
@@ -30,7 +30,7 @@ const checkSignal = (signal) => {
     return { ciphertext, iv };
 };
 
-const checkCallId = (callId) => {
+export const checkCallId = (callId) => {
     if (typeof callId !== "string" || !CALL_ID_PATTERN.test(callId)) {
         throw new AppError("Invalid call id", 400);
     }

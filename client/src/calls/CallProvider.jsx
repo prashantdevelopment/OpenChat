@@ -1,32 +1,21 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import socket from "../socket/socket.js";
-import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { getConversationKey } from "../crypto/hooks.js";
 import { decryptMessage, encryptMessage } from "../crypto/messages.js";
 import { checkPeerKey } from "../crypto/keyPins.js";
 import { CallContext } from "./CallContext.js";
 import CallOverlay from "./CallOverlay.jsx";
+import { CAMERA, groupCallState, loadIceServers } from "./media.js";
 import { displayName } from "../lib/people.js";
 
-// How the two browsers find each other: the server hands out STUN (each
-// browser's public address) and, when configured, TURN relay credentials for
-// networks that can't connect directly (server: iceServers.service.js). If
-// the server can't be asked, public STUN alone still works on many networks.
-const FALLBACK_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
-const loadIceServers = () =>
-  api
-    .get("/calls/ice-servers")
-    .then((res) => res.data.iceServers)
-    .catch(() => FALLBACK_ICE_SERVERS);
 const ENDED_VISIBLE_MS = 3000;
 // Nobody answers within 30s: the caller gives up ("No answer", a missed call
 // for the other side). The callee stops ringing a bit later by itself, in
 // case the caller's tab closed without saying so.
 const RING_TIMEOUT_MS = 30_000;
 const INCOMING_TIMEOUT_MS = 45_000;
-const CAMERA = { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } };
 // A connected call whose network drops (the phone put the app in the
 // background, WiFi → mobile data) isn't hung up: it says "Reconnecting…" and
 // the two browsers look for a new route (ICE restart). Only if that doesn't
@@ -406,8 +395,8 @@ const CallProvider = ({ children }) => {
     // ringing (this app just opened, e.g. from the call notification).
     const handleIncoming = ({ callId, conversationId, from, media, offer, ringsForMs }) => {
       if (callRef.current?.callId === callId) return; // this call again, after a reconnect
-      if (callRef.current && callRef.current.status !== "ended") {
-        socket.emit("endCall", { conversationId, callId, reason: "busy" }); // already in a call
+      if ((callRef.current && callRef.current.status !== "ended") || groupCallState.active) {
+        socket.emit("endCall", { conversationId, callId, reason: "busy" }); // already in a call (1:1 or group)
         return;
       }
       clearTimeout(endedTimer.current);

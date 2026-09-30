@@ -15,6 +15,8 @@ import { createMessage } from "./services/message.service.js";
 import registerCallHandlers from "./calls.js";
 import { createRingingCalls } from "./services/ringingCalls.service.js";
 import registerGroupEvents from "./groupSockets.js";
+import { createGroupCalls } from "./groupCalls.js";
+import { groupEvents } from "./services/group.service.js";
 
 const userRoom = (userId) => `user:${userId}`;
 const sessionRoom = (sessionId) => `session:${sessionId}`;
@@ -41,6 +43,12 @@ const EVENT_LIMITS = {
     callRestart: { windowMs: 60_000, max: 30 },
     // The app telling whether it is on screen (tab switches, phone locked).
     appVisible: { windowMs: 60_000, max: 120 },
+    // Group calls: joining/leaving now and then, signals like ICE candidates
+    // (with up to five other people at once).
+    groupCallJoin: { windowMs: 60_000, max: 20 },
+    groupCallLeave: { windowMs: 60_000, max: 30 },
+    groupCallState: { windowMs: 10_000, max: 60 },
+    groupCallSignal: { windowMs: 10_000, max: 600 },
 };
 // New connections per IP address a minute (each tab reconnects on its own).
 const CONNECTIONS_PER_MINUTE = 60;
@@ -89,6 +97,9 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
     const pushNewMessage = createMessagePush({ hasVisibleApp, throttleMs: pushThrottleMs });
     const ringingCalls = createRingingCalls({ hasVisibleApp, ringMs: callRingMs });
     const stopGroupEvents = registerGroupEvents(io, { userRoom, hasVisibleApp });
+    const groupCalls = createGroupCalls({ io, userRoom });
+    const onLeftGroup = ({ group, userId }) => groupCalls.leftGroup(group._id, userId);
+    groupEvents.on("left", onLeftGroup);
 
     const eventLimiters = Object.fromEntries(Object.entries(EVENT_LIMITS).map(([event, limit]) => [event, createLimiter(limit)]));
 
@@ -158,6 +169,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         blockEvents.off("unblocked", onUnblocked);
         sessionEvents.off("revoked", onSessionRevoked);
         stopGroupEvents();
+        groupEvents.off("left", onLeftGroup);
     });
 
     // Online counts per state, to the pages that watch them (Discover).
@@ -385,6 +397,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         });
 
         registerCallHandlers(io, socket, { userRoom, replyWithError, ringingCalls });
+        groupCalls.register(socket, { replyWithError });
         // Opened from a call notification (or just now): a call still ringing
         // for this user rings here too.
         ringingCalls.deliverTo(socket, socket.userId).catch((error) => console.error("Ringing call:", error.message));

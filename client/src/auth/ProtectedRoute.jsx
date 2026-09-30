@@ -3,6 +3,7 @@ import { useAuth } from "./AuthContext.js";
 import Unlock from "../pages/Unlock.jsx";
 import PublicLayout from "../components/PublicLayout.jsx";
 import CallProvider from "../calls/CallProvider.jsx";
+import GroupCallProvider from "../calls/GroupCallProvider.jsx";
 import MessageAlerts from "../notifications/MessageAlerts.jsx";
 import GroupAlerts from "../notifications/GroupAlerts.jsx";
 
@@ -22,10 +23,12 @@ const ProtectedRoute = () => {
   // going between chat, Discover and settings.
   return privateKey ? (
     <CallProvider>
-      <MessageAlerts>
-        <GroupAlerts />
-        <Outlet />
-      </MessageAlerts>
+      <GroupCallProvider>
+        <MessageAlerts>
+          <GroupAlerts />
+          <Outlet />
+        </MessageAlerts>
+      </GroupCallProvider>
     </CallProvider>
   ) : (
     <PublicLayout>

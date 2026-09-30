@@ -28,6 +28,7 @@ import NewGroupSheet from "../components/NewGroupSheet.jsx";
 import GroupListItem from "../components/GroupListItem.jsx";
 import GroupChatHeader from "../components/GroupChatHeader.jsx";
 import { useGroupCipher } from "../lib/groupCipher.js";
+import { useGroupCall } from "../calls/GroupCallContext.js";
 
 const getConversations = async () => (await api.get("/conversations")).data.conversations;
 
@@ -43,7 +44,9 @@ const Chat = () => {
   // Bumped by "Try again" to run the loading effect once more.
   const [listAttempt, setListAttempt] = useState(0);
   const isConnected = useIsConnected();
-  const { isBusy: isInCall, startCall } = useCall();
+  const { isBusy: isInOneToOneCall, startCall } = useCall();
+  const { isInGroupCall } = useGroupCall();
+  const isInCall = isInOneToOneCall || isInGroupCall;
   // The "not connected" banner waits a second: a quick reconnect shouldn't flash it.
   const [isOfflineLong, setIsOfflineLong] = useState(false);
   if (isConnected && isOfflineLong) setIsOfflineLong(false); // reset for the next drop
@@ -360,7 +363,13 @@ const Chat = () => {
         <main id={listIsMain ? undefined : "main"} className={cn("min-h-0 min-w-0 flex-col md:flex", conversationId ? "flex" : "hidden")}>
           {openGroup ? (
             <>
-              <GroupChatHeader group={openGroup} currentUserId={currentUser._id} nameOf={nameOfIn(openGroup)} headingLevel={PeerHeading} />
+              <GroupChatHeader
+                group={openGroup}
+                currentUserId={currentUser._id}
+                nameOf={nameOfIn(openGroup)}
+                headingLevel={PeerHeading}
+                callDisabled={!isConnected || isInCall}
+              />
               <ConversationView
                 key={conversationId}
                 conversationId={conversationId}

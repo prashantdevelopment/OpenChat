@@ -69,7 +69,7 @@ const CallStatus = ({ call, className }) => {
 
 // A <video> showing a MediaStream (srcObject can't be set as an attribute).
 // Muted: the voice plays through the provider's <audio> element.
-const StreamVideo = ({ stream, className, videoRef }) => {
+export const StreamVideo = ({ stream, className, videoRef }) => {
   const ownRef = useRef(null);
   const ref = videoRef ?? ownRef;
   useEffect(() => {
