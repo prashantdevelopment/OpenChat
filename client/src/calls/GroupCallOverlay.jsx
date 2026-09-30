@@ -146,7 +146,7 @@ const GroupCallOverlay = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             aria-label={`${kind} in ${call.groupName || "the group"}`}
-            className="fixed inset-0 z-40 flex flex-col bg-stage text-stage-foreground sm:inset-auto sm:right-6 sm:bottom-6 sm:h-140 sm:w-200 sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl"
+            className="fixed inset-0 z-40 flex flex-col bg-stage text-stage-foreground sm:inset-auto sm:right-6 sm:bottom-6 sm:h-140 sm:max-h-[calc(100dvh-3rem)] sm:w-200 sm:max-w-[calc(100vw-3rem)] sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl"
           >
             <header className="flex shrink-0 items-start gap-2 p-4">
               <div className="min-w-0 flex-1">

@@ -175,13 +175,107 @@ const MiniVideoCall = ({ call, onOpen }) => {
   );
 };
 
-// Video call: the other person large, me small in the corner (mirrored, like
-// a mirror). Full screen on phones, a large panel on bigger screens.
+// The small picture in a video call: tap it to swap who is large; drag it
+// anywhere (finger or mouse) inside the call, below the top bar. A tap is a
+// press that moved less than a few pixels. Keyboard: Enter/Space swaps, the
+// arrow keys move it. Its place is kept by the call (swap, minimise, turning
+// the phone), and it stays inside when the screen size changes.
+const TAP_SLOP_PX = 6;
+const EDGE_PX = 8;
+const SmallPicture = ({ area, topBar, place, onPlace, onSwap, label, children }) => {
+  const tile = useRef(null);
+  const moved = useRef(false);
+
+  const inside = (x, y) => {
+    const box = area.current?.getBoundingClientRect();
+    const own = tile.current?.getBoundingClientRect();
+    if (!box || !own) return { x, y };
+    const top = (topBar.current?.offsetHeight ?? 0) + EDGE_PX;
+    return {
+      x: Math.min(Math.max(EDGE_PX, x), box.width - own.width - EDGE_PX),
+      y: Math.min(Math.max(top, y), box.height - own.height - EDGE_PX),
+    };
+  };
+
+  // The screen changed size (phone turned, window resized): back inside. One
+  // observer for the call; it reads the latest place (never an old one).
+  useEffect(() => {
+    if (!area.current) return;
+    const observer = new ResizeObserver(() => onPlace((now) => now && inside(now.x, now.y)));
+    observer.observe(area.current);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inside() only reads refs
+  }, [area, onPlace]);
+
+  // The pointer is followed on the whole window while dragging: the picture
+  // jumps out of its corner on the first move, and must not lose the drag.
+  const onPointerDown = (event) => {
+    const box = area.current.getBoundingClientRect();
+    const own = tile.current.getBoundingClientRect();
+    const start = { x: event.clientX, y: event.clientY, left: own.left - box.left, top: own.top - box.top };
+    moved.current = false;
+    const onMove = (move) => {
+      const dx = move.clientX - start.x;
+      const dy = move.clientY - start.y;
+      if (!moved.current && Math.hypot(dx, dy) < TAP_SLOP_PX) return;
+      moved.current = true;
+      onPlace(inside(start.left + dx, start.top + dy));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  };
+  const onKeyDown = (event) => {
+    const step = { ArrowLeft: [-24, 0], ArrowRight: [24, 0], ArrowUp: [0, -24], ArrowDown: [0, 24] }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const box = area.current.getBoundingClientRect();
+    const own = tile.current.getBoundingClientRect();
+    onPlace(inside(own.left - box.left + step[0], own.top - box.top + step[1]));
+  };
+
+  return (
+    <button
+      ref={tile}
+      type="button"
+      data-slot="call-small-picture"
+      aria-label={`${label}. Swap views`}
+      title="Tap to swap, drag to move"
+      onClick={() => {
+        if (!moved.current) onSwap();
+        moved.current = false;
+      }}
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+      style={place ? { left: place.x, top: place.y } : undefined}
+      className={cn(
+        "absolute w-[34vw] max-w-40 cursor-grab touch-none bg-print p-1 pb-0 text-print-foreground shadow-lg select-none active:cursor-grabbing sm:w-44 sm:max-w-none",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stage-foreground",
+        !place && "right-3 bottom-3 rotate-2",
+      )}
+    >
+      {children}
+    </button>
+  );
+};
+
+// Video call: the other person large, me small (mirrored, like a mirror);
+// tap the small picture to swap, drag it anywhere. Full screen on phones, a
+// large panel on bigger screens.
 const VideoCall = ({ call }) => {
   const name = displayName(call.peer);
   const showRemote = call.remoteStream && !call.peerCameraOff;
   const [minimised, setMinimised] = useState(false);
+  const [swapped, setSwapped] = useState(false); // me large, them small
+  const [place, setPlace] = useState(null); // where the small picture was dragged
   const remoteVideo = useRef(null);
+  const area = useRef(null);
+  const topBar = useRef(null);
 
   // Leaving the app during a video call: browsers that support it float the
   // other person's video by themselves (Media Session "enterpictureinpicture").
@@ -203,22 +297,36 @@ const VideoCall = ({ call }) => {
 
   if (minimised) return <MiniVideoCall call={call} onOpen={() => setMinimised(false)} />;
   const topButton = "size-11 shrink-0 rounded-full border-stage-foreground/30 bg-stage/60 text-stage-foreground shadow-none hover:bg-stage-foreground/20 sm:size-10";
+
+  // Them, large or small (picture-in-picture always floats them).
+  const them = (large) =>
+    showRemote ? (
+      <StreamVideo stream={call.remoteStream} videoRef={remoteVideo} className={cn("size-full object-cover", large && "bg-black")} />
+    ) : (
+      <div className="flex size-full flex-col items-center justify-center gap-3">
+        <Avatar name={name} avatarId={call.peer.avatar} className={large ? "size-24 bg-brand text-4xl text-brand-foreground italic" : "size-12 bg-brand text-xl text-brand-foreground italic"} />
+        {call.peerCameraOff && large ? <p className="font-heading text-lg text-stage-foreground/80 italic">Camera off</p> : null}
+      </div>
+    );
+  // Me, large or small.
+  const me = (large) =>
+    call.cameraOff ? (
+      <p className={cn("flex size-full items-center justify-center px-1 text-center text-stage-foreground/80", large ? "font-heading text-lg italic" : "text-xs")}>Your camera is off</p>
+    ) : (
+      <StreamVideo stream={call.localStream} className={cn("size-full -scale-x-100 object-cover", large && "bg-black")} />
+    );
+
   return (
     <m.section
       {...FADE_MOTION}
       aria-label={`Video call with ${name}`}
-      className="fixed inset-0 z-40 flex flex-col bg-stage text-stage-foreground sm:inset-auto sm:right-6 sm:bottom-6 sm:h-120 sm:w-160 sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl"
+      className="fixed inset-0 z-40 flex flex-col bg-stage text-stage-foreground sm:inset-auto sm:right-6 sm:bottom-6 sm:h-120 sm:max-h-[calc(100dvh-3rem)] sm:w-160 sm:max-w-[calc(100vw-3rem)] sm:overflow-hidden sm:rounded-2xl sm:shadow-2xl"
     >
-      <div className="relative min-h-0 flex-1">
-        {showRemote ? (
-          <StreamVideo stream={call.remoteStream} videoRef={remoteVideo} className="size-full bg-black object-cover" />
-        ) : (
-          <div className="flex size-full flex-col items-center justify-center gap-3">
-            <Avatar name={name} avatarId={call.peer.avatar} className="size-24 bg-brand text-4xl text-brand-foreground italic" />
-            {call.peerCameraOff ? <p className="font-heading text-lg text-stage-foreground/80 italic">Camera off</p> : null}
-          </div>
-        )}
-        <div className="absolute inset-x-0 top-0 flex items-start gap-2 bg-linear-to-b from-stage/85 to-transparent p-4 pb-10">
+      <div ref={area} className="relative min-h-0 flex-1 overflow-hidden">
+        <div data-slot="call-large-picture" data-shows={swapped ? "me" : "them"} className="size-full">
+          {swapped ? me(true) : them(true)}
+        </div>
+        <div ref={topBar} className="absolute inset-x-0 top-0 flex items-start gap-2 bg-linear-to-b from-stage/85 to-transparent p-4 pb-10">
           <div className="min-w-0 flex-1">
             <Kicker className="text-stage-foreground/70">Video call</Kicker>
             <p className="mt-0.5 truncate font-heading text-2xl">{name}</p>
@@ -239,18 +347,19 @@ const VideoCall = ({ call }) => {
             <Minimize2Icon aria-hidden="true" strokeWidth={1.5} />
           </Button>
         </div>
-        {/* My own picture, as a small print pinned in the corner. */}
+        {/* The small picture, as a print pinned in the corner: me, or them after a swap. */}
         {call.localStream ? (
-          <figure className="absolute right-3 bottom-3 w-[34vw] max-w-40 rotate-2 bg-print p-1 pb-0 text-print-foreground shadow-lg sm:w-44 sm:max-w-none">
-            <div className="aspect-[3/4] overflow-hidden bg-stage sm:aspect-video">
-              {call.cameraOff ? (
-                <p className="flex size-full items-center justify-center px-1 text-center text-xs text-stage-foreground/80">Your camera is off</p>
-              ) : (
-                <StreamVideo stream={call.localStream} className="size-full -scale-x-100 object-cover" />
-              )}
-            </div>
-            <figcaption className="py-0.5 text-center font-mono text-[10px] tracking-[0.14em] uppercase">You</figcaption>
-          </figure>
+          <SmallPicture
+            area={area}
+            topBar={topBar}
+            place={place}
+            onPlace={setPlace}
+            onSwap={() => setSwapped((now) => !now)}
+            label={swapped ? `${name}'s video` : "Your video"}
+          >
+            <span className="block aspect-[3/4] overflow-hidden bg-stage sm:aspect-video">{swapped ? them(false) : me(false)}</span>
+            <span className="block truncate py-0.5 text-center font-mono text-[10px] tracking-[0.14em] uppercase">{swapped ? name : "You"}</span>
+          </SmallPicture>
         ) : null}
       </div>
       <div className="shrink-0 border-t border-stage-foreground/10 p-4">
