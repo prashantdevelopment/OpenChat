@@ -42,9 +42,25 @@ export const prepareImage = async (file) => {
   }
 };
 
-// Profile photo: the middle square of the image, 256×256 JPEG (redrawn, so
-// without metadata too). Transparent parts become white.
+// Profile photo: the middle square of the image as JPEG (redrawn, so without
+// metadata too), in two sizes: 256px for lists and up to 1080px for viewing it
+// large (never enlarged beyond the original). Transparent parts become white.
 const AVATAR_SIZE = 256;
+const AVATAR_LARGE_SIZE = 1080;
+const squareJpeg = async (bitmap, size) => {
+  const side = Math.min(bitmap.width, bitmap.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, size, size);
+  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+  if (!blob) throw new Error("This image couldn't be prepared.");
+  return blob;
+};
+// { small, large } JPEG blobs.
 export const makeAvatar = async (file) => {
   if (!IMAGE_TYPES.includes(file.type)) {
     throw new Error("Choose a JPEG, PNG, WebP or GIF image.");
@@ -56,17 +72,8 @@ export const makeAvatar = async (file) => {
     throw new Error("This image couldn't be read.");
   });
   try {
-    const side = Math.min(bitmap.width, bitmap.height);
-    const canvas = document.createElement("canvas");
-    canvas.width = AVATAR_SIZE;
-    canvas.height = AVATAR_SIZE;
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, AVATAR_SIZE, AVATAR_SIZE);
-    ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
-    if (!blob) throw new Error("This image couldn't be prepared.");
-    return blob;
+    const largeSize = Math.max(AVATAR_SIZE, Math.min(AVATAR_LARGE_SIZE, bitmap.width, bitmap.height));
+    return { small: await squareJpeg(bitmap, AVATAR_SIZE), large: await squareJpeg(bitmap, largeSize) };
   } finally {
     bitmap.close();
   }

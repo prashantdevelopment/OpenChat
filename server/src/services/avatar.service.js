@@ -3,10 +3,18 @@ import User from "../models/user.model.js";
 import storage from "../storage/index.js";
 import AppError from "../utils/AppError.js";
 
-// Profile photos are public (not encrypted). The browser crops them to a small
-// square JPEG first, so 512 KB is plenty.
+// Profile photos are public (not encrypted). The browser crops them to a
+// square JPEG first: 256px for lists (512 KB is plenty) and, since step 74, a
+// 1080px copy for viewing it large (up to 2 MB), stored as "<id>-large".
 const MAX_AVATAR_BYTES = 512 * 1024;
+const MAX_LARGE_AVATAR_BYTES = 2 * 1024 * 1024;
 const AVATAR_ID_PATTERN = /^[a-f0-9]{32}$/;
+const largeKey = (avatarId) => `${avatarId}-large`;
+// A photo and its large copy go together (older photos have no large copy).
+const removeBoth = async (avatarId) => {
+    await storage.remove(avatarId);
+    await storage.remove(largeKey(avatarId)).catch(() => {});
+};
 
 // The image type, from the file's first bytes ("magic number"), never from
 // what the client says. Only these three: no SVG (it can contain scripts),
@@ -38,8 +46,21 @@ const setAvatar = async (userId, bytes) => {
         await storage.remove(avatarId);
         throw new AppError("User not found", 404);
     }
-    if (AVATAR_ID_PATTERN.test(before.avatar)) await storage.remove(before.avatar);
+    if (AVATAR_ID_PATTERN.test(before.avatar)) await removeBoth(before.avatar);
     return avatarId;
+};
+
+// The large copy of my current photo (sent right after it, with its id).
+const setLargeAvatar = async (userId, avatarId, bytes) => {
+    if (typeof avatarId !== "string" || !AVATAR_ID_PATTERN.test(avatarId) || !(await User.exists({ _id: userId, avatar: avatarId }))) {
+        throw new AppError("That isn't your current photo", 404);
+    }
+    if (!Buffer.isBuffer(bytes) || bytes.length === 0 || !imageTypeOf(bytes)) {
+        throw new AppError("The photo must be a JPEG, PNG or WebP image", 400);
+    }
+    await storage.save(largeKey(avatarId), bytes);
+    // Changed meanwhile (another tab): the old photo's copy isn't kept.
+    if (!(await User.exists({ _id: userId, avatar: avatarId }))) await storage.remove(largeKey(avatarId)).catch(() => {});
 };
 
 const removeAvatar = async (userId) => {
@@ -47,19 +68,20 @@ const removeAvatar = async (userId) => {
     if (!before) {
         throw new AppError("User not found", 404);
     }
-    if (AVATAR_ID_PATTERN.test(before.avatar)) await storage.remove(before.avatar);
+    if (AVATAR_ID_PATTERN.test(before.avatar)) await removeBoth(before.avatar);
 };
 
-// The photo's bytes and type, if this id is someone's current photo.
-const readAvatar = async (avatarId) => {
+// The photo's bytes and type, if this id is someone's current photo. large:
+// the 1080px copy, or the photo itself when there is none (older photos).
+const readAvatar = async (avatarId, { large = false } = {}) => {
     if (typeof avatarId !== "string" || !AVATAR_ID_PATTERN.test(avatarId) || !(await User.exists({ avatar: avatarId }))) {
         throw new AppError("Photo not found", 404);
     }
     // Missing from storage (e.g. deleted by hand): same as no photo.
-    const bytes = await storage.read(avatarId).catch(() => {
+    const bytes = await (large ? storage.read(largeKey(avatarId)).catch(() => storage.read(avatarId)) : storage.read(avatarId)).catch(() => {
         throw new AppError("Photo not found", 404);
     });
     return { bytes, type: imageTypeOf(bytes) ?? "application/octet-stream" };
 };
 
-export { MAX_AVATAR_BYTES, setAvatar, removeAvatar, readAvatar };
+export { MAX_AVATAR_BYTES, MAX_LARGE_AVATAR_BYTES, setAvatar, setLargeAvatar, removeAvatar, readAvatar };

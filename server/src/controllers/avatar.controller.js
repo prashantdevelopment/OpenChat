@@ -1,8 +1,13 @@
-import { readAvatar, removeAvatar, setAvatar } from "../services/avatar.service.js";
+import { readAvatar, removeAvatar, setAvatar, setLargeAvatar } from "../services/avatar.service.js";
 
 const setAvatarController = async (req, res) => {
     const avatar = await setAvatar(req.user.userId, req.body);
     res.status(200).json({ success: true, avatar });
+};
+
+const setLargeAvatarController = async (req, res) => {
+    await setLargeAvatar(req.user.userId, req.params.avatarId, req.body);
+    res.status(200).json({ success: true });
 };
 
 const removeAvatarController = async (req, res) => {
@@ -15,7 +20,7 @@ const removeAvatarController = async (req, res) => {
 // comes from the bytes; nosniff and a locked-down CSP make sure the file is
 // only ever shown as an image. A new photo gets a new id, so caching is safe.
 const readAvatarController = async (req, res) => {
-    const { bytes, type } = await readAvatar(req.params.avatarId);
+    const { bytes, type } = await readAvatar(req.params.avatarId, { large: req.path.endsWith("/large") });
     res.set({
         "Content-Type": type,
         "X-Content-Type-Options": "nosniff",
@@ -26,4 +31,4 @@ const readAvatarController = async (req, res) => {
     res.send(bytes);
 };
 
-export { setAvatarController, removeAvatarController, readAvatarController };
+export { setAvatarController, setLargeAvatarController, removeAvatarController, readAvatarController };

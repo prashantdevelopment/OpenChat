@@ -5,7 +5,7 @@ import { computeSafetyNumber } from "../crypto/safetyNumber.js";
 import { parseAttachmentContent } from "../lib/messageContent.js";
 import { loadDecrypted } from "../lib/encryptedFiles.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
-import Avatar from "./Avatar.jsx";
+import ViewableAvatar from "./PhotoViewer.jsx";
 import PersonActions from "./PersonActions.jsx";
 import { Sheet, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { displayName, handle } from "../lib/people.js";
@@ -74,7 +74,7 @@ const ContactSheet = ({ open, onOpenChange, peer, myPublicKey, conversationId, c
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetPopup title="Contact info">
         <div className="flex flex-col items-center px-6 pt-8 pb-6 text-center">
-          <Avatar name={name} avatarId={peer.avatar} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
+          <ViewableAvatar name={name} avatarId={peer.avatar} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
           <SheetTitle className="mt-5 max-w-full wrap-break-word">{name}</SheetTitle>
           <p className="mt-1 text-sm text-muted-foreground">{handle(peer)}</p>
           <p className="mt-3 font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">{place ? `${place} · ` : ""}on OpenChat</p>

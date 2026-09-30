@@ -13,6 +13,7 @@ import { toastManager } from "@/components/ui/toast";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
 import Avatar from "../components/Avatar.jsx";
+import ViewableAvatar from "../components/PhotoViewer.jsx";
 import { makeAvatar } from "../lib/images.js";
 import Masthead from "../components/Masthead.jsx";
 import PageMeta from "../components/PageMeta.jsx";
@@ -99,7 +100,11 @@ const ProfilePhoto = () => {
     if (!file) return;
     run(async () => {
       const photo = await makeAvatar(file);
-      const res = await api.put("/users/me/avatar", photo, { headers: { "Content-Type": "image/jpeg" } });
+      const res = await api.put("/users/me/avatar", photo.small, { headers: { "Content-Type": "image/jpeg" } });
+      // The large copy for viewing it full size; without it the small one is shown large.
+      await api
+        .put(`/users/me/avatar/${res.data.avatar}/large`, photo.large, { headers: { "Content-Type": "image/jpeg" } })
+        .catch((error) => console.warn("The large copy of the photo wasn't saved:", error.response?.data?.message ?? error.message));
       updateCurrentUser({ avatar: res.data.avatar });
     }, "Photo saved.");
   };
@@ -112,7 +117,7 @@ const ProfilePhoto = () => {
 
   return (
     <div className="mb-8 flex items-center gap-5">
-      <Avatar name={displayName(currentUser)} avatarId={currentUser.avatar} className="size-20 bg-brand text-4xl text-brand-foreground italic" />
+      <ViewableAvatar name={displayName(currentUser)} avatarId={currentUser.avatar} className="size-20 bg-brand text-4xl text-brand-foreground italic" />
       <div className="min-w-0 flex-1 space-y-2">
         <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Profile photo</p>
         <div className="flex flex-wrap gap-2">

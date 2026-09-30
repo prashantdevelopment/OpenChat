@@ -3,8 +3,8 @@ import { changePasswordController, createUserController, emailCodeController, di
 import { validateNewPassword, validatePassword } from "../middleware/validation.middleware.js";
 import express from "express";
 import authMiddleware from "../middleware/auth.middleware.js";
-import { readAvatarController, removeAvatarController, setAvatarController } from "../controllers/avatar.controller.js";
-import { MAX_AVATAR_BYTES } from "../services/avatar.service.js";
+import { readAvatarController, removeAvatarController, setAvatarController, setLargeAvatarController } from "../controllers/avatar.controller.js";
+import { MAX_AVATAR_BYTES, MAX_LARGE_AVATAR_BYTES } from "../services/avatar.service.js";
 import { byIp, byUser, rateLimit } from "../rateLimit.js";
 
 // Each code is an email sent from our Brevo account: per network, on top of
@@ -33,7 +33,16 @@ router.put(
     express.raw({ type: ["image/jpeg", "image/png", "image/webp"], limit: MAX_AVATAR_BYTES }),
     setAvatarController
 );
+// Its 1080px copy, for viewing it large (sent right after, with the new id).
+router.put(
+    "/users/me/avatar/:avatarId/large",
+    authMiddleware,
+    avatarLimit,
+    express.raw({ type: ["image/jpeg", "image/png", "image/webp"], limit: MAX_LARGE_AVATAR_BYTES }),
+    setLargeAvatarController
+);
 router.delete("/users/me/avatar", authMiddleware, removeAvatarController);
 router.get("/avatars/:avatarId", readAvatarController);
+router.get("/avatars/:avatarId/large", readAvatarController);
 
 export default router;

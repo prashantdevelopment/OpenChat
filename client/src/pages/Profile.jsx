@@ -5,7 +5,7 @@ import api from "../api/api.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { computeSafetyNumber } from "../crypto/safetyNumber.js";
 import { INDIAN_STATES } from "../../../shared/indian-states.js";
-import Avatar from "../components/Avatar.jsx";
+import ViewableAvatar from "../components/PhotoViewer.jsx";
 import Masthead from "../components/Masthead.jsx";
 import PageMeta from "../components/PageMeta.jsx";
 import PersonActions from "../components/PersonActions.jsx";
@@ -95,7 +95,7 @@ const Profile = () => {
           </div>
         ) : (
           <article className="mt-6">
-            <Avatar name={displayName(user)} avatarId={user.avatar} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
+            <ViewableAvatar name={displayName(user)} avatarId={user.avatar} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
             <h1 className="mt-6 text-[2.375rem] leading-none wrap-break-word italic md:text-7xl">{displayName(user)}</h1>
             <p className="mt-3 text-muted-foreground">{handle(user)}</p>
             {user.bio ? <p className="mt-6 max-w-xl font-heading text-2xl leading-snug md:text-3xl">“{user.bio}”</p> : null}

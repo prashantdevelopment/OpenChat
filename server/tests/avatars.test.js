@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import app from "../src/app.js";
 import User from "../src/models/user.model.js";
+import storage from "../src/storage/index.js";
 import { connectTestDb, disconnectTestDb, registerAndLogin } from "./helpers.js";
 
 let asha, ravi;
@@ -18,7 +19,9 @@ const webp = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("W
 
 const putAvatar = (user, bytes, type = "image/jpeg") =>
     request(app).put("/api/users/me/avatar").set("Cookie", user.cookie).set("Content-Type", type).send(bytes);
-const getAvatar = (id) => request(app).get(`/api/avatars/${id}`).buffer(true).parse((res, done) => {
+const putLarge = (user, id, bytes, type = "image/jpeg") =>
+    request(app).put(`/api/users/me/avatar/${id}/large`).set("Cookie", user.cookie).set("Content-Type", type).send(bytes);
+const getAvatar = (id, suffix = "") => request(app).get(`/api/avatars/${id}${suffix}`).buffer(true).parse((res, done) => {
     const chunks = [];
     res.on("data", (c) => chunks.push(c));
     res.on("end", () => done(null, Buffer.concat(chunks)));
@@ -93,5 +96,56 @@ describe("profile photos", () => {
         }
         await request(app).patch("/api/users/me").set("Cookie", asha.cookie).send({ bio: "x", avatar: "https://tracker.example/p.png" });
         expect((await User.findById(asha.id)).avatar).toBe("");
+    });
+});
+
+describe("the large copy (viewing a photo full size)", () => {
+    const large = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(900_000, 7)]);
+
+    it("sent right after the photo, with its id: served at /large, the small one unchanged", async () => {
+        const { avatar } = (await putAvatar(asha, jpeg)).body;
+        expect((await putLarge(asha, avatar, large)).status).toBe(200);
+        const big = await getAvatar(avatar, "/large");
+        expect(big.status).toBe(200);
+        expect(Buffer.compare(big.body, large)).toBe(0);
+        expect(big.headers["content-type"]).toBe("image/jpeg");
+        expect(big.headers["content-security-policy"]).toBe("default-src 'none'; sandbox");
+        expect(Buffer.compare((await getAvatar(avatar)).body, jpeg)).toBe(0);
+    });
+
+    it("a photo without one (older photos): /large gives the photo itself", async () => {
+        const { avatar } = (await putAvatar(asha, png, "image/png")).body;
+        const big = await getAvatar(avatar, "/large");
+        expect(big.status).toBe(200);
+        expect(Buffer.compare(big.body, png)).toBe(0);
+    });
+
+    it("only for my current photo: not someone else's, not an old one, not a made-up id", async () => {
+        const { avatar: ashas } = (await putAvatar(asha, jpeg)).body;
+        expect((await putLarge(ravi, ashas, large)).status).toBe(404);
+        const { avatar: newer } = (await putAvatar(asha, png, "image/png")).body;
+        expect((await putLarge(asha, ashas, large)).status).toBe(404); // replaced already
+        expect((await putLarge(asha, "f".repeat(32), large)).status).toBe(404);
+        expect((await putLarge(asha, "nope", large)).status).toBe(404);
+        expect((await request(app).put(`/api/users/me/avatar/${newer}/large`).set("Content-Type", "image/jpeg").send(jpeg)).status).toBe(401);
+    });
+
+    it("must really be an image, at most 2 MB", async () => {
+        const { avatar } = (await putAvatar(asha, jpeg)).body;
+        expect((await putLarge(asha, avatar, Buffer.from("<svg onload=alert(1)>"), "image/jpeg")).status).toBe(400);
+        expect((await putLarge(asha, avatar, Buffer.concat([jpeg, Buffer.alloc(2 * 1024 * 1024)]))).status).toBe(413);
+    });
+
+    it("a new photo or removing it takes the large copy away too", async () => {
+        const { avatar: first } = (await putAvatar(asha, jpeg)).body;
+        await putLarge(asha, first, large).expect(200);
+        await putAvatar(asha, png, "image/png").expect(200);
+        expect((await getAvatar(first, "/large")).status).toBe(404);
+        await expect(storage.read(`${first}-large`)).rejects.toThrow(); // gone from storage, not just hidden
+        const { avatar: second } = (await putAvatar(asha, jpeg)).body;
+        await putLarge(asha, second, large).expect(200);
+        await request(app).delete("/api/users/me/avatar").set("Cookie", asha.cookie).expect(200);
+        expect((await getAvatar(second, "/large")).status).toBe(404);
+        await expect(storage.read(`${second}-large`)).rejects.toThrow();
     });
 });
