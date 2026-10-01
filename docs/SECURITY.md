@@ -1,13 +1,13 @@
 # OpenChat security review
 
-**Date:** 2026-09-27 (plan step 51) · **Scope:** server (Express 5, Socket.IO, Mongoose), client (React), the end-to-end encryption, dependencies · **Method:** OWASP Top 10:2025 and ASVS 5.0 (L1, parts of L2), code read end to end, plus the automated test suites (server: Vitest; browser: Playwright, incl. mutation checks).
+**Date:** 2026-09-27 (plan step 51), last updated 2026-10-01 (Phase L, step 84) · **Scope:** server (Express 5, Socket.IO, Mongoose), client (React), the end-to-end encryption, dependencies · **Method:** OWASP Top 10:2025 and ASVS 5.0 (L1, parts of L2), code read end to end, plus the automated test suites (server: Vitest; browser: Playwright, incl. mutation checks).
 
 ## 1. What OpenChat protects, and from whom
 
 | Asset | Protected against | How |
 |---|---|---|
 | Message text, photos, videos, voice notes, files, call audio/video | The server, its database and file store, anyone who steals them | End-to-end encryption in the browser (section 3). The server stores only ciphertext. |
-| The private key | The server; a stolen database | Locked with the password (PBKDF2, 600,000 rounds); the unlocked key is non-extractable. |
+| The private key | The server; a stolen database | Locked with the password (PBKDF2, 600,000 rounds), and optionally a second copy per device with a passkey's secret (step 79); the unlocked key is non-extractable. |
 | Accounts | Password guessing, stolen sessions | bcrypt, rate limits, database-backed sessions (60 idle days, a year at most) that can be ended from any device. |
 | Who is online | Strangers | Presence only to people you chat with; state counts under 5 are hidden. |
 
@@ -31,7 +31,7 @@ Severity is by exploitability in this app, not by pattern.
 | 7 | Registering reveals whether an email is already used ("Email already exists") | Low | **Accepted**: usernames are public and searchable anyway; registration is limited to 10 per hour per address. |
 | 8 | Revoked sessions and per-user session lists live in memory: a restart forgets them (a logged-out token would work again until its hour ends) | Low | **Fixed (step 61b)**: sessions live in MongoDB, so logouts hold across restarts. Rate limits and presence are still per process (one server). |
 | 9 | No forward secrecy (section 4) | Medium (only matters after a key compromise) | **Studied**, not built now (section 4). |
-| 10 | Server logs print user ids on every socket connect/join | Info | **Accepted** for now; reduce when a real logger is added at deploy. |
+| 10 | Server logs print user ids on every socket connect/join | Info | **Fixed (step 54)**: connect/disconnect lines only in development (`devLog` in `socket.js`), the join lines removed. |
 
 **Checked and fine** (no change needed): parameterised Mongoose queries with type checks before every query (no NoSQL operator injection; search input is regex-escaped); mass assignment blocked by allowlists; ownership checked for conversations, messages, uploads (participants only) and blocks; avatars sniffed by magic bytes (JPEG/PNG/WebP only, never SVG); uploads served as attachments with `nosniff`; passwords: 8–64 characters, at most 72 bytes (bcrypt's limit), common passwords refused, bcrypt cost 10; login errors don't say which part was wrong; session tokens are 256 random bits, only their SHA-256 stored (step 61b; JWT with a 32+ character secret, HS256 pinned, only for the short Google sign-in steps); httpOnly, SameSite=Strict, Secure (production) cookie; helmet headers; CORS to one origin; rate limits on HTTP and socket events; errors never expose stack traces; no secrets in git (only `.env.example`).
 
@@ -71,6 +71,14 @@ Severity is by exploitability in this app, not by pattern.
 
 - **Unlock with a passkey (step 79):** optional, per device, after the password once. A passkey (WebAuthn, user verification required) with the PRF extension gives the browser a secret from the device's secure hardware; HKDF (bound to the user id) turns it into an AES-GCM key that locks a second copy of the private key. The server stores that copy but never sees the secret, so neither the server nor a copy of the database can open it; a passkey of another account or device doesn't open it either. The server doesn't verify the passkey (the session is already authenticated; without the device's secret the copy is useless), so a stolen session alone still can't unlock the messages. Opening a copy gives the same non-extractable key as the password. The copies are only ever returned to their owner (never in profiles, search or `/auth/me`), at most 10, named from the request's User-Agent, and removable in Settings. The password always remains the fallback. An XSS bug could prompt for the fingerprint like it could fake a password form; the CSP and the absence of `dangerouslySetInnerHTML` remain the defence.
 
+- **Profile photos full size (step 74):** a photo is public by design (everyone who finds the person sees it), so its two copies (256 px for lists, 1080 px to view it large) are too. Only the owner can set the large copy, and only for their current photo; changing or removing the photo removes both copies from storage. Both are re-encoded in the browser (no metadata) and checked by their first bytes like before.
+
+- **Viewing and saving photos and videos (step 76b):** they are decrypted only in the browser and shown from a local `blob:` address; nothing new is fetched to view them full screen. "Download" saves the decrypted bytes under the sender's file name with the extension of the file's real type; a type outside the photo/video allowlist is saved as plain bytes and never opened as a page of the site (as for files since step 34).
+
+- **Server resilience and floods (step 80):** a failed background promise is logged and the server keeps running; an uncaught exception stops it cleanly (code 1) so the host starts a fresh one, rather than going on in an unknown state. Every deploy stops it cleanly (requests finish, sockets close, MongoDB closes). Floods from one address or account are capped by the rate limits; a large distributed attack needs a proxy in front (Cloudflare, once there is a domain): `docs/DEPLOY.md`, "Restarts, deploys and attacks".
+
+- **Asking for notifications (step 83):** the browser's permission question only comes after the user chose "Turn on" in OpenChat's own dialog (never on page load); "Not now" is remembered on the device for a week. Nothing new reaches the server: allowing them makes the same push subscription as the switch in Settings, and pushes still never contain message text.
+
 ## 4. Forward secrecy study
 
 **What it is.** Forward secrecy means that stealing a key today doesn't unlock messages from yesterday. OpenChat's conversation key comes from the two long-term keys, so anyone who later gets a user's private key (their password plus the locked blob from the server, or their unlocked device) and has recorded the ciphertext can read the **whole history** of that user's chats.
@@ -92,4 +100,4 @@ Severity is by exploitability in this app, not by pattern.
 
 - **Done:** in production the server serves the app itself with a Content-Security-Policy (`server/src/clientApp.js`): scripts only from the server plus the two small inline scripts by SHA-256 hash (the theme script in `client/index.html`, the retry script in `client/public/offline.html`, hashed from the build at start), images and media also from `blob:` (decrypted files), no framing. CSP is the main defence against XSS, which would let an attacker use the unlocked key.
 - One server instance (in-memory rate limits, presence, ringing calls and group calls: a restart ends calls going on; sessions in the database), `TRUST_PROXY` set to the host's proxy count (Render: 1), `NODE_ENV=production` (Secure cookies; `RATE_LIMITS=off` and local file storage are refused), app and API on one address (SameSite=Strict cookie). How to set it up: `docs/DEPLOY.md`.
-- Run `npm audit` before every release.
+- Run `npm audit` before every release. (2026-10-01: server 0; client 0 after `axios` 1.19.0 → 1.20.0, a patch within its range for advisories that mostly concern Node's HTTP adapters, not the browser.)
