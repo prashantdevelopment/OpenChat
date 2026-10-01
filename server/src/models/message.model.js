@@ -76,6 +76,13 @@ const messageSchema = new mongoose.Schema({
 // (conversationId + createdAt range) without scanning other conversations.
 messageSchema.index({ conversationId: 1, createdAt: -1, _id: -1 });
 
+// Which message uses a file (the clean-up of unused uploads). Partial: only
+// messages with a file.
+messageSchema.index(
+    { "attachment.fileId": 1 },
+    { partialFilterExpression: { "attachment.fileId": { $exists: true } } }
+);
+
 // One clientId per sender. Partial: older messages have no clientId.
 messageSchema.index(
     { sender: 1, clientId: 1 },

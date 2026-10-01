@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { BellIcon, BellOffIcon, EllipsisVerticalIcon, LogOutIcon, ShieldIcon, UserMinusIcon, UserPlusIcon } from "lucide-react";
+import { BellIcon, BellOffIcon, EllipsisVerticalIcon, LogOutIcon, ShieldIcon, Trash2Icon, UserMinusIcon, UserPlusIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogPopup, DialogTitle } from "@/components/ui/dialog";
 import { toastManager } from "@/components/ui/toast";
-import { cancelInvite, fetchGroup, leaveGroup, makeAdmin, memberCount, removeMember, updateGroup } from "../lib/groups.js";
+import { cancelInvite, deleteGroup, fetchGroup, leaveGroup, makeAdmin, memberCount, removeMember, updateGroup } from "../lib/groups.js";
 import { inviteWithKey, rotateGroupKey } from "../lib/groupKeys.js";
 import { displayName, handle } from "../lib/people.js";
 
@@ -154,9 +154,32 @@ const InvitePeople = ({ group, onDone }) => {
   );
 };
 
+// What each confirm says (removing someone, leaving, deleting the group).
+const CONFIRM = {
+  remove: {
+    title: (person) => `Remove ${displayName(person)}?`,
+    description: "They won't get new messages. The group gets a new key, so they can't read what comes next.",
+    action: "Remove",
+    failed: "Couldn't remove them",
+  },
+  leave: {
+    title: (_person, name) => `Leave “${name}”?`,
+    description: "You won't get its messages any more. To come back, someone has to invite you again.",
+    action: "Leave",
+    failed: "Couldn't leave the group",
+  },
+  delete: {
+    title: (_person, name) => `Delete “${name}”?`,
+    description: "It goes for everyone in it, with all its messages, photos, videos and files. This can't be undone.",
+    action: "Delete group",
+    failed: "Couldn't delete the group",
+  },
+};
+
 // Group info: members (admins marked), invites, and what each person may do.
 // Admins: rename, invite, make admin, remove someone (the group then gets a
-// new key at once, made here), let all members invite. Everyone: leave.
+// new key at once, made here), let all members invite, delete the group for
+// everyone. Everyone: leave.
 // Reloads while open when something changes.
 // mutedUntil / onMuteChange: my notifications for this group (MuteDialog).
 const GroupSheet = ({ open, onOpenChange, groupId, currentUserId, mutedUntil, onMuteChange }) => {
@@ -168,7 +191,7 @@ const GroupSheet = ({ open, onOpenChange, groupId, currentUserId, mutedUntil, on
   const [busy, setBusy] = useState(null); // what is in progress: an invite id, "switch", "confirm"
   const [renaming, setRenaming] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [confirm, setConfirm] = useState(null); // { kind: "remove", person } | { kind: "leave" }
+  const [confirm, setConfirm] = useState(null); // { kind: "remove", person } | { kind: "leave" } | { kind: "delete" }
   const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
@@ -237,6 +260,11 @@ const GroupSheet = ({ open, onOpenChange, groupId, currentUserId, mutedUntil, on
         // They held the group key: a new one at once (else the next message makes it).
         await rotateGroupKey(currentUser, privateKey, groupId).catch((err) => console.error("New group key not made yet:", err));
         reload();
+      } else if (confirm.kind === "delete") {
+        // The chat closes and the toast shows when "groupDeleted" arrives (Chat.jsx).
+        await deleteGroup(groupId);
+        setConfirm(null);
+        onOpenChange(false);
       } else {
         await leaveGroup(groupId);
         setConfirm(null);
@@ -244,7 +272,7 @@ const GroupSheet = ({ open, onOpenChange, groupId, currentUserId, mutedUntil, on
         toastManager.add({ title: `You left “${shown.name}”` });
         navigate("/chat");
       }
-    }).catch(fail(confirm.kind === "remove" ? "Couldn't remove them" : "Couldn't leave the group"));
+    }).catch(fail(CONFIRM[confirm.kind].failed));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -395,6 +423,16 @@ const GroupSheet = ({ open, onOpenChange, groupId, currentUserId, mutedUntil, on
                 Leave group
               </Button>
             </Section>
+
+            {isAdmin ? (
+              <Section title="Delete group">
+                <p className="mt-1 mb-3 text-sm text-muted-foreground">For everyone: the group, all its messages, photos, videos and files go for good.</p>
+                <Button variant="destructive" className="min-h-[44px] rounded-full px-5 sm:h-9 sm:min-h-0" onClick={() => setConfirm({ kind: "delete" })}>
+                  <Trash2Icon aria-hidden="true" strokeWidth={1.4} />
+                  Delete group
+                </Button>
+              </Section>
+            ) : null}
           </>
         )}
       </SheetPopup>
@@ -406,18 +444,14 @@ const GroupSheet = ({ open, onOpenChange, groupId, currentUserId, mutedUntil, on
         <DialogPopup>
           <DialogHeader>
             <DialogTitle className="font-heading text-3xl font-normal">
-              {confirm?.kind === "remove" ? `Remove ${displayName(confirm.person)}?` : `Leave “${shown?.name ?? "this group"}”?`}
+              {confirm ? CONFIRM[confirm.kind].title(confirm.person, shown?.name ?? "this group") : null}
             </DialogTitle>
-            <DialogDescription>
-              {confirm?.kind === "remove"
-                ? "They won't get new messages. The group gets a new key, so they can't read what comes next."
-                : "You won't get its messages any more. To come back, someone has to invite you again."}
-            </DialogDescription>
+            <DialogDescription>{confirm ? CONFIRM[confirm.kind].description : null}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" className="min-h-[44px] rounded-full px-5" />}>Cancel</DialogClose>
             <Button type="button" variant="destructive" className="min-h-[44px] rounded-full px-5" loading={busy === "confirm"} onClick={handleConfirm}>
-              {confirm?.kind === "remove" ? "Remove" : "Leave"}
+              {confirm ? CONFIRM[confirm.kind].action : null}
             </Button>
           </DialogFooter>
         </DialogPopup>

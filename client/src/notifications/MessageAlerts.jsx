@@ -118,6 +118,7 @@ const MessageAlerts = ({ children }) => {
     socket.on("conversationRead", handleRead);
     socket.on("blocksChanged", handleReconnect);
     socket.on("groupsChanged", handleReconnect);
+    socket.on("groupDeleted", handleReconnect); // its unread count goes too
     const handleMute = ({ conversationId, mutedUntil }) =>
       setChats((prev) => (prev[conversationId] ? { ...prev, [conversationId]: { ...prev[conversationId], mutedUntil } } : prev));
     socket.on("muteChanged", handleMute);
@@ -129,6 +130,7 @@ const MessageAlerts = ({ children }) => {
     return () => {
       ignore = true;
       socket.off("groupsChanged", handleReconnect);
+      socket.off("groupDeleted", handleReconnect);
       socket.off("muteChanged", handleMute);
       socket.off("messageDeleted", handleDeleted);
       socket.off("conversationUpdated", handleUpdate);

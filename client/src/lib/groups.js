@@ -12,5 +12,7 @@ export const updateGroup = async (groupId, changes) => (await api.patch(`/groups
 export const makeAdmin = (groupId, userId) => api.post(`/groups/${groupId}/admins/${userId}`);
 export const removeMember = (groupId, userId) => api.delete(`/groups/${groupId}/members/${userId}`);
 export const leaveGroup = (groupId) => api.post(`/groups/${groupId}/leave`);
+// Admins: the group, its messages and files go for everyone.
+export const deleteGroup = (groupId) => api.delete(`/groups/${groupId}`);
 
 export const memberCount = (count) => `${count} ${count === 1 ? "member" : "members"}`;

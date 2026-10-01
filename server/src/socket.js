@@ -104,6 +104,8 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
     muteEvents.on("changed", onMuteChanged);
     const onLeftGroup = ({ group, userId }) => groupCalls.leftGroup(group._id, userId);
     groupEvents.on("left", onLeftGroup);
+    const onGroupDeleted = ({ group }) => groupCalls.endCall(group._id);
+    groupEvents.on("deleted", onGroupDeleted);
 
     const eventLimiters = Object.fromEntries(Object.entries(EVENT_LIMITS).map(([event, limit]) => [event, createLimiter(limit)]));
 
@@ -174,6 +176,7 @@ const createSocketServer = (httpServer, { presenceGraceMs = 5000, statePresenceI
         sessionEvents.off("revoked", onSessionRevoked);
         stopGroupEvents();
         groupEvents.off("left", onLeftGroup);
+        groupEvents.off("deleted", onGroupDeleted);
         muteEvents.off("changed", onMuteChanged);
     });
 

@@ -156,5 +156,12 @@ export const createGroupCalls = ({ io, userRoom, hasVisibleApp = async () => fal
         register,
         // Out of the group: out of its call too.
         leftGroup: (groupId, userId) => leave(String(groupId), String(userId)),
+        // The group is gone: its call ends at once for everyone in it.
+        endCall: (groupId) => {
+            const call = calls.get(String(groupId));
+            if (!call) return;
+            calls.delete(String(groupId));
+            call.people.forEach((_socketId, userId) => io.to(userRoom(userId)).emit("groupCallUpdated", { groupId: String(groupId), active: false }));
+        },
     };
 };

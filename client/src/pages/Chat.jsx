@@ -221,6 +221,21 @@ const Chat = () => {
     };
   }, [setGroups]);
 
+  // A group was deleted (by an admin, or its last member left): out of the
+  // list, its chat closes if open, and members hear who deleted it.
+  const onGroupDeleted = useEffectEvent(({ groupId, name, byId }) => {
+    const group = groups.find((g) => g._id === groupId);
+    setGroups((prev) => prev.filter((g) => g._id !== groupId));
+    if (conversationId === groupId) navigate("/chat");
+    if (byId === currentUser._id) toastManager.add({ title: `“${name}” was deleted`, description: "Its messages and files are gone for everyone." });
+    else if (byId) toastManager.add({ title: `${group ? nameOfIn(group)(byId) : "An admin"} deleted “${name}”` });
+  });
+  useEffect(() => {
+    const handleGroupDeleted = (event) => onGroupDeleted(event);
+    socket.on("groupDeleted", handleGroupDeleted);
+    return () => socket.off("groupDeleted", handleGroupDeleted);
+  }, []);
+
   // "Message" on a search result: get (or create) the conversation and open it.
   const handleMessageUser = async (user) => {
     try {

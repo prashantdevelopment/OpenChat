@@ -8,7 +8,8 @@ import { sendPush } from "./services/push.service.js";
 //   theirs was answered in another tab or taken back;
 // - the inviter: "groupInviteAnswered" (joined or declined);
 // - the group's members: "groupsChanged" (members and invites to reload),
-//   also when someone leaves or is removed (they too: the group is gone for them).
+//   also when someone leaves or is removed (they too: the group is gone for them);
+//   "groupDeleted" when the group ends (an admin deleted it, or the last member left).
 // Returns a function that stops listening.
 const registerGroupEvents = (io, { userRoom, hasVisibleApp }) => {
     const toMembers = (group) => group.participants.forEach((member) => io.to(userRoom(member)).emit("groupsChanged"));
@@ -74,6 +75,14 @@ const registerGroupEvents = (io, { userRoom, hasVisibleApp }) => {
         toMembers(group);
     };
 
+    // The group is gone: its members' tabs leave its room and close it; open
+    // invites to it disappear.
+    const onDeleted = ({ group, byId, invitees }) => {
+        io.in(String(group._id)).socketsLeave(String(group._id));
+        group.participants.forEach((member) => io.to(userRoom(member)).emit("groupDeleted", { groupId: group._id, name: group.name, byId }));
+        invitees.forEach((id) => io.to(userRoom(id)).emit("groupInvitesChanged"));
+    };
+
     // A new epoch of the group key: members load it.
     const onKeyChanged = ({ group }) => group.participants.forEach((member) => io.to(userRoom(member)).emit("groupKeyChanged", { groupId: group._id }));
 
@@ -84,6 +93,7 @@ const registerGroupEvents = (io, { userRoom, hasVisibleApp }) => {
         invited: (event) => onInvited(event).catch(report),
         answered: (event) => onAnswered(event).catch(report),
         cancelled: onCancelled,
+        deleted: onDeleted,
     };
     Object.entries(handlers).forEach(([name, handler]) => groupEvents.on(name, handler));
     return () => Object.entries(handlers).forEach(([name, handler]) => groupEvents.off(name, handler));

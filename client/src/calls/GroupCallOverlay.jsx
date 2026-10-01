@@ -19,6 +19,7 @@ const endMessage = (reason) =>
     camera: "Camera or microphone access is blocked. Allow them in your browser's site settings.",
     elsewhere: "You joined this call on another device",
     lost: "The connection was lost",
+    deleted: "The group was deleted",
   })[reason] ?? "The call couldn't connect";
 
 const stateText = (peer) =>

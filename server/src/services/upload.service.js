@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import Upload from "../models/upload.model.js";
+import Message from "../models/message.model.js";
 import storage from "../storage/index.js";
 import AppError from "../utils/AppError.js";
 import { getChatForMember, otherParticipant } from "./conversation.service.js";
@@ -71,4 +72,38 @@ const removeUpload = async (fileId) => {
     await Upload.deleteOne({ _id: fileId });
 };
 
-export { MAX_UPLOAD_BYTES, createUpload, readUpload, getAttachableUpload, removeUpload };
+// Removes many files, a few at a time (each is a request to storage). One that
+// fails keeps its record: the clean-up below tries again later.
+const REMOVE_AT_ONCE = 5;
+const removeUploads = async (fileIds) => {
+    let removed = 0;
+    for (let i = 0; i < fileIds.length; i += REMOVE_AT_ONCE) {
+        await Promise.all(fileIds.slice(i, i + REMOVE_AT_ONCE).map((fileId) =>
+            removeUpload(fileId)
+                .then(() => removed++)
+                .catch((error) => console.error("File removal failed:", fileId, error.message))
+        ));
+    }
+    return removed;
+};
+
+// Every file of a chat (a group being deleted).
+const removeChatUploads = async (conversationId) =>
+    removeUploads((await Upload.find({ conversationId }).select("_id").lean()).map((upload) => upload._id));
+
+// Files no message uses a day after they were uploaded: a send that failed
+// halfway, or a file whose message or chat is gone but whose removal failed.
+// Run now and then (server.js). Returns how many were removed.
+const ORPHAN_AFTER_MS = 24 * 60 * 60 * 1000;
+const removeOrphanUploads = async ({ olderThanMs = ORPHAN_AFTER_MS, limit = 200 } = {}) => {
+    const orphans = await Upload.aggregate([
+        { $match: { createdAt: { $lt: new Date(Date.now() - olderThanMs) } } },
+        { $lookup: { from: Message.collection.name, localField: "_id", foreignField: "attachment.fileId", as: "usedBy", pipeline: [{ $limit: 1 }, { $project: { _id: 1 } }] } },
+        { $match: { usedBy: { $size: 0 } } },
+        { $limit: limit },
+        { $project: { _id: 1 } },
+    ]);
+    return removeUploads(orphans.map((upload) => upload._id));
+};
+
+export { MAX_UPLOAD_BYTES, createUpload, readUpload, getAttachableUpload, removeUpload, removeChatUploads, removeOrphanUploads };

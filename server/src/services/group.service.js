@@ -8,6 +8,7 @@ import { isBlockedBetween } from "./block.service.js";
 import GroupKeyEpoch from "../models/groupKeyEpoch.model.js";
 import Message from "../models/message.model.js";
 import { addSystemMessage } from "./message.service.js";
+import { removeChatUploads } from "./upload.service.js";
 import { countUnread, groupReceiptsFor, mutedUntilFor } from "./conversation.service.js";
 import { addInviteeKeys, checkLockedKeys, createFirstEpoch, dropKeysOf, getMyKeys, markKeyStale, rotateGroupKey } from "./groupKeys.service.js";
 
@@ -27,8 +28,9 @@ import { addInviteeKeys, checkLockedKeys, createFirstEpoch, dropKeysOf, getMyKey
 //
 // "invited" { group, fromId, invites }, "answered" { invite, group, accepted,
 // line }, "cancelled" { invite, group }, "left" { group, userId, line },
-// "keyChanged" { group }, "updated" { group, line }: socket.js tells the people involved (live and by
-// push). line: the "joined"/"left" line added to the group's history.
+// "keyChanged" { group }, "updated" { group, line }, "deleted" { group, byId,
+// invitees }: socket.js tells the people involved (live and by push). line:
+// the "joined"/"left" line added to the group's history.
 export const groupEvents = new EventEmitter();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -275,6 +277,31 @@ export const getGroup = async (userId, groupId) => {
     };
 };
 
+// A group ends (an admin deletes it, or the last member leaves): everything
+// of it goes, for good: the group, its messages, key epochs and invites, and
+// its files (records and storage). Whoever still had an invite is told too.
+// byId: the admin who deleted it (null: the last member left).
+const endGroup = async (group, byId) => {
+    const invitees = (await GroupInvite.distinct("to", { group: group._id, status: "pending" })).map(String);
+    await Promise.all([
+        Conversation.deleteOne({ _id: group._id }),
+        GroupKeyEpoch.deleteMany({ group: group._id }),
+        Message.deleteMany({ conversationId: group._id }),
+        GroupInvite.deleteMany({ group: group._id }),
+    ]);
+    // After the rest: if the server stops in between, the files left behind
+    // belong to no message and the clean-up of unused uploads takes them.
+    await removeChatUploads(group._id);
+    groupEvents.emit("deleted", { group, byId: byId ? String(byId) : null, invitees });
+};
+
+// An admin deletes the group for everyone.
+export const deleteGroup = async (adminId, groupId) => {
+    const group = await getGroupForMember(groupId, adminId);
+    if (!includes(group.admins, adminId)) throw new AppError("Only admins can delete the group", 403);
+    await endGroup(group, adminId);
+};
+
 // Leaving, or an admin removing someone: out of the group, and the group
 // needs a new key before the next message (they held this one). The last
 // admin leaving hands it to the member who has been there longest; the last
@@ -282,12 +309,7 @@ export const getGroup = async (userId, groupId) => {
 const takeOut = async (group, userId, byId) => {
     const others = group.participants.filter((id) => String(id) !== String(userId));
     if (others.length === 0) {
-        await Promise.all([
-            Conversation.deleteOne({ _id: group._id }),
-            GroupKeyEpoch.deleteMany({ group: group._id }),
-            Message.deleteMany({ conversationId: group._id }),
-            GroupInvite.updateMany({ group: group._id, status: "pending" }, { $set: { status: "cancelled", respondedAt: new Date() } }),
-        ]);
+        await endGroup(group, null);
         return;
     }
     let admins = group.admins.filter((id) => String(id) !== String(userId));

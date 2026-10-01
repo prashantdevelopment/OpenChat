@@ -285,6 +285,12 @@ const GroupCallProvider = ({ children }) => {
       if (!state.active) setRing((now) => (now?.groupId === state.groupId ? null : now));
     };
 
+    // The group was deleted: its call is over.
+    const handleGroupDeleted = ({ groupId }) => {
+      setRing((now) => (now?.groupId === groupId ? null : now));
+      if (callRef.current?.groupId === groupId && callRef.current.status !== "ended") finish("deleted");
+    };
+
     // Reconnected: the server dropped this device from the call meanwhile.
     const handleReconnect = () => {
       if (callRef.current && callRef.current.status !== "ended") finish("lost");
@@ -296,6 +302,7 @@ const GroupCallProvider = ({ children }) => {
     socket.on("groupCallHandledElsewhere", handleElsewhere);
     socket.on("groupCallRinging", handleRinging);
     socket.on("groupCallUpdated", handleUpdated);
+    socket.on("groupDeleted", handleGroupDeleted);
     socket.io.on("reconnect", handleReconnect);
     return () => {
       socket.off("groupCallSignal", handleSignal);
@@ -304,6 +311,7 @@ const GroupCallProvider = ({ children }) => {
       socket.off("groupCallHandledElsewhere", handleElsewhere);
       socket.off("groupCallRinging", handleRinging);
       socket.off("groupCallUpdated", handleUpdated);
+      socket.off("groupDeleted", handleGroupDeleted);
       socket.io.off("reconnect", handleReconnect);
     };
     // The handlers only use refs and stable setters.
