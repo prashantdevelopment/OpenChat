@@ -75,6 +75,12 @@ const TRUST_PROXY = Number(process.env.TRUST_PROXY ?? 0);
 
 // Rate limits (src/rateLimit.js): "on", or "off" for the test suites, which
 // send far more requests than any person could. Never off in production.
+// At most this many accounts (step 85, services/signupLimit.service.js):
+// checked at start, so a mistyped value is caught at once.
+if (process.env.MAX_USERS !== undefined && process.env.MAX_USERS !== "" && !(Number.isInteger(Number(process.env.MAX_USERS)) && Number(process.env.MAX_USERS) > 0)) {
+    throw new Error(`MAX_USERS must be a whole number above 0, not "${process.env.MAX_USERS}"`);
+}
+
 const RATE_LIMITS = process.env.RATE_LIMITS ?? "on";
             if (!["on", "off"].includes(RATE_LIMITS)) {
                 throw new Error(`RATE_LIMITS must be "on" or "off", not "${RATE_LIMITS}"`);

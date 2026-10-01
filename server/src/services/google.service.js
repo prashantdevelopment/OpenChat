@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes } from "crypto";
+import { assertRoomForNewAccount, keepWithinLimit } from "./signupLimit.service.js";
 import JWT from "jsonwebtoken";
 import User, { isAllowedUsername } from "../models/user.model.js";
 import { GOOGLE, JWT_SECRET } from "../config/env.js";
@@ -174,7 +175,8 @@ export const completeGoogleSignup = async (cookie, body) => {
     if (await User.exists({ $or: [{ email: pending.email }, { googleId: pending.sub }] })) {
         throw new AppError("This Google account already has an OpenChat account. Log in instead.", 409);
     }
-    return User.create({
+    await assertRoomForNewAccount();
+    return keepWithinLimit(await User.create({
         googleId: pending.sub,
         email: pending.email,
         name: name === undefined || name === "" ? pending.name || username : name,
@@ -182,7 +184,7 @@ export const completeGoogleSignup = async (cookie, body) => {
         state,
         publicKey,
         encryptedPrivateKey,
-    });
+    }));
 };
 
 // Step 4b: after a password login, connect the Google account from a "link"

@@ -4,6 +4,7 @@ import AppError from "../utils/AppError.js";
 import { INDIAN_STATE_CODES } from "../../../shared/indian-states.js";
 import { blockRelations, hasBlocked } from "./block.service.js";
 import { checkEmailCode, emailSignupAvailable, useUpEmailCode } from "./emailCode.service.js";
+import { assertRoomForNewAccount, keepWithinLimit } from "./signupLimit.service.js";
 
 // Text that goes into a regex: escape every special character, otherwise ".*"
 // would match everyone and patterns like "(a+)+$" could make the database
@@ -29,6 +30,7 @@ const createUser = async (userData) => {
     if (!emailSignupAvailable()) {
         throw new AppError("Sign-up by email isn't available right now. Use Continue with Google.", 503);
     }
+    await assertRoomForNewAccount();
     await checkEmailCode(email, code);
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -43,6 +45,7 @@ const createUser = async (userData) => {
         publicKey,
         encryptedPrivateKey
     });
+    await keepWithinLimit(createdUser);
 
     await useUpEmailCode(email);
 

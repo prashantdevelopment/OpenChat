@@ -1,4 +1,5 @@
 import { createHmac, randomInt, timingSafeEqual } from "crypto";
+import { assertRoomForNewAccount } from "./signupLimit.service.js";
 import EmailCode from "../models/emailCode.model.js";
 import User from "../models/user.model.js";
 import { CLIENT_URL, JWT_SECRET } from "../config/env.js";
@@ -52,6 +53,7 @@ const alreadyEmail = () => {
 export const startEmailCode = async (rawEmail) => {
     const email = normalize(rawEmail);
     if (!canSendEmail()) throw new AppError("Sign-up by email isn't available right now. Use Continue with Google.", 503);
+    await assertRoomForNewAccount(); // full: no code (and no email) for an account that can't be made
 
     const now = Date.now();
     const previous = await EmailCode.findOne({ email });

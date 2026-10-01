@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import api from "../api/api.js";
 
 // How people can sign up / in on this server (GET /api/auth/providers):
-// { google, emailSignup, emailCode }. Asked once per page load. If the server
+// { google, emailSignup, emailCode, full }. Asked once per page load. If the server
 // can't be asked, the email form stays (the server has the last word anyway).
 let providers;
 const getProviders = () => {
   providers ??= api.get("/auth/providers").then(
     (res) => res.data,
-    () => ({ google: false, emailSignup: true, emailCode: true }),
+    () => ({ google: false, emailSignup: true, emailCode: true, full: false }),
   );
   return providers;
 };

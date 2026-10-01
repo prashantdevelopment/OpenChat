@@ -13,6 +13,7 @@ const GOOGLE_NOTES = {
   cancelled: "Google sign-in was cancelled.",
   error: "Couldn't sign in with Google. Please try again.",
   taken: "This email's OpenChat account is connected to a different Google account.",
+  full: "OpenChat is full for now: no new accounts. We're making room, please check back soon. (Already have an account? Log in as always.)",
 };
 
 const Login = () => {

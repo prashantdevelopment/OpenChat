@@ -268,3 +268,35 @@ describe("Sign in with Google: an email that already has a password account", ()
         expect(where).toBe("/login?google=taken");
     });
 });
+
+describe("Sign in with Google: OpenChat is full (step 85)", () => {
+    afterEach(() => {
+        delete process.env.MAX_USERS;
+    });
+
+    it("someone new is sent to the login page with 'full', not to a sign-up form; nobody is made", async () => {
+        process.env.MAX_USERS = String(await User.countDocuments());
+        const before = await User.countDocuments();
+        const { where, callback } = await googleLogin({ claims: { sub: "google-sub-full", email: "new.person@gmail.com" } });
+        expect(where).toBe("/login?google=full");
+        expect(valueOf(callback, "google_pending")).toBeUndefined();
+        expect(await User.countDocuments()).toBe(before);
+    });
+
+    it("a sign-up form opened just before it got full can't make the account", async () => {
+        const { callback } = await googleLogin({ claims: { sub: "google-sub-late", email: "late.person@gmail.com" } });
+        const pending = valueOf(callback, "google_pending");
+        process.env.MAX_USERS = String(await User.countDocuments());
+        const res = await request(app).post("/api/auth/google/complete").set("Cookie", pending).send(completeBody({ username: "late.person" }));
+        expect(res.status).toBe(503);
+        expect(res.body.message).toMatch(/OpenChat is full for now/);
+        expect(await User.exists({ username: "late.person" })).toBeNull();
+    });
+
+    it("someone who already has an account with Google still logs in", async () => {
+        const existing = await User.findOne({ googleId: { $exists: true } }).select("+googleId");
+        process.env.MAX_USERS = String(await User.countDocuments());
+        const { where } = await googleLogin({ claims: { sub: existing.googleId, email: existing.email } });
+        expect(where).toBe("/chat");
+    });
+});

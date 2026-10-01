@@ -1,4 +1,5 @@
 import { CLIENT_URL } from "../config/env.js";
+import { isFull } from "../services/signupLimit.service.js";
 import { createSession, setSessionCookie } from "../session.js";
 import {
     completeGoogleSignup,
@@ -22,9 +23,10 @@ export const pendingCookieOptions = { httpOnly: true, secure, sameSite: "strict"
 // Where the browser lands in the app after the callback.
 const toApp = (res, path) => res.redirect(303, new URL(path, CLIENT_URL).toString());
 
-// GET /api/auth/providers: which ways to sign up / in to show.
-const providersController = (req, res) => {
-    res.status(200).json({ success: true, google: googleEnabled(), emailSignup: emailSignupAvailable(), emailCode: emailVerificationOn() });
+// GET /api/auth/providers: which ways to sign up / in to show, and whether
+// OpenChat takes new accounts right now (full: step 85).
+const providersController = async (req, res) => {
+    res.status(200).json({ success: true, google: googleEnabled(), emailSignup: emailSignupAvailable(), emailCode: emailVerificationOn(), full: await isFull() });
 };
 
 // GET /api/auth/google: off to Google.
@@ -49,6 +51,8 @@ const callbackController = async (req, res) => {
             setSessionCookie(res, await createSession(outcome.user._id, { remember: profile.remember, userAgent: req.get("user-agent") }));
             return toApp(res, "/chat");
         }
+        // Someone new while OpenChat is full: no sign-up form to fill in for nothing.
+        if (outcome.kind === "signup" && (await isFull())) return toApp(res, "/login?google=full");
         res.cookie(PENDING_COOKIE, outcome.pendingCookie, pendingCookieOptions);
         return toApp(res, outcome.kind === "link" ? "/login?google=link" : "/register/google");
     } catch (error) {

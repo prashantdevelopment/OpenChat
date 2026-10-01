@@ -201,8 +201,19 @@ const Register = () => {
       }
     >
       <PageMeta title="Create account" />
-      <GoogleButton />
-      {providers && !providers.emailSignup ? (
+      {providers?.full ? (
+        // At most MAX_USERS accounts for now (server: signupLimit.service.js).
+        <div role="status" className="border-l-2 border-brand pl-4">
+          <p className="font-heading text-xl">OpenChat is full for now.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            We&apos;re letting people in a few at a time while we grow. Please check back soon. Already have an account?{" "}
+            <Link to="/login">Log in</Link> as always.
+          </p>
+        </div>
+      ) : (
+        <GoogleButton />
+      )}
+      {providers?.full ? null : providers && !providers.emailSignup ? (
         <p role="status" className="border-l-2 border-brand pl-4 text-sm">
           Sign-up with email is paused right now. Use Continue with Google above.
         </p>

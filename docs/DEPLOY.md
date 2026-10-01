@@ -84,6 +84,10 @@ Web Push needs one key pair that identifies OpenChat to the browsers' push servi
 
 Your computer already has its own pair in `server/.env` (made during step 63).
 
+## 3f. How many accounts: MAX_USERS (optional)
+
+OpenChat takes at most **150 accounts** for now (the free server is small). When it is full, the sign-up page says "OpenChat is full for now" and new sign-ups (email and Google) are refused; everyone with an account logs in as always. To let more people in, add `MAX_USERS` in Render → **Environment** (for example `300`) and save: Render restarts and the new limit applies. It must be a whole number above 0.
+
 ## 4. Check it
 
 1. `https://<your-address>/api/health` answers `{"status":"ok"}`.
