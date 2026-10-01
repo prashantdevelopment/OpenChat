@@ -6,6 +6,7 @@ import authMiddleware from "../middleware/auth.middleware.js";
 import { readAvatarController, removeAvatarController, setAvatarController, setLargeAvatarController } from "../controllers/avatar.controller.js";
 import { MAX_AVATAR_BYTES, MAX_LARGE_AVATAR_BYTES } from "../services/avatar.service.js";
 import { byIp, byUser, rateLimit } from "../rateLimit.js";
+import { addPasskeyController, listPasskeysController, removePasskeyController } from "../controllers/passkey.controller.js";
 
 // Each code is an email sent from our Brevo account: per network, on top of
 // the per-address limits in emailCode.service.js.
@@ -15,6 +16,7 @@ const registerLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, keys: byIp(
 const passwordLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, keys: byUser("password"), message: "Too many password changes" });
 const searchLimit = rateLimit({ windowMs: 60 * 1000, max: 60, keys: byUser("search"), message: "Too many searches" });
 const avatarLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 10, keys: byUser("avatar"), message: "Too many photo changes" });
+const passkeyLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 20, keys: byUser("passkey"), message: "Too many passkey changes" });
 const router = Router();
 
 router.post("/users/email-code", emailCodeLimit, emailCodeController);
@@ -42,6 +44,10 @@ router.put(
     setLargeAvatarController
 );
 router.delete("/users/me/avatar", authMiddleware, removeAvatarController);
+// Unlock with fingerprint or face (step 79): my passkey copies of the locked key.
+router.get("/users/me/passkeys", authMiddleware, listPasskeysController);
+router.post("/users/me/passkeys", authMiddleware, passkeyLimit, addPasskeyController);
+router.delete("/users/me/passkeys/:passkeyId", authMiddleware, passkeyLimit, removePasskeyController);
 router.get("/avatars/:avatarId", readAvatarController);
 router.get("/avatars/:avatarId/large", readAvatarController);
 

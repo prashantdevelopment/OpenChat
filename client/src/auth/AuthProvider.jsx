@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import api, { setSessionGoneHandler } from "../api/api.js";
 import socket from "../socket/socket.js";
 import { unlockPrivateKey } from "../crypto/keys.js";
+import { unlockWithPasskey as openWithPasskey } from "../crypto/passkeys.js";
 import { clearKeys, loadKey, saveKey } from "../crypto/keyStore.js";
 import { unsubscribeFromPush } from "../lib/push.js";
 import { AuthContext } from "./AuthContext.js";
@@ -127,6 +128,14 @@ const AuthProvider = ({ children }) => {
     setPrivateKey(await unlockAndStore(currentUser, password));
   };
 
+  // The same with fingerprint or face: one of this account's passkey copies
+  // (copies: from the server). Throws a PasskeyError.
+  const unlockWithPasskey = async (copies) => {
+    const key = await openWithPasskey(copies, currentUser._id);
+    await saveKey(currentUser._id, key).catch((error) => console.error("Could not store the key:", error));
+    setPrivateKey(key);
+  };
+
   const logout = async () => {
     loggingOut.current = true;
     // The next person on this browser must not get this user's notifications
@@ -167,7 +176,7 @@ const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext value={{ currentUser, privateKey, sessionEnded, login, startSession, unlock, logout, updateCurrentUser }}>
+    <AuthContext value={{ currentUser, privateKey, sessionEnded, login, startSession, unlock, unlockWithPasskey, logout, updateCurrentUser }}>
       {children}
     </AuthContext>
   );

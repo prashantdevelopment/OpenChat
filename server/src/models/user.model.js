@@ -45,6 +45,45 @@ const encryptedPrivateKeySchema = new mongoose.Schema({
     }
 }, { _id: false });
 
+// The private key locked a second time, with a secret from a passkey on one of
+// the user's devices (WebAuthn PRF, step 79): "Unlock with fingerprint or face"
+// instead of typing the password. The secret never leaves the device's secure
+// hardware except into the user's own browser, so the server (or anyone who
+// copies the database) can't open this copy either.
+const passkeyKeySchema = new mongoose.Schema({
+    // The passkey's credential id: the browser asks the device for this one.
+    credentialId: {
+        type: String,
+        required: true,
+        validate: { validator: (v) => isBase64(v) && base64Length(v) >= 16 && base64Length(v) <= 1023, message: "Invalid credential id" }
+    },
+    // What the device's PRF is evaluated on (random, 32 bytes).
+    salt: {
+        type: String,
+        required: true,
+        validate: { validator: (v) => isBase64(v) && base64Length(v) === 32, message: "Salt must be 32 bytes" }
+    },
+    data: {
+        type: String,
+        required: true,
+        validate: { validator: (v) => isBase64(v) && base64Length(v) >= 32 && base64Length(v) <= 512, message: "Invalid encrypted private key" }
+    },
+    iv: {
+        type: String,
+        required: true,
+        validate: { validator: (v) => isBase64(v) && base64Length(v) === 12, message: "IV must be 12 bytes" }
+    },
+    // Which device, for the list in Settings ("Edge on Windows").
+    name: {
+        type: String,
+        required: [true, "Name the device"],
+        trim: true,
+        maxlength: [60, "Device name must be at most 60 characters long"],
+        validate: { validator: (v) => !HIDDEN_CHARACTERS.test(v), message: "Device name contains characters that aren't allowed" }
+    },
+    createdAt: { type: Date, default: Date.now }
+});
+
 // Names nobody can register, so no one can pose as the app or its staff.
 // Dots and underscores are ignored when comparing, so "open_chat" is blocked too.
 const RESERVED_USERNAMES = new Set([
@@ -138,6 +177,13 @@ const userSchema =  new mongoose.Schema({
     encryptedPrivateKey: {
         type: encryptedPrivateKeySchema,
         required: [true, "Encryption keys are required"],
+        select: false
+    },
+    // Passkey copies of the locked private key (one per device, at most
+    // MAX_PASSKEYS, passkey.service.js). Only for the user, like the above.
+    passkeyKeys: {
+        type: [passkeyKeySchema],
+        default: [],
         select: false
     },
     // Id of the profile photo (see avatar.service.js), "" = none. Only set

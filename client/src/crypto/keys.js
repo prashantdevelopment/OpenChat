@@ -88,3 +88,26 @@ export const rewrapPrivateKey = async (encryptedPrivateKey, currentPassword, new
   const privateKey = await openPrivateKey(encryptedPrivateKey, currentPassword, true);
   return lockPrivateKey(privateKey, newPassword);
 };
+
+// A second locked copy of the private key, with another AES key (a passkey's,
+// see passkeys.js): opened with the password, locked again right away. As
+// above, the key is extractable only inside this function.
+export const lockCopyWithKey = async (encryptedPrivateKey, password, wrappingKey) => {
+  const privateKey = await openPrivateKey(encryptedPrivateKey, password, true);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const locked = await crypto.subtle.wrapKey("pkcs8", privateKey, wrappingKey, { name: "AES-GCM", iv });
+  return { data: toBase64(locked), iv: toBase64(iv) };
+};
+
+// Opens such a copy (non-extractable, like unlockPrivateKey). Throws if the
+// wrapping key is not the one it was locked with.
+export const openCopyWithKey = (copy, wrappingKey) =>
+  crypto.subtle.unwrapKey(
+    "pkcs8",
+    fromBase64(copy.data),
+    wrappingKey,
+    { name: "AES-GCM", iv: fromBase64(copy.iv) },
+    { name: "ECDH", namedCurve: "P-256" },
+    false,
+    PRIVATE_KEY_USAGES,
+  );

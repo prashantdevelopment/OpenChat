@@ -14,6 +14,7 @@ import FormField, { PasswordInput } from "../components/FormField.jsx";
 import StateSelect from "../components/StateSelect.jsx";
 import Avatar from "../components/Avatar.jsx";
 import ViewableAvatar from "../components/PhotoViewer.jsx";
+import PasskeySettings from "../components/PasskeySettings.jsx";
 import { makeAvatar } from "../lib/images.js";
 import Masthead from "../components/Masthead.jsx";
 import PageMeta from "../components/PageMeta.jsx";
@@ -272,6 +273,7 @@ const GoogleAccountNote = () => (
       Your messages are locked with the encryption password you chose when you joined. You&apos;ll be asked for it when you sign in on a new
       device. Keep it safe: nobody can recover it for you.
     </p>
+    <PasskeySettings />
   </Section>
 );
 
@@ -363,6 +365,7 @@ const PasswordForm = () => {
           <SavedStatus>{savedMessage}</SavedStatus>
         </div>
       </form>
+      <PasskeySettings />
     </Section>
   );
 };
