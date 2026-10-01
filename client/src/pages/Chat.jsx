@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowUpRightIcon, UsersRoundIcon, WifiOffIcon } from "lucide-react";
+import { ArrowUpRightIcon, LoaderCircleIcon, UsersRoundIcon, WifiOffIcon } from "lucide-react";
 import api from "../api/api.js";
 import socket from "../socket/socket.js";
 import { useAuth } from "../auth/AuthContext.js";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastManager } from "@/components/ui/toast";
 import { useIsConnected } from "../socket/useIsConnected.js";
+import { useConnectionBanner } from "../socket/useConnectionBanner.js";
 import { mergeReceipts } from "../lib/receipts.js";
 import { useCall } from "../calls/CallContext.js";
 import { titleWithUnread } from "../lib/notifications.js";
@@ -47,9 +48,8 @@ const Chat = () => {
   const { isBusy: isInOneToOneCall, startCall } = useCall();
   const { isInGroupCall } = useGroupCall();
   const isInCall = isInOneToOneCall || isInGroupCall;
-  // The "not connected" banner waits a second: a quick reconnect shouldn't flash it.
-  const [isOfflineLong, setIsOfflineLong] = useState(false);
-  if (isConnected && isOfflineLong) setIsOfflineLong(false); // reset for the next drop
+  // The line about the connection: only when it is really down (see the hook).
+  const connectionBanner = useConnectionBanner();
   const navigate = useNavigate();
   // The search sits in the top bar on wider screens and above the list on
   // phones; only one copy is rendered.
@@ -100,12 +100,6 @@ const Chat = () => {
       ignore = true;
     };
   }, [listAttempt]);
-
-  useEffect(() => {
-    if (isConnected) return;
-    const timer = setTimeout(() => setIsOfflineLong(true), 1000);
-    return () => clearTimeout(timer);
-  }, [isConnected]);
 
   // Unread messages in the tab title, e.g. "(3) OpenChat", seen from other tabs.
   const totalUnread = [...conversations, ...groups].reduce((sum, chat) => sum + (chat.unreadCount ?? 0), 0);
@@ -305,10 +299,15 @@ const Chat = () => {
       {/* The status region is always there; screen readers announce the text
           when it is added. */}
       <div role="status" className="shrink-0">
-        {!isConnected && isOfflineLong ? (
+        {connectionBanner === "offline" ? (
           <p className="flex items-center justify-center gap-2 bg-warning/15 px-4 py-1.5 text-sm text-foreground">
             <WifiOffIcon aria-hidden="true" className="size-4 text-warning-foreground" />
-            Not connected. Trying to reconnect...
+            You&apos;re offline. Check your internet connection.
+          </p>
+        ) : connectionBanner === "connecting" ? (
+          <p className="flex items-center justify-center gap-2 bg-muted px-4 py-1.5 text-sm text-muted-foreground">
+            <LoaderCircleIcon aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+            Connecting to OpenChat…
           </p>
         ) : null}
       </div>

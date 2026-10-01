@@ -19,6 +19,9 @@ const socket = io(API_URL || undefined,
         // the fallback for networks that block WebSockets.
         transports: ["websocket", "polling"],
         tryAllTransports: true,
+        // After a drop, try again within 1 to 2 seconds (not up to 5): back as
+        // soon as the server answers (waking up, a deploy, a network change).
+        reconnectionDelayMax: 2000,
         auth: (callback) => callback({ visible: isVisible(), tabId }),
     }
 );
