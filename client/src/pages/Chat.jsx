@@ -28,6 +28,7 @@ import GroupInvites from "../components/GroupInvites.jsx";
 import NewGroupSheet from "../components/NewGroupSheet.jsx";
 import GroupListItem from "../components/GroupListItem.jsx";
 import GroupChatHeader from "../components/GroupChatHeader.jsx";
+import NotificationPrompt from "../components/NotificationPrompt.jsx";
 import { useGroupCipher } from "../lib/groupCipher.js";
 import { useGroupCall } from "../calls/GroupCallContext.js";
 
@@ -451,6 +452,8 @@ const Chat = () => {
         </main>
 
       </div>
+      {/* First visit on this device: "Turn on notifications?" */}
+      <NotificationPrompt />
       <NewGroupSheet
         open={newGroupOpen}
         onOpenChange={setNewGroupOpen}

@@ -23,6 +23,31 @@ export const setNotificationPrefs = (prefs) => {
   }
 };
 
+// The first-visit question ("Turn on notifications?", step 83): asked when
+// this browser hasn't been asked yet (permission "default"), and again a week
+// after "Not now". Per device, like the permission itself. Never once
+// notifications are on or blocked.
+const ASKED_KEY = "openchat-notifications-asked";
+export const ASK_AGAIN_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const shouldAskForNotifications = (now = Date.now()) => {
+  if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "default") return false;
+  try {
+    const askedAt = Number(localStorage.getItem(ASKED_KEY));
+    return !askedAt || now - askedAt > ASK_AGAIN_AFTER_MS;
+  } catch {
+    return false; // blocked storage: don't ask on every visit
+  }
+};
+
+export const rememberAskedForNotifications = (now = Date.now()) => {
+  try {
+    localStorage.setItem(ASKED_KEY, String(now));
+  } catch {
+    // Not remembered, nothing else to do.
+  }
+};
+
 // Notify only if the user turned it on, the browser allows it, and they
 // aren't already looking at OpenChat.
 export const shouldNotify = ({ enabled, permission, isPageActive }) =>

@@ -1,4 +1,5 @@
 import api from "../api/api.js";
+import { setNotificationPrefs } from "./notifications.js";
 
 // Notifications while OpenChat is closed (Web Push). The browser subscribes
 // at its push service with the server's public key; the server keeps the
@@ -50,3 +51,23 @@ export const unsubscribeFromPush = async () => {
 };
 
 export const sendTestPush = async () => (await api.post("/push/test")).data.sent;
+
+// "Turn on" in the first-visit question: the browser asks for permission;
+// granted → notifications while OpenChat is in the background, and, where the
+// server has Web Push and this browser can use it, also while it is closed.
+// Returns the permission ("granted", "denied", "default").
+export const turnOnNotifications = async () => {
+  const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+  if (permission !== "granted") return permission;
+  setNotificationPrefs({ enabled: true });
+  if (pushSupported() && !needsHomeScreen()) {
+    try {
+      const config = await getPushConfig();
+      if (config.enabled) await subscribeToPush(config.publicKey);
+    } catch (error) {
+      // Background notifications are on; closed-app ones can be tried again in Settings.
+      console.warn("Push subscription failed:", error);
+    }
+  }
+  return permission;
+};
