@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import LandingPresence from "../components/LandingPresence.jsx";
 import ArrowLink from "../components/ArrowLink.jsx";
+import InstallAppButton from "../components/InstallAppButton.jsx";
 import { useAuth } from "../auth/AuthContext.js";
 
 
@@ -147,9 +148,10 @@ const Landing = () => {
             <Button render={<Link to="/login" />} variant="ghost" className="rounded-full px-4">
               Log in
             </Button>
-            <Button render={<Link to="/register" />} className="rounded-full px-4 max-sm:hidden">
+            <Button render={<Link to="/register" />} className="rounded-full px-4 max-lg:hidden">
               Create account
             </Button>
+            <InstallAppButton variant="header" />
             <ThemeToggle className="rounded-full" />
           </nav>
         </div>
@@ -179,9 +181,10 @@ const Landing = () => {
               </p>
               <div className="mt-9 flex flex-wrap items-center gap-3">
                 <ArrowLink to="/register">Create free account</ArrowLink>
-                <Button render={<Link to="/login" />} variant="outline" className="h-12.5 rounded-full border-foreground px-6 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]">
+                <Button render={<Link to="/login" />} variant="outline" className="h-12.5 min-h-[44px] rounded-full border-foreground px-6 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]">
                   Log in
                 </Button>
+                <InstallAppButton />
               </div>
               <p className="mt-5 font-mono text-[11px] tracking-[0.12em] text-muted-foreground uppercase">
                 No phone number needed · Works in your browser

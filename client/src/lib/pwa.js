@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 // Installing OpenChat as an app (PWA): the service worker, and the browser's
-// install prompt kept for the Settings page. Imported once in main.jsx, early,
+// install prompt kept for the "Install" buttons (landing page, Settings). Imported once in main.jsx, early,
 // because the browser offers the prompt (beforeinstallprompt) only once.
 
 // Production only: in development the service worker would get in the way of
@@ -20,7 +20,7 @@ const listeners = new Set();
 const notify = () => listeners.forEach((listener) => listener());
 
 window.addEventListener("beforeinstallprompt", (event) => {
-  event.preventDefault(); // no automatic mini-bar; Settings offers it instead
+  event.preventDefault(); // no automatic mini-bar; our Install buttons offer it instead
   installPrompt = event;
   notify();
 });
@@ -50,6 +50,14 @@ const getInstallState = () => {
 };
 
 export const useInstallState = () => useSyncExternalStore(subscribe, getInstallState);
+
+// What each state tells the user (no prompt: how to install by hand).
+export const INSTALL_TEXT = {
+  standalone: "You're using the installed app.",
+  installed: "Installed. Open OpenChat from your home screen or app list.",
+  ios: "In Safari, tap Share, then Add to Home Screen.",
+  unavailable: "Open OpenChat in Chrome, Edge or Samsung Internet and choose Install app (or Add to Home screen) from the browser's menu.",
+};
 
 // Shows the browser's install dialog; the prompt can be used only once.
 export const promptInstall = async () => {

@@ -7,7 +7,7 @@ import { useAuth } from "../auth/AuthContext.js";
 import { rewrapPrivateKey } from "../crypto/keys.js";
 import { applyThemeChoice, getThemeChoice } from "../lib/theme.js";
 import { getNotificationPrefs, setNotificationPrefs } from "../lib/notifications.js";
-import { promptInstall, useInstallState } from "../lib/pwa.js";
+import { INSTALL_TEXT, promptInstall, useInstallState } from "../lib/pwa.js";
 import { getBlockedUsers, unblockUser } from "../lib/blocks.js";
 import { toastManager } from "@/components/ui/toast";
 import FormField, { PasswordInput } from "../components/FormField.jsx";
@@ -722,14 +722,6 @@ const AppearanceSection = () => {
       </fieldset>
     </Section>
   );
-};
-
-// What each install state tells the user (see lib/pwa.js).
-const INSTALL_TEXT = {
-  standalone: "You're using the installed app.",
-  installed: "Installed. Open OpenChat from your home screen or app list.",
-  ios: "In Safari, tap Share, then Add to Home Screen.",
-  unavailable: "To install, open OpenChat in Chrome, Edge or Samsung Internet and choose Install app from the menu.",
 };
 
 const AppSection = () => {
