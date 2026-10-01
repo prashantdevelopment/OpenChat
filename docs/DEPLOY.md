@@ -94,11 +94,17 @@ Your computer already has its own pair in `server/.env` (made during step 63).
 ## Good to know (free plan)
 
 - **It sleeps** after 15 minutes without visitors; the next visit waits about a minute while it wakes up. A paid instance ($7/month) stays awake.
-- **A restart forgets what is kept in memory** (who is online, rate-limit counters, logged-out sessions). Nobody is logged out by it; everything fills up again as people use the app.
+- **A restart forgets what is kept in memory** (who is online, calls in progress, rate-limit counters). Never messages, files, keys or login sessions (they are in MongoDB): nobody is logged out by it, and everything fills up again as people use the app.
 - **Calls** need the TURN key from step 3b on many networks (even two devices on the same WiFi). Without it, a call only connects when the two browsers can reach each other directly.
 - **Updates**: every push to `main` builds and deploys again (Render's auto-deploy). Run the tests before pushing.
 - **Security headers**: the server sends a Content-Security-Policy for the app with hashes of its two inline scripts, computed from the build at start, so nothing needs updating by hand.
 - If rate limits ever treat everyone as one visitor, Render's proxy setup differs from `TRUST_PROXY=1`: tell me, it is a one-line change.
+
+## Restarts, deploys and attacks
+
+- **Every deploy stops the old server cleanly.** Render sends it `SIGTERM`: it takes no new connections, lets the requests in progress finish, closes every app's live connection (the apps reconnect to the new server by themselves within seconds) and MongoDB, then exits. If that takes over 10 seconds it exits anyway. A call in progress drops at that moment and has to be started again; a message being sent at that moment may show "Not sent" with a Retry button.
+- **Errors nothing caught.** A failed background task (a push, a clean-up) is written to the log and the server keeps running. A thrown error nothing caught makes the server stop cleanly with code 1, and Render starts a new one at once (look for "Uncaught exception, restarting" in the log). Repeated restarts in the log mean a bug: send me the lines around it.
+- **Floods and DDoS.** The server limits requests per network address and per user (logins, sign-ups, messages, uploads, invites; see `docs/SECURITY.md`), so one person or script can't take it down or run up costs. A large distributed attack (thousands of addresses) has to be stopped before it reaches Render: once OpenChat has its own domain, put it behind Cloudflare (free plan: DDoS protection, "Under attack" mode, rate-limiting rules). Until then, only Render's own platform is in front of it (check Render's docs for what it filters).
 
 ## Moving to another Render service (a new address)
 
