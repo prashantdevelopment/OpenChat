@@ -229,7 +229,8 @@ const StatePeople = ({ state, scrollOnChange }) => {
 
 // Discover, "the India edition": how many people are online in each state
 // (counts only), a map of India to choose a state, and who is from there.
-// The chosen state is in the URL (?state=kerala), so back and shared links work.
+// The chosen state is in the URL (?state=kerala), so shared links work; choosing
+// another state replaces it, so the back button leaves Discover in one press.
 const Discover = () => {
   const [params, setParams] = useSearchParams();
   const selected = INDIAN_STATES.some((state) => state.code === params.get("state")) ? params.get("state") : null;
@@ -243,8 +244,8 @@ const Discover = () => {
   const states = INDIAN_STATES.filter((state) => state.name.toLowerCase().includes(filter.trim().toLowerCase())).sort(
     (a, b) => (onlineIn(b.code) ?? -1) - (onlineIn(a.code) ?? -1) || a.name.localeCompare(b.name),
   );
-  const choose = (code) => setParams({ state: code });
-  const close = () => setParams({});
+  const choose = (code) => setParams({ state: code }, { replace: true });
+  const close = () => setParams({}, { replace: true });
   const seeEveryone = () => {
     const heading = document.getElementById("people-heading");
     heading?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });

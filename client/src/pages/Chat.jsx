@@ -22,6 +22,7 @@ import { checkPeerKey, trustPeerKey } from "../crypto/keyPins.js";
 import { cn } from "@/lib/utils";
 import UserSearch from "../components/UserSearch.jsx";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
+import { useKeyboardSafeHeight } from "../hooks/useKeyboardSafeHeight.js";
 import { displayName } from "../lib/people.js";
 import { useGroups } from "../hooks/useGroups.js";
 import GroupInvites from "../components/GroupInvites.jsx";
@@ -55,6 +56,7 @@ const Chat = () => {
   // The search sits in the top bar on wider screens and above the list on
   // phones; only one copy is rendered.
   const isWide = useMediaQuery("(min-width: 768px)");
+  useKeyboardSafeHeight();
   // Phone: one pane at a time. The list is the main content when no
   // conversation is open, and the conversation's name is the page heading.
   const listIsMain = !isWide && !conversationId;
@@ -291,9 +293,10 @@ const Chat = () => {
   };
 
   return (
-    // The whole app fits the screen (dvh also follows mobile browser bars):
-    // the page never scrolls, only the list and the messages do.
-    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+    // The whole app fits the screen (dvh also follows mobile browser bars, and
+    // --app-height the phone keyboard): the page never scrolls, only the list
+    // and the messages do.
+    <div className="flex h-[var(--app-height,100dvh)] flex-col overflow-hidden bg-background">
       {/* React keeps the title in the head (and hands it to the next page). */}
       <title>{titleWithUnread(totalUnread)}</title>
       <meta name="robots" content="noindex" />
