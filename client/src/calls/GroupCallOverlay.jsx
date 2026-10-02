@@ -40,7 +40,7 @@ const Tile = ({ name, stream, video, mirrored, muted, note }) => (
     {video && stream ? (
       <StreamVideo stream={stream} className={cn("size-full object-cover", mirrored && "-scale-x-100")} />
     ) : (
-      <Avatar name={name} className="size-16 bg-brand text-3xl text-brand-foreground italic sm:size-20" />
+      <Avatar name={name} className="size-16 bg-brand text-3xl text-brand-foreground sm:size-20" />
     )}
     <figcaption className="absolute inset-x-2 bottom-2 flex items-center gap-1.5 truncate text-sm">
       <span className="truncate rounded-full bg-stage/70 px-2.5 py-0.5">{name}</span>
@@ -69,7 +69,7 @@ const Controls = ({ call, onLeave }) => {
           {call.cameraOff ? <VideoOffIcon aria-hidden="true" strokeWidth={1.5} /> : <VideoIcon aria-hidden="true" strokeWidth={1.5} />}
         </Button>
       ) : null}
-      <Button size="icon-xl" className="size-12 rounded-full border-0 bg-brand text-brand-foreground shadow-none hover:bg-brand/90 sm:size-12" aria-label="Leave call" onClick={onLeave}>
+      <Button size="icon-xl" className="size-12 rounded-full border-0 bg-destructive text-white shadow-none hover:bg-destructive/90 sm:size-12" aria-label="Leave call" onClick={onLeave}>
         <PhoneOffIcon aria-hidden="true" strokeWidth={1.5} />
       </Button>
     </div>
@@ -101,7 +101,7 @@ const GroupCallOverlay = () => {
             key="ring"
             {...MOTION}
             aria-label={`${ring.media === "video" ? "Group video" : "Group voice"} call in ${ring.groupName}`}
-            className="fixed inset-x-4 bottom-24 z-40 rounded-2xl border border-foreground/15 bg-popover p-5 text-popover-foreground shadow-[0_24px_60px_-20px_rgb(27_23_20/0.35)] sm:right-6 sm:left-auto sm:w-84"
+            className="fixed inset-x-4 bottom-24 z-40 rounded-2xl border border-foreground/15 bg-popover p-5 text-popover-foreground shadow-[0_24px_60px_-20px_rgb(10_30_25/0.35)] sm:right-6 sm:left-auto sm:w-84"
           >
             <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">{ring.media === "video" ? "Group video call" : "Group voice call"}</p>
             <p className="mt-1 truncate font-heading text-2xl">{ring.groupName}</p>
@@ -136,7 +136,7 @@ const GroupCallOverlay = () => {
             <Button variant="outline" size="icon-lg" className="size-11 rounded-full border-stage-foreground/30 bg-transparent text-stage-foreground shadow-none sm:size-9" aria-label="Open the call" onClick={() => setMinimised(false)}>
               <Maximize2Icon aria-hidden="true" strokeWidth={1.5} />
             </Button>
-            <Button size="icon-lg" className="size-11 rounded-full border-0 bg-brand text-brand-foreground shadow-none sm:size-9" aria-label="Leave call" onClick={leaveCall}>
+            <Button size="icon-lg" className="size-11 rounded-full border-0 bg-destructive text-white shadow-none sm:size-9" aria-label="Leave call" onClick={leaveCall}>
               <PhoneOffIcon aria-hidden="true" strokeWidth={1.5} />
             </Button>
           </m.section>

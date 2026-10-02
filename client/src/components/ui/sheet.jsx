@@ -16,7 +16,7 @@ export function SheetPopup({ className, children, title, ...props }) {
       <DialogPrimitive.Popup
         data-slot="sheet-popup"
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-background text-foreground outline-none sm:w-[400px] sm:border-l sm:border-border sm:shadow-[-24px_0_60px_-30px_rgb(40_20_10/0.45)]",
+          "fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-background text-foreground outline-none sm:w-[400px] sm:border-l sm:border-border sm:shadow-[-24px_0_60px_-30px_rgb(10_30_25/0.45)]",
           "transition-[translate,opacity] duration-250 ease-out data-ending-style:translate-x-8 data-ending-style:opacity-0 data-starting-style:translate-x-8 data-starting-style:opacity-0 motion-reduce:transition-none",
           className,
         )}

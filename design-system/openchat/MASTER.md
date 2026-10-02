@@ -13,9 +13,40 @@
 
 ---
 
-## OpenChat decisions — "Ink & Paper" (chosen 2026-09-27; these override everything below)
+## OpenChat decisions — "Jade" (chosen 2026-10-01; these override everything below)
 
-The first look (blue, Poppins) was replaced after user feedback ("generic, cheap"). Two rounds of directions on a design canvas; the user chose **E · Ink & Paper**: a luxury-magazine feel — warm paper, black ink, one sindoor-red accent, a big serif for names and headings, monospace for times and numbers. The generated sections below are kept only as history.
+"Ink & Paper" (below) read too much like Claude: warm cream paper, a serif for headings and a terracotta red. Two rounds of directions on a comparison page (https://claude.ai/artifact/5Ysyp3CDxBkvUP9Vf2bqT4); the user chose **Jade for light** and **J3 Black for dark**, with headings in the app's own sans.
+
+### Themes: Jade light by default, Black dark by toggle
+CSS variables in `client/src/index.css` (`:root` and `.dark`); every pair checked with the WCAG formula.
+
+| Token | Light | Dark | Used for |
+|---|---|---|---|
+| `--background` | `#F5F8F7` cool white | `#000000` true black | page |
+| `--foreground` | `#0E1A17` | `#ECEFEE` | text (16.7 / 18.1) |
+| `--card` / `--popover` | `#FFFFFF` | `#111213` / `#161718` | raised surfaces |
+| `--muted` / `--secondary` | `#E6EEEB` | `#1C1D1E` | the other person's bubble, panels, the open chat's row |
+| `--muted-foreground` | `#4B5E58` | `#A1ABA7` | secondary text (6.5 / 8.9) |
+| `--primary` / `-foreground` | `#0F766E` / white | `#2DD4BF` / `#052420` | buttons (5.5 / 8.8) |
+| `--brand` / `-foreground` | `#0F766E` / white | `#2DD4BF` / `#052420` | the accent: unread, links, focus, voice notes (5.1 / 11.3 on the page) |
+| `--bubble-own` / `-foreground` | `#0F766E` / white | `#0F766E` / white | my messages (5.5; 3.8 against black) |
+| `--success` | `#15803D` | `#4ADE80` | online |
+| `--destructive` / `-foreground` | `#B42318` / `#A61B0F` | `#B8321D` / `#FF8A70` | danger, End and Leave call |
+| `--border` / `--input` | `#D6E2DE` / `#7B8F89` | `#232526` / `#5C6461` | rules / form borders (3.2 / 3.5) |
+| `--ring` | `#0F766E` | `#2DD4BF` | focus |
+| `--stage` | `#000000` | `#000000` | video calls, always black |
+
+### Type, shape
+- One family: **Hanken Grotesk** (variable, with its italic) for headings (bold) and text; **Noto Sans Devanagari** for Hindi; **JetBrains Mono** for times and numbers. DM Serif Display and Tiro Devanagari Hindi were removed.
+- `font-heading` is bold unless it is italic: italic lines in it (call status, "writing…") stay regular.
+- No paper grain. Shadows are a cool jade-black (`rgb(10 30 25 / …)`).
+- "Button in button": a jade pill with its icon in a circle of the opposite colour (`bg-primary-foreground text-primary`).
+- The open chat in the list: a soft tint (`--secondary`) with a 3px jade edge, in both themes.
+- App icon: a white chat bubble (an "O" with a tail) on a jade tile; maskable version inside the 72% safe zone. Share image (`og-image.png`) in the same colours.
+
+## History: "Ink & Paper" (chosen 2026-09-27, replaced 2026-10-01)
+
+The first look (blue, Poppins) was replaced after user feedback ("generic, cheap"); Ink & Paper was replaced by Jade (above). Two rounds of directions on a design canvas; the user chose **E · Ink & Paper**: a luxury-magazine feel — warm paper, black ink, one sindoor-red accent, a big serif for names and headings, monospace for times and numbers. The generated sections below are kept only as history.
 
 ### Themes: light (paper) by default, dark ("ink night") by toggle
 Implemented as CSS variables in `client/src/index.css`; the `dark` class on `<html>` switches them (inline script in `index.html` avoids a flash). Every pair checked with the WCAG formula.

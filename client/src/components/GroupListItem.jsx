@@ -34,14 +34,14 @@ const GroupListItem = ({ group, currentUserId, nameOf }) => {
         className={({ isActive }) =>
           cn(
             "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-t border-border px-5 py-3.5 no-underline transition-colors duration-150 md:px-7",
-            isActive ? "bg-foreground text-background" : "text-foreground hover:bg-accent",
+            isActive ? "bg-secondary text-foreground shadow-[inset_3px_0_0_var(--brand)]" : "text-foreground hover:bg-accent",
           )
         }
       >
         {({ isActive }) => (
           <>
-            <Avatar name={group.name} className={cn("row-span-2 bg-brand text-brand-foreground italic", isActive && "ring-2 ring-background")} />
-            <span className="flex min-w-0 items-center gap-2 font-heading text-[1.3125rem] leading-tight">
+            <Avatar name={group.name} className="row-span-2 bg-brand text-brand-foreground" />
+            <span className="flex min-w-0 items-center gap-2 font-heading text-[1.1875rem] leading-tight font-semibold">
               <span className="truncate">{group.name}</span>
               <span className="sr-only">, group</span>
               {isMutedNow(group.mutedUntil) ? (

@@ -23,7 +23,7 @@ const AuthCard = ({ title, description, children, footer, tagline = ["Private le
       </p>
     </div>
 
-    <div className="w-full max-w-[460px] rounded-2xl border border-border bg-card px-6 py-8 shadow-[0_30px_60px_-34px_rgb(60_40_20/0.5)] sm:max-w-[500px] sm:px-10 sm:py-10 lg:mx-auto lg:flex lg:max-w-[560px] lg:flex-col lg:justify-center lg:rounded-none lg:border-0 lg:bg-transparent lg:px-12 lg:py-14 lg:shadow-none xl:px-16">
+    <div className="w-full max-w-[460px] rounded-2xl border border-border bg-card px-6 py-8 shadow-[0_30px_60px_-34px_rgb(10_30_25/0.5)] sm:max-w-[500px] sm:px-10 sm:py-10 lg:mx-auto lg:flex lg:max-w-[560px] lg:flex-col lg:justify-center lg:rounded-none lg:border-0 lg:bg-transparent lg:px-12 lg:py-14 lg:shadow-none xl:px-16">
       <header className="mb-8 border-b border-border pb-7 text-center lg:hidden">
         <Link to="/" className="font-heading text-[1.75rem] leading-none text-foreground no-underline">
           Open<span className="text-brand italic">chat</span>
@@ -41,11 +41,11 @@ const AuthCard = ({ title, description, children, footer, tagline = ["Private le
   </main>
 );
 
-// The form's main button: an ink pill with the arrow in a red circle.
+// The form's main button: a jade pill with the arrow in its own circle.
 export const SubmitButton = ({ children, loading }) => (
   <Button type="submit" loading={loading} className="h-12.5 w-full justify-between rounded-full pr-1.5 pl-6 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]">
     {children}
-    <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
+    <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-primary-foreground text-primary">
       <ArrowUpRightIcon strokeWidth={1.7} />
     </span>
   </Button>

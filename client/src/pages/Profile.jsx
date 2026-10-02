@@ -85,7 +85,7 @@ const Profile = () => {
           </div>
         ) : state.status === "missing" || state.status === "error" ? (
           <div role="alert" className="mt-6">
-            <h1 className="text-[2.125rem] leading-tight italic md:text-5xl">{state.status === "missing" ? `No one called ${username}` : "Couldn't load this profile"}</h1>
+            <h1 className="text-[2.125rem] leading-tight md:text-5xl">{state.status === "missing" ? `No one called ${username}` : "Couldn't load this profile"}</h1>
             <p className="mt-3 text-muted-foreground">
               {state.status === "missing" ? "Check the spelling, or find people in the search." : "Check your connection and try again."}
             </p>
@@ -95,8 +95,8 @@ const Profile = () => {
           </div>
         ) : (
           <article className="mt-6">
-            <ViewableAvatar name={displayName(user)} avatarId={user.avatar} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
-            <h1 className="mt-6 text-[2.375rem] leading-none wrap-break-word italic md:text-7xl">{displayName(user)}</h1>
+            <ViewableAvatar name={displayName(user)} avatarId={user.avatar} className="size-24 bg-brand text-5xl text-brand-foreground" />
+            <h1 className="mt-6 text-[2.375rem] leading-none wrap-break-word md:text-7xl">{displayName(user)}</h1>
             <p className="mt-3 text-muted-foreground">{handle(user)}</p>
             {user.bio ? <p className="mt-6 max-w-xl font-heading text-2xl leading-snug md:text-3xl">“{user.bio}”</p> : null}
             <p className="mt-4 font-mono text-xs tracking-[0.14em] text-muted-foreground uppercase">
@@ -111,7 +111,7 @@ const Profile = () => {
               ) : (
                 <Button onClick={message} loading={opening} className="h-12.5 gap-3 rounded-full pr-1.5 pl-6 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]">
                   Message {displayName(user)}
-                  <span className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
+                  <span className="grid size-9.5 place-items-center rounded-full bg-primary-foreground text-primary">
                     <ArrowUpRightIcon aria-hidden="true" strokeWidth={1.7} />
                   </span>
                 </Button>

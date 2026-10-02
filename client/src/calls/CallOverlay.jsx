@@ -129,7 +129,7 @@ const Controls = ({ call, dark }) => {
           <SwitchCameraIcon aria-hidden="true" strokeWidth={1.5} />
         </Button>
       ) : null}
-      <Button size="icon-xl" className="size-12 rounded-full border-0 bg-brand text-brand-foreground shadow-none hover:bg-brand/90 sm:size-12" aria-label="End call" onClick={endCall}>
+      <Button size="icon-xl" className="size-12 rounded-full border-0 bg-destructive text-white shadow-none hover:bg-destructive/90 sm:size-12" aria-label="End call" onClick={endCall}>
         <PhoneOffIcon aria-hidden="true" strokeWidth={1.5} />
       </Button>
     </div>
@@ -159,7 +159,7 @@ const MiniVideoCall = ({ call, onOpen }) => {
             <StreamVideo stream={call.remoteStream} className="size-full object-cover" />
           ) : (
             <div className="flex size-full items-center justify-center">
-              <Avatar name={name} avatarId={call.peer.avatar} className="size-14 bg-brand text-2xl text-brand-foreground italic" />
+              <Avatar name={name} avatarId={call.peer.avatar} className="size-14 bg-brand text-2xl text-brand-foreground" />
             </div>
           )}
         </div>
@@ -167,7 +167,7 @@ const MiniVideoCall = ({ call, onOpen }) => {
       </button>
       <div className="flex items-center justify-between gap-2 px-2 pb-2">
         <CallStatus call={call} className="min-w-0 truncate text-[11px] text-stage-foreground/75" />
-        <Button size="icon-lg" className="size-9 shrink-0 rounded-full border-0 bg-brand text-brand-foreground shadow-none hover:bg-brand/90 sm:size-9" aria-label="End call" onClick={endCall}>
+        <Button size="icon-lg" className="size-9 shrink-0 rounded-full border-0 bg-destructive text-white shadow-none hover:bg-destructive/90 sm:size-9" aria-label="End call" onClick={endCall}>
           <PhoneOffIcon aria-hidden="true" strokeWidth={1.5} />
         </Button>
       </div>
@@ -304,7 +304,7 @@ const VideoCall = ({ call }) => {
       <StreamVideo stream={call.remoteStream} videoRef={remoteVideo} className={cn("size-full object-cover", large && "bg-black")} />
     ) : (
       <div className="flex size-full flex-col items-center justify-center gap-3">
-        <Avatar name={name} avatarId={call.peer.avatar} className={large ? "size-24 bg-brand text-4xl text-brand-foreground italic" : "size-12 bg-brand text-xl text-brand-foreground italic"} />
+        <Avatar name={name} avatarId={call.peer.avatar} className={large ? "size-24 bg-brand text-4xl text-brand-foreground" : "size-12 bg-brand text-xl text-brand-foreground"} />
         {call.peerCameraOff && large ? <p className="font-heading text-lg text-stage-foreground/80 italic">Camera off</p> : null}
       </div>
     );
@@ -386,7 +386,7 @@ const CallOverlay = ({ call }) => {
     <m.section
       {...PANEL_MOTION}
       aria-label={`${kind} call with ${name}`}
-      className="fixed inset-x-4 bottom-24 z-40 rounded-2xl border border-foreground/15 bg-popover p-5 text-popover-foreground shadow-[0_24px_60px_-20px_rgb(27_23_20/0.35)] sm:right-6 sm:left-auto sm:w-84"
+      className="fixed inset-x-4 bottom-24 z-40 rounded-2xl border border-foreground/15 bg-popover p-5 text-popover-foreground shadow-[0_24px_60px_-20px_rgb(10_30_25/0.35)] sm:right-6 sm:left-auto sm:w-84"
     >
       <Kicker className="text-muted-foreground">{kind} call</Kicker>
       {/* Voice call in progress: the orb moves with the other person's voice. */}
@@ -396,7 +396,7 @@ const CallOverlay = ({ call }) => {
         </div>
       ) : null}
       <div className="mt-3 flex items-center gap-3.5 border-t border-border pt-4">
-        <Avatar name={name} avatarId={call.peer.avatar} className="size-13 bg-brand text-2xl text-brand-foreground italic" />
+        <Avatar name={name} avatarId={call.peer.avatar} className="size-13 bg-brand text-2xl text-brand-foreground" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-heading text-2xl leading-tight">{name}</p>
           <CallStatus call={call} className={cn("font-heading italic", status === "ended" ? "text-muted-foreground" : "text-foreground")} />
@@ -412,10 +412,10 @@ const CallOverlay = ({ call }) => {
           >
             Decline
           </Button>
-          {/* An ink pill with the phone in its own red circle, like Send. */}
+          {/* A jade pill with the phone in its own circle, like Send. */}
           <Button className="h-12.5 flex-1 justify-between rounded-full pr-1.5 pl-5.5 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]" onClick={acceptCall}>
             Accept
-            <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
+            <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-primary-foreground text-primary">
               {call.media === "video" ? <VideoIcon strokeWidth={1.5} /> : <PhoneIcon strokeWidth={1.5} />}
             </span>
           </Button>

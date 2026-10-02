@@ -15,8 +15,8 @@ const readLevel = (analyser, samples) => {
   return Math.min(1, Math.max(0, (20 * Math.log10(rms) + 50) / 40));
 };
 
-// The theme's accent colour, sindoor red (it differs between light and dark).
-const primaryColour = () => getComputedStyle(document.documentElement).getPropertyValue("--brand").trim() || "#c8321a";
+// The theme's accent colour, jade (it differs between light and dark).
+const primaryColour = () => getComputedStyle(document.documentElement).getPropertyValue("--brand").trim() || "#0f766e";
 
 // Voice-call orb: a soft "liquid" blob that swells and ripples with the other
 // person's voice. Canvas 2D, no library. The stream is only analysed, never

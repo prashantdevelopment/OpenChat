@@ -34,7 +34,7 @@ const Invite = ({ invite, onAnswered }) => {
   return (
     <li className="border-t border-border px-5 py-4 md:px-7">
       <div className="flex gap-3">
-        <Avatar name={invite.group.name} className="bg-brand text-lg text-brand-foreground italic" />
+        <Avatar name={invite.group.name} className="bg-brand text-lg text-brand-foreground" />
         <div className="min-w-0 flex-1">
           <p className="text-[0.9375rem] leading-snug">
             <span className="font-medium">{from}</span> wants to add you to{" "}

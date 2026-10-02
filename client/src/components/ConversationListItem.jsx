@@ -9,7 +9,7 @@ import { BellOffIcon } from "lucide-react";
 import { isMutedNow } from "../lib/mute.js";
 
 // One conversation in the list, set like a line in a magazine's contents:
-// the name in the serif, time in mono, a one-line preview and a red unread
+// the name in bold, time in mono, a one-line preview and a jade unread
 // badge; the open one is printed in reverse (ink background). The preview is
 // encrypted too, so it is decrypted here.
 const ConversationListItem = ({ conversation, currentUserId }) => {
@@ -36,13 +36,13 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
         className={({ isActive }) =>
           cn(
             "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-t border-border px-5 py-3.5 no-underline transition-colors duration-150 md:px-7",
-            isActive ? "bg-foreground text-background" : "text-foreground hover:bg-accent",
+            isActive ? "bg-secondary text-foreground shadow-[inset_3px_0_0_var(--brand)]" : "text-foreground hover:bg-accent",
           )
         }
       >
         {({ isActive }) => (
           <>
-            <span className="flex min-w-0 items-center gap-2 font-heading text-[1.3125rem] leading-tight">
+            <span className="flex min-w-0 items-center gap-2 font-heading text-[1.1875rem] leading-tight font-semibold">
               <span className="truncate">{displayName(otherParticipant)}</span>
               {isMutedNow(conversation.mutedUntil) ? (
                 <>
@@ -52,7 +52,7 @@ const ConversationListItem = ({ conversation, currentUserId }) => {
               ) : null}
               {otherParticipant?.online ? (
                 <>
-                  <span data-online aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", isActive ? "bg-[#9be7b9]" : "bg-success")} />
+                  <span data-online aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-success" />
                   <span className="sr-only">, online</span>
                 </>
               ) : null}

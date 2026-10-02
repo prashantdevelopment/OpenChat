@@ -111,7 +111,7 @@ const ReportDialog = ({ user, conversationId, open, onOpenChange, canBlock, befo
             <DialogClose render={<Button type="button" variant="outline" className="h-11 rounded-full px-5 sm:h-11" />}>Cancel</DialogClose>
             <Button type="submit" loading={sending} className="h-11 gap-3 rounded-full pr-1 pl-5 sm:h-11">
               Send report
-              <span aria-hidden="true" className="grid size-8.5 place-items-center rounded-full bg-brand text-brand-foreground">
+              <span aria-hidden="true" className="grid size-8.5 place-items-center rounded-full bg-primary-foreground text-primary">
                 <ArrowUpRightIcon strokeWidth={1.7} />
               </span>
             </Button>

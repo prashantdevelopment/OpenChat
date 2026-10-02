@@ -74,10 +74,10 @@ const useLandingMotion = (root) => {
 const ChatPreview = ({ className = "" }) => (
   <div
     aria-hidden="true"
-    className={`relative z-10 mx-auto w-full max-w-sm select-none border border-border bg-card text-card-foreground shadow-[0_40px_80px_-40px_rgb(40_20_10/0.55)] ${className}`}
+    className={`relative z-10 mx-auto w-full max-w-sm select-none border border-border bg-card text-card-foreground shadow-[0_40px_80px_-40px_rgb(0_0_0/0.45)] ${className}`}
   >
     <div className="border-b border-border px-5 pt-4 pb-3">
-      <p className="font-heading text-[1.75rem] leading-none italic">riya_kochi</p>
+      <p className="font-heading text-[1.75rem] leading-none">rahul_kochi</p>
       <p className="mt-2 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground uppercase">
         <span className="text-success">● Online</span> · Kerala
       </p>
@@ -101,7 +101,7 @@ const ChatPreview = ({ className = "" }) => (
       <p className="flex items-center justify-end gap-1.5 font-mono text-[10.5px] text-muted-foreground">
         7:02 pm <CheckCheckIcon className="size-3.5" />
       </p>
-      <p className="font-heading text-[0.9375rem] text-muted-foreground italic">riya_kochi is writing…</p>
+      <p className="font-heading text-[0.9375rem] text-muted-foreground italic">rahul_kochi is writing…</p>
     </div>
   </div>
 );

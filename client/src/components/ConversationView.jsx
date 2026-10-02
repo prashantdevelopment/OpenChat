@@ -780,7 +780,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
           <textarea
             ref={inputRef}
             rows={1}
-            // An underline to write on; the placeholder in the serif italic.
+            // An underline to write on; the placeholder in italic.
             className="max-h-40 min-h-11 min-w-0 flex-1 resize-none rounded-none border-0 border-b border-foreground bg-transparent px-0 py-2.5 placeholder:font-heading placeholder:text-base placeholder:italic sm:placeholder:text-xl focus-line focus-visible:outline-none"
             aria-label="Message"
             aria-describedby="composer-hint"
@@ -815,7 +815,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             </Button>
           ) : null}
           {/* Disabled until the encryption key for this conversation is ready. */}
-          {/* A pill with the arrow in its own red circle ("button in button"). */}
+          {/* A pill with the arrow in its own circle ("button in button"). */}
           <Button
             type="submit"
             aria-label="Send"
@@ -823,7 +823,7 @@ const ConversationView = ({ conversationId, currentUser, peerPublicKey, peerName
             className="h-12.5 gap-3 rounded-full pr-1.5 pl-5.5 text-[0.9375rem] max-sm:w-12.5 max-sm:p-1.5 sm:h-12.5 sm:text-[0.9375rem]"
           >
             <span className="max-sm:sr-only">Send</span>
-            <span className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
+            <span className="grid size-9.5 place-items-center rounded-full bg-primary-foreground text-primary">
               <ArrowUpRightIcon aria-hidden="true" strokeWidth={1.7} />
             </span>
           </Button>

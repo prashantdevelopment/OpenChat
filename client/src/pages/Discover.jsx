@@ -73,7 +73,7 @@ const MapPopup = ({ state, online, onClose, onSeeEveryone, className, style }) =
     <section
       aria-label={`${stateName(state)}: people you could write to`}
       onKeyDown={(e) => e.key === "Escape" && onClose()}
-      className={cn("border border-border bg-card p-5 text-card-foreground shadow-[0_30px_60px_-34px_rgb(60_40_20/0.5)]", className)}
+      className={cn("border border-border bg-card p-5 text-card-foreground shadow-[0_30px_60px_-34px_rgb(10_30_25/0.5)]", className)}
       style={style}
     >
       <div className="flex items-start justify-between gap-3">
@@ -94,7 +94,7 @@ const MapPopup = ({ state, online, onClose, onSeeEveryone, className, style }) =
         <ul className="mt-3">
           {users.map((user) => (
             <li key={user._id} className="flex items-center gap-3 border-t border-border py-2.5">
-              <Avatar name={displayName(user)} avatarId={user.avatar} className="size-9.5 border border-foreground bg-transparent text-lg text-foreground italic" />
+              <Avatar name={displayName(user)} avatarId={user.avatar} className="size-9.5 border border-foreground bg-transparent text-lg text-foreground" />
               <span className="min-w-0 flex-1">
                 <Link to={`/u/${user.username}`} className="block truncate text-sm font-semibold text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
                   {displayName(user)}
@@ -202,7 +202,7 @@ const StatePeople = ({ state, scrollOnChange }) => {
         <ul className="mt-2 border-b border-border">
           {page.users.map((user) => (
             <li key={user._id} className="flex items-center gap-3 border-t border-border py-3">
-              <Avatar name={displayName(user)} avatarId={user.avatar} className="bg-foreground text-lg text-background italic" />
+              <Avatar name={displayName(user)} avatarId={user.avatar} className="bg-foreground text-lg text-background" />
               <span className="min-w-0 flex-1">
                 <Link to={`/u/${user.username}`} className="block truncate font-semibold text-inherit no-underline hover:underline hover:decoration-1 hover:underline-offset-4">
                   {displayName(user)}

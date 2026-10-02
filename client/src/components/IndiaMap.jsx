@@ -6,7 +6,7 @@ import { popupPlacement, stateFill } from "../lib/indiaMap.js";
 const stateName = (code) => INDIAN_STATES.find((state) => state.code === code)?.name ?? code;
 const countText = (online) => (online === null || online === undefined ? "fewer than 5 online" : `${online} online`);
 
-// The map of India on Discover, printed in ink on paper: official Survey of
+// The map of India on Discover, drawn in the theme's colours: official Survey of
 // India boundaries (data/india-map.json), each state tinted red by how many
 // people are online there. Click or tap a state to choose it; the chosen one
 // gets a heavy outline and a pin, and renderPopup() draws its card next to

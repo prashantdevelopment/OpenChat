@@ -86,7 +86,7 @@ const ContactSheet = ({ open, onOpenChange, peer, myPublicKey, conversationId, c
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetPopup title="Contact info">
         <div className="flex flex-col items-center px-6 pt-8 pb-6 text-center">
-          <ViewableAvatar name={name} avatarId={peer.avatar} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
+          <ViewableAvatar name={name} avatarId={peer.avatar} className="size-24 bg-brand text-5xl text-brand-foreground" />
           <SheetTitle className="mt-5 max-w-full wrap-break-word">{name}</SheetTitle>
           <p className="mt-1 text-sm text-muted-foreground">{handle(peer)}</p>
           <p className="mt-3 font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">{place ? `${place} · ` : ""}on OpenChat</p>

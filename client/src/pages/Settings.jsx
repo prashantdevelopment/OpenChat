@@ -26,7 +26,7 @@ import { currentSubscription, getPushConfig, needsHomeScreen, pushSupported, sen
 const MAX_BIO_LENGTH = 160; // same limit as the server
 
 // One part of the page, set like a chapter: its number, the title in the
-// serif and a line of explanation on the left (wide screens), the controls on
+// bold and a line of explanation on the left (wide screens), the controls on
 // the right; hairline rules between chapters. The heading names the region
 // for screen readers.
 const Section = ({ number, title, description, children }) => {
@@ -47,7 +47,7 @@ const Section = ({ number, title, description, children }) => {
   );
 };
 
-// Save buttons: an ink pill (keeps its size on desktop too).
+// Save buttons: a jade pill (keeps its size on desktop too).
 const PILL = "h-11 rounded-full px-6 sm:h-11";
 
 const FormAlert = ({ children }) => (
@@ -118,7 +118,7 @@ const ProfilePhoto = () => {
 
   return (
     <div className="mb-8 flex items-center gap-5">
-      <ViewableAvatar name={displayName(currentUser)} avatarId={currentUser.avatar} className="size-20 bg-brand text-4xl text-brand-foreground italic" />
+      <ViewableAvatar name={displayName(currentUser)} avatarId={currentUser.avatar} className="size-20 bg-brand text-4xl text-brand-foreground" />
       <div className="min-w-0 flex-1 space-y-2">
         <p className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Profile photo</p>
         <div className="flex flex-wrap gap-2">
@@ -729,10 +729,10 @@ const AppSection = () => {
   return (
     <Section number="06" title="App" description="Install OpenChat to open it like an app, in its own window, from your home screen.">
       {state === "prompt" ? (
-        // An ink pill with the arrow in its own red circle, like the other main buttons.
+        // A jade pill with the arrow in its own circle, like the other main buttons.
         <Button className="h-12.5 gap-3 rounded-full pr-1.5 pl-6 text-[0.9375rem] sm:h-12.5 sm:text-[0.9375rem]" onClick={promptInstall}>
           Install OpenChat
-          <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-brand text-brand-foreground">
+          <span aria-hidden="true" className="grid size-9.5 place-items-center rounded-full bg-primary-foreground text-primary">
             <ArrowDownIcon strokeWidth={1.7} />
           </span>
         </Button>

@@ -38,7 +38,7 @@ const GroupChatHeader = ({ group, currentUserId, nameOf, headingLevel: Heading =
         <ArrowLeftIcon aria-hidden="true" strokeWidth={1.4} />
       </Button>
       <div className="relative flex min-h-[44px] min-w-0 flex-1 items-center gap-3 py-1 pr-2">
-        <Avatar name={group.name} className="size-9.5 bg-brand text-lg text-brand-foreground italic md:size-10.5" />
+        <Avatar name={group.name} className="size-9.5 bg-brand text-lg text-brand-foreground md:size-10.5" />
         <span className="min-w-0">
           <Heading className="font-heading text-[1.1875rem] leading-tight md:text-[1.375rem]">
             <button

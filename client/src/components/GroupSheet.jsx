@@ -288,7 +288,7 @@ const GroupSheet = ({ open, onOpenChange, groupId, currentUserId, mutedUntil, on
         ) : (
           <>
             <div className="flex flex-col items-center px-6 pt-8 pb-6 text-center">
-              <Avatar name={shown.name} className="size-24 bg-brand text-5xl text-brand-foreground italic" />
+              <Avatar name={shown.name} className="size-24 bg-brand text-5xl text-brand-foreground" />
               {renaming ? (
                 <RenameForm
                   group={shown}

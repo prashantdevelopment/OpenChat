@@ -17,7 +17,7 @@ export function MenuPopup({ className, children, align = "end", sideOffset = 6, 
         <MenuPrimitive.Popup
           data-slot="menu-popup"
           className={cn(
-            "min-w-48 origin-(--transform-origin) rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-[0_18px_40px_-20px_rgb(40_20_10/0.45)] outline-none",
+            "min-w-48 origin-(--transform-origin) rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-[0_18px_40px_-20px_rgb(10_30_25/0.45)] outline-none",
             "transition-[opacity,scale] duration-150 ease-out data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 motion-reduce:transition-none",
             className,
           )}

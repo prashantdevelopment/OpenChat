@@ -1,13 +1,11 @@
 @import "tailwindcss";
 /* Fonts are self-hosted (no request to Google): see design-system/openchat/MASTER.md.
-   Ink & Paper: DM Serif Display (headings) + Hanken Grotesk (text) + JetBrains Mono
-   (times, numbers); Tiro Devanagari Hindi / Noto Sans Devanagari for Hindi. */
+   Jade: Hanken Grotesk for headings (bold) and text, JetBrains Mono for times
+   and numbers; Noto Sans Devanagari for Hindi. */
 @import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource-variable/hanken-grotesk/wght-italic.css";
 @import "@fontsource-variable/noto-sans-devanagari";
 @import "@fontsource-variable/jetbrains-mono";
-@import "@fontsource/dm-serif-display/400.css";
-@import "@fontsource/dm-serif-display/400-italic.css";
-@import "@fontsource/tiro-devanagari-hindi/400.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -18,7 +16,7 @@
     --animate-toast-success-even: toast-success-even 0.32s cubic-bezier(0.5, 1, 0.89, 1);
     --animate-toast-error-odd: toast-error-odd 0.28s cubic-bezier(0.5, 1, 0.89, 1);
     --animate-toast-error-even: toast-error-even 0.28s cubic-bezier(0.5, 1, 0.89, 1);
-    --font-heading: 'DM Serif Display', 'Tiro Devanagari Hindi', Georgia, serif;
+    --font-heading: 'Hanken Grotesk Variable', 'Noto Sans Devanagari Variable', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono Variable', ui-monospace, Consolas, monospace;
     --font-sans: 'Hanken Grotesk Variable', 'Noto Sans Devanagari Variable', system-ui, sans-serif;
     --ease-out-soft: cubic-bezier(0.32, 0.72, 0, 1);
@@ -156,115 +154,115 @@
 }
 
 :root {
-    /* OpenChat "Ink & Paper" light theme (default): warm paper, black ink, one
-       sindoor-red accent. Contrast (WCAG) noted per pair; design-system/openchat/MASTER.md */
-    --background: #F3EDE2;      /* paper */
-    --foreground: #1B1714;      /* ink on paper: 15.3:1 */
-    --card: #FBF8F2;
-    --card-foreground: #1B1714;
-    --popover: #FBF8F2;
-    --popover-foreground: #1B1714;
-    --primary: #1B1714;         /* ink buttons, paper text: 15.3:1 */
-    --primary-foreground: #F3EDE2;
-    --secondary: #E8E0D1;
-    --secondary-foreground: #1B1714;
-    --muted: #E8E0D1;           /* the other person's bubble, panels */
-    --muted-foreground: #5E554C; /* 6.3:1 on paper, 5.6:1 on muted */
-    --accent: #EAE2D3;          /* hover */
-    --accent-foreground: #1B1714;
-    --border: #DCD2C1;          /* hairline rules, decorative only */
-    --input: #8C8173;           /* form-control borders: 3.3:1 */
-    --ring: #B42C16;            /* focus ring: 5.4:1 */
-    --brand: #C8321A;           /* sindoor red: 4.6:1 on paper */
-    --brand-foreground: #FFFFFF; /* on brand: 5.4:1 */
+    /* OpenChat "Jade" light theme (default): a cool white page, jade for the
+       app's own colour (buttons, my messages, unread). Contrast (WCAG) noted
+       per pair; design-system/openchat/MASTER.md */
+    --background: #F5F8F7;      /* cool white */
+    --foreground: #0E1A17;      /* text: 16.7:1 */
+    --card: #FFFFFF;
+    --card-foreground: #0E1A17;
+    --popover: #FFFFFF;
+    --popover-foreground: #0E1A17;
+    --primary: #0F766E;         /* jade buttons, white text: 5.5:1 */
+    --primary-foreground: #FFFFFF;
+    --secondary: #E6EEEB;
+    --secondary-foreground: #0E1A17;
+    --muted: #E6EEEB;           /* the other person's bubble, panels */
+    --muted-foreground: #4B5E58; /* 6.5:1 on the page, 5.9:1 on muted */
+    --accent: #EBF2EF;          /* hover */
+    --accent-foreground: #0E1A17;
+    --border: #D6E2DE;          /* hairline rules, decorative only */
+    --input: #7B8F89;           /* form-control borders: 3.2:1 */
+    --ring: #0F766E;            /* focus ring: 5.1:1 */
+    --brand: #0F766E;           /* jade: 5.1:1 on the page */
+    --brand-foreground: #FFFFFF; /* on jade: 5.5:1 */
     --destructive: #B42318;     /* background, white text: 6.6:1 */
-    --destructive-foreground: #A61B0F; /* error text: 6.5:1 */
-    --success: #1F7A4C;         /* online: 4.6:1 */
-    --success-foreground: #1F7A4C;
-    --info: #1B1714;
-    --info-foreground: #1B1714;
+    --destructive-foreground: #A61B0F; /* error text: 6.4:1 */
+    --success: #15803D;         /* online: 4.8:1 */
+    --success-foreground: #15803D;
+    --info: #0E1A17;
+    --info-foreground: #0E1A17;
     --warning: #A15C07;
     --warning-foreground: #8A4E06;
-    --bubble-own: #1B1714;      /* my messages: paper text 15.3:1 */
-    --bubble-own-foreground: #F3EDE2;
+    --bubble-own: #0F766E;      /* my messages: white text 5.5:1 */
+    --bubble-own-foreground: #FFFFFF;
     --radius: 0.5rem;
-    --chart-1: #C8321A;
-    --chart-2: #1F7A4C;
-    --chart-3: #1B1714;
+    --chart-1: #0F766E;
+    --chart-2: #15803D;
+    --chart-3: #0E1A17;
     --chart-4: #A15C07;
-    --chart-5: #5E554C;
-    --code: #E8E0D1;
+    --chart-5: #4B5E58;
+    --code: #E6EEEB;
     --code-foreground: var(--foreground);
-    --code-highlight: #DCD2C1;
-    --sidebar: #F3EDE2;
-    --sidebar-foreground: #1B1714;
-    --sidebar-primary: #1B1714;
-    --sidebar-primary-foreground: #F3EDE2;
-    --sidebar-accent: #EAE2D3;
-    --sidebar-accent-foreground: #1B1714;
-    --sidebar-border: #DCD2C1;
-    --sidebar-ring: #B42C16;
-    --map-land: #EFE6D6;        /* a state with fewer than 5 online */
-    --map-disputed: #E3D8C5;    /* small inter-state disputed areas (Survey of India) */
-    --print: #FBF8F2;           /* photo prints: always light paper */
-    --print-foreground: #1B1714;
-    --stage: #15120F;           /* video calls: always ink night */
-    --stage-foreground: #EFE7DA; /* 15.2:1 */
-    --grain-opacity: 0.3;
+    --code-highlight: #D6E2DE;
+    --sidebar: #F5F8F7;
+    --sidebar-foreground: #0E1A17;
+    --sidebar-primary: #0F766E;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #EBF2EF;
+    --sidebar-accent-foreground: #0E1A17;
+    --sidebar-border: #D6E2DE;
+    --sidebar-ring: #0F766E;
+    --map-land: #E3ECE8;        /* a state with fewer than 5 online */
+    --map-disputed: #D2DED9;    /* small inter-state disputed areas (Survey of India) */
+    --print: #FFFFFF;           /* the small picture in a video call: always light */
+    --print-foreground: #0E1A17;
+    --stage: #000000;           /* video calls: always black */
+    --stage-foreground: #ECEFEE; /* 18.1:1 */
 }
 
 .dark {
-    /* "Ink night": the same system inverted, paper-coloured text on ink. */
-    --background: #15120F;
-    --foreground: #EFE7DA;      /* 15.2:1 */
-    --card: #1E1A16;
-    --card-foreground: #EFE7DA;
-    --popover: #1E1A16;
-    --popover-foreground: #EFE7DA;
-    --primary: #EFE7DA;         /* ink text on it: 15.2:1 */
-    --primary-foreground: #15120F;
-    --secondary: #221D18;
-    --secondary-foreground: #EFE7DA;
-    --muted: #221D18;
-    --muted-foreground: #A89E91; /* 7.1:1 on bg, 6.3:1 on muted */
-    --accent: #26211B;
-    --accent-foreground: #EFE7DA;
-    --border: #2E2822;
-    --input: #7D7366;           /* 4.0:1 */
-    --ring: #FF6A4A;
-    --brand: #FF6A4A;           /* 6.6:1 on bg */
-    --brand-foreground: #1A0C07; /* on brand: 6.7:1 */
+    /* "Black" (J3): true black for OLED phones, near-neutral raised surfaces,
+       a bright jade accent, my messages in deep jade (clearly lighter than the page). */
+    --background: #000000;
+    --foreground: #ECEFEE;      /* 18.1:1 */
+    --card: #111213;
+    --card-foreground: #ECEFEE;
+    --popover: #161718;
+    --popover-foreground: #ECEFEE;
+    --primary: #2DD4BF;         /* jade buttons, dark text: 8.8:1 */
+    --primary-foreground: #052420;
+    --secondary: #1C1D1E;
+    --secondary-foreground: #ECEFEE;
+    --muted: #1C1D1E;           /* the other person's bubble: 14.6:1 text */
+    --muted-foreground: #A1ABA7; /* 8.9:1 on the page, 7.2:1 on muted */
+    --accent: #161718;          /* hover */
+    --accent-foreground: #ECEFEE;
+    --border: #232526;
+    --input: #5C6461;           /* 3.5:1 */
+    --ring: #2DD4BF;
+    --brand: #2DD4BF;           /* 11.3:1 on the page */
+    --brand-foreground: #052420; /* on jade: 8.8:1 */
     --destructive: #B8321D;     /* white text: 6.0:1 */
-    --destructive-foreground: #FF8A70; /* 8.1:1 */
-    --success: #7FD9A0;         /* 11:1 */
-    --success-foreground: #7FD9A0;
-    --info: #EFE7DA;
-    --info-foreground: #EFE7DA;
+    --destructive-foreground: #FF8A70; /* 9.6:1 */
+    --success: #4ADE80;         /* 13:1 */
+    --success-foreground: #4ADE80;
+    --info: #ECEFEE;
+    --info-foreground: #ECEFEE;
     --warning: #F2B35C;
     --warning-foreground: #F2B35C;
-    --bubble-own: #EFE7DA;      /* ink text 15.2:1 */
-    --bubble-own-foreground: #15120F;
-    --chart-1: #FF6A4A;
-    --chart-2: #7FD9A0;
-    --chart-3: #EFE7DA;
+    --bubble-own: #0F766E;      /* white text 5.5:1; 3.8:1 against the page */
+    --bubble-own-foreground: #FFFFFF;
+    --chart-1: #2DD4BF;
+    --chart-2: #4ADE80;
+    --chart-3: #ECEFEE;
     --chart-4: #F2B35C;
-    --chart-5: #A89E91;
-    --code: #221D18;
+    --chart-5: #A1ABA7;
+    --code: #1C1D1E;
     --code-foreground: var(--foreground);
-    --code-highlight: #2E2822;
-    --sidebar: #15120F;
-    --sidebar-foreground: #EFE7DA;
-    --sidebar-primary: #EFE7DA;
-    --sidebar-primary-foreground: #15120F;
-    --sidebar-accent: #26211B;
-    --sidebar-accent-foreground: #EFE7DA;
-    --sidebar-border: #2E2822;
-    --sidebar-ring: #FF6A4A;
-    --map-land: #2A241E;
-    --map-disputed: #1F1A15;
-    --print: #EFE7DA;
-    --print-foreground: #15120F;
-    --grain-opacity: 0.12;
+    --code-highlight: #232526;
+    --sidebar: #000000;
+    --sidebar-foreground: #ECEFEE;
+    --sidebar-primary: #2DD4BF;
+    --sidebar-primary-foreground: #052420;
+    --sidebar-accent: #161718;
+    --sidebar-accent-foreground: #ECEFEE;
+    --sidebar-border: #232526;
+    --sidebar-ring: #2DD4BF;
+    --map-land: #131515;
+    --map-disputed: #0C0E0E;
+    --print: #FFFFFF;
+    --print-foreground: #0E1A17;
 }
 
 @layer base {
@@ -294,24 +292,13 @@
     @apply bg-background font-sans text-base leading-normal text-foreground antialiased;
   }
   h1, h2, h3 {
-    /* DM Serif Display has one weight (400): never fake-bold it. */
-    @apply font-heading font-normal tracking-tight;
+    @apply font-heading font-bold tracking-tight;
   }
-  /* Paper grain: one fixed layer over the page that never takes clicks or
-     scrolls (cheap to draw). Lighter in the dark theme. */
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    pointer-events: none;
-    background: url("./assets/paper-grain.svg");
-    opacity: var(--grain-opacity);
-    mix-blend-mode: multiply;
-  }
-  .dark body::after {
-    filter: invert(1);
-    mix-blend-mode: screen;
+  /* Names and titles set in the heading face are bold too, unless a class
+     says otherwise (:where keeps this weaker than any font-* class). Italic
+     lines in it (call status, "writing…") stay regular. */
+  :where(.font-heading:not(.italic)) {
+    font-weight: 700;
   }
   code, kbd, samp, pre {
     font-family: var(--font-mono);
@@ -364,9 +351,9 @@
   }
 }
 
-/* The Ink & Paper text field: a line to write on, like the chat composer.
+/* The text field: a line to write on, like the chat composer.
    Focus draws the line in ink and thickens it; an error (aria-invalid, set by
-   FormField) turns it red. Every colour pair is 3:1 or more on paper. */
+   FormField) turns it red. Every colour pair is 3:1 or more on the page. */
 @utility field {
   @apply h-11 w-full max-w-full rounded-none border-0 border-b border-input bg-transparent px-0 py-2 text-base text-foreground;
   &:focus-visible {

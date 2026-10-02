@@ -74,7 +74,7 @@ const UserSearch = ({ onMessageUser, inMasthead = false }) => {
       </div>
       <div
         className={cn(
-          inMasthead && "absolute top-full right-0 z-40 mt-2 w-80 border border-border bg-card p-3 shadow-[0_24px_48px_-24px_rgb(60_40_20/0.45)]",
+          inMasthead && "absolute top-full right-0 z-40 mt-2 w-80 border border-border bg-card p-3 shadow-[0_24px_48px_-24px_rgb(10_30_25/0.45)]",
           inMasthead && !showPanel && "hidden",
         )}
       >

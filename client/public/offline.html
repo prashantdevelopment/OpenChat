@@ -5,27 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>You're offline · OpenChat</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="theme-color" content="#F3EDE2" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#15120F" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F5F8F7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
     <!-- Shown by the service worker (sw.js) when a page can't load. It has to
          work with no network, so everything is inline and the fonts are the
-         device's own. Colours: the Ink & Paper tokens from src/index.css. -->
+         device's own. Colours: the Jade tokens from src/index.css. -->
     <style>
       :root {
-        --paper: #f3ede2;
-        --ink: #1b1714;
-        --muted: #5e554c;
-        --brand: #c8321a;
-        --ring: #b42c16;
+        --paper: #f5f8f7;
+        --ink: #0e1a17;
+        --muted: #4b5e58;
+        --brand: #0f766e;
+        --ring: #0f766e;
+        --on-brand: #ffffff;
         color-scheme: light dark;
       }
       @media (prefers-color-scheme: dark) {
         :root {
-          --paper: #15120f;
-          --ink: #efe7da;
-          --muted: #a89e91;
-          --brand: #ff6a4a;
-          --ring: #ff6a4a;
+          --paper: #000000;
+          --ink: #ecefee;
+          --muted: #a1aba7;
+          --brand: #2dd4bf;
+          --ring: #2dd4bf;
+          --on-brand: #052420;
         }
       }
       * {
@@ -58,7 +60,7 @@
       }
       h1 {
         margin: 10px 0 0;
-        font: 400 44px/1.05 Georgia, "Times New Roman", serif;
+        font: 700 40px/1.05 system-ui, sans-serif;
         letter-spacing: -0.01em;
       }
       h1 em {
@@ -73,8 +75,8 @@
         padding: 0 28px;
         border: 0;
         border-radius: 999px;
-        background: var(--ink);
-        color: var(--paper);
+        background: var(--brand);
+        color: var(--on-brand);
         font: inherit;
         cursor: pointer;
       }
